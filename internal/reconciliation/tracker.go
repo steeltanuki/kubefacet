@@ -19,8 +19,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -79,7 +79,7 @@ func cancelActive(state *trackedState) {
 
 // Observe records the current lifecycle identity and cancels an active lease
 // when a UID, generation, or deletion state changes.
-func (t *FreshnessTracker) Observe(object *v1alpha1.Kubeseer) {
+func (t *FreshnessTracker) Observe(object *v1alpha1.Facet) {
 	if t == nil || object == nil {
 		return
 	}
@@ -174,7 +174,7 @@ func (t *FreshnessTracker) Acquire(ctx context.Context, key types.NamespacedName
 	defer t.mu.Unlock()
 	state := t.ensureState(key)
 	if state.active != nil {
-		return Lease{}, nil, nil, errors.New("Kubeseer key already has active reconciliation")
+		return Lease{}, nil, nil, errors.New("Facet key already has active reconciliation")
 	}
 	state.uid = uid
 	state.generation = generation

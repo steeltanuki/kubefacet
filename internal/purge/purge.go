@@ -16,7 +16,7 @@
 // path. It has no dependency on the Helm release and never selects Secrets or
 // arbitrary objects by label.
 //
-// Responsibility: delete only the explicitly confirmed Kubeseer CRs and CRDs
+// Responsibility: delete only the explicitly confirmed Facet CRs and CRDs
 // from the caller-selected Kubernetes target with bounded, sanitized results.
 //
 // Boundary: purge requires explicit kubeconfig, context, server, and token;
@@ -44,24 +44,24 @@ import (
 )
 
 const (
-	ConfirmationToken   = "purge-kubeseer-crds"
-	KubeseerCRDName     = "kubeseers.kubeseer.io"
-	AccessPolicyCRDName = "kubeseeraccesspolicies.kubeseer.io"
+	ConfirmationToken   = "purge-kubefacet-crds"
+	FacetCRDName        = "facets.kubefacet.steeltanuki.it"
+	AccessPolicyCRDName = "facetaccesspolicies.kubefacet.steeltanuki.it"
 )
 
 var purgeCollections = []purgeCollection{
 	{
-		Target: "kubeseers.kubeseer.io",
+		Target: "facets.kubefacet.steeltanuki.it",
 		GVR: schema.GroupVersionResource{
-			Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseers",
+			Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facets",
 		},
-		CRDName:    KubeseerCRDName,
+		CRDName:    FacetCRDName,
 		Namespaced: true,
 	},
 	{
-		Target: "kubeseeraccesspolicies.kubeseer.io",
+		Target: "facetaccesspolicies.kubefacet.steeltanuki.it",
 		GVR: schema.GroupVersionResource{
-			Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseeraccesspolicies",
+			Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facetaccesspolicies",
 		},
 		CRDName: AccessPolicyCRDName,
 	},

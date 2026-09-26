@@ -4,20 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: kubeseers.kubeseer.io
+  name: facets.kubefacet.steeltanuki.it
 spec:
-  group: kubeseer.io
+  group: kubefacet.steeltanuki.it
   names:
-    kind: Kubeseer
-    listKind: KubeseerList
-    plural: kubeseers
-    singular: kubeseer
+    kind: Facet
+    listKind: FacetList
+    plural: facets
+    singular: facet
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Kubeseer is the root custom resource for declarative Kubernetes
+        description: Facet is the root custom resource for declarative Kubernetes
           observation.
         properties:
           apiVersion:
@@ -38,19 +38,19 @@ spec:
           metadata:
             type: object
           spec:
-            description: KubeseerSpec contains the stable foundation envelope for
-              future sources.
+            description: FacetSpec contains the stable foundation envelope for future
+              sources.
             properties:
               sources:
                 items:
                   description: |-
-                    KubeseerSource identifies one Kubernetes resource selection without granting
+                    FacetSource identifies one Kubernetes resource selection without granting
                     permissions or embedding installation-policy configuration.
                   properties:
                     aggregations:
                       items:
                         description: |-
-                          KubeseerAggregation declares one typed reduction over the containing
+                          FacetAggregation declares one typed reduction over the containing
                           source's extracted field outcomes. Average options are resolved at runtime
                           so omission remains distinguishable from invalid options on other functions.
                         properties:
@@ -59,8 +59,8 @@ spec:
                             pattern: ^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$
                             type: string
                           function:
-                            description: KubeseerAggregationFunction identifies one
-                              supported source-wide reducer.
+                            description: FacetAggregationFunction identifies one supported
+                              source-wide reducer.
                             enum:
                             - collect
                             - count
@@ -90,8 +90,8 @@ spec:
                             minimum: 0
                             type: integer
                           roundingMode:
-                            description: KubeseerRoundingMode identifies the closed
-                              set of average rounding rules.
+                            description: FacetRoundingMode identifies the closed set
+                              of average rounding rules.
                             enum:
                             - halfEven
                             - halfAwayFromZero
@@ -111,7 +111,7 @@ spec:
                     fields:
                       items:
                         description: |-
-                          KubeseerField declares one named native-value extraction from a selected
+                          FacetField declares one named native-value extraction from a selected
                           resource.
                         properties:
                           name:
@@ -120,12 +120,12 @@ spec:
                             type: string
                           operators:
                             items:
-                              description: KubeseerOperator declares one ordered operation
+                              description: FacetOperator declares one ordered operation
                                 over a typed field.
                               properties:
                                 operator:
-                                  description: KubeseerOperatorName identifies one
-                                    supported field operator.
+                                  description: FacetOperatorName identifies one supported
+                                    field operator.
                                   enum:
                                   - eq
                                   - ne
@@ -146,7 +146,7 @@ spec:
                                   type: string
                                 value:
                                   description: |-
-                                    KubeseerOperatorOperand is a structural typed operand. Exactly one payload
+                                    FacetOperatorOperand is a structural typed operand. Exactly one payload
                                     branch is valid when State is MatchStateValue; MatchStateNull is rejected by
                                     runtime operator planning and exists to keep an explicit null distinct from
                                     an omitted operand.
@@ -167,8 +167,8 @@ spec:
                                     quantityValue:
                                       type: string
                                     state:
-                                      description: KubeseerMatchState distinguishes
-                                        a non-null value from an explicit null.
+                                      description: FacetMatchState distinguishes a
+                                        non-null value from an explicit null.
                                       enum:
                                       - value
                                       - "null"
@@ -183,7 +183,7 @@ spec:
                                 values:
                                   items:
                                     description: |-
-                                      KubeseerOperatorOperand is a structural typed operand. Exactly one payload
+                                      FacetOperatorOperand is a structural typed operand. Exactly one payload
                                       branch is valid when State is MatchStateValue; MatchStateNull is rejected by
                                       runtime operator planning and exists to keep an explicit null distinct from
                                       an omitted operand.
@@ -204,7 +204,7 @@ spec:
                                       quantityValue:
                                         type: string
                                       state:
-                                        description: KubeseerMatchState distinguishes
+                                        description: FacetMatchState distinguishes
                                           a non-null value from an explicit null.
                                         enum:
                                         - value
@@ -261,7 +261,7 @@ spec:
                       type: string
                     namespaces:
                       description: |-
-                        A nil pointer means the containing Kubeseer namespace for namespaced
+                        A nil pointer means the containing Facet namespace for namespaced
                         resources; a non-nil empty Names list intentionally selects no namespace.
                       properties:
                         names:
@@ -349,7 +349,7 @@ spec:
                 x-kubernetes-list-type: map
             type: object
           status:
-            description: KubeseerStatus contains controller-observed state for a Kubeseer
+            description: FacetStatus contains controller-observed state for a Facet
               resource.
             properties:
               conditions:
@@ -417,21 +417,21 @@ spec:
                 type: integer
               result:
                 description: |-
-                  KubeseerResult is the structural, ordered typed-output snapshot published
+                  FacetResult is the structural, ordered typed-output snapshot published
                   in status.
                 properties:
                   sources:
                     items:
-                      description: KubeseerSourceResult is one source-scoped typed-output
+                      description: FacetSourceResult is one source-scoped typed-output
                         result.
                       properties:
                         aggregates:
                           items:
-                            description: KubeseerAggregateResult is one source-scoped
+                            description: FacetAggregateResult is one source-scoped
                               aggregate outcome.
                             properties:
                               error:
-                                description: KubeseerResultError is a sanitized runtime
+                                description: FacetResultError is a sanitized runtime
                                   or source-level failure.
                                 properties:
                                   message:
@@ -444,11 +444,11 @@ spec:
                               failures:
                                 items:
                                   description: |-
-                                    KubeseerAggregateResourceFailure associates a sanitized failure with the
+                                    FacetAggregateResourceFailure associates a sanitized failure with the
                                     resource whose contribution could not be evaluated.
                                   properties:
                                     error:
-                                      description: KubeseerResultError is a sanitized
+                                      description: FacetResultError is a sanitized
                                         runtime or source-level failure.
                                       properties:
                                         message:
@@ -459,7 +459,7 @@ spec:
                                       - reason
                                       type: object
                                     provenance:
-                                      description: KubeseerResourceProvenance identifies
+                                      description: FacetResourceProvenance identifies
                                         one contributing Kubernetes resource.
                                       properties:
                                         apiVersion:
@@ -491,8 +491,8 @@ spec:
                               field:
                                 type: string
                               function:
-                                description: KubeseerAggregationFunction identifies
-                                  one supported source-wide reducer.
+                                description: FacetAggregationFunction identifies one
+                                  supported source-wide reducer.
                                 enum:
                                 - collect
                                 - count
@@ -506,12 +506,12 @@ spec:
                                 type: string
                               groups:
                                 items:
-                                  description: KubeseerAggregateGroup is one ordered
+                                  description: FacetAggregateGroup is one ordered
                                     key and reduced value.
                                   properties:
                                     contributors:
                                       items:
-                                        description: KubeseerResourceProvenance identifies
+                                        description: FacetResourceProvenance identifies
                                           one contributing Kubernetes resource.
                                         properties:
                                           apiVersion:
@@ -538,14 +538,14 @@ spec:
                                       x-kubernetes-list-type: atomic
                                     keys:
                                       items:
-                                        description: KubeseerAggregateKey is one ordered
+                                        description: FacetAggregateKey is one ordered
                                           typed group-key component.
                                         properties:
                                           field:
                                             type: string
                                           type:
                                             description: |-
-                                              KubeseerValueType identifies the explicit logical type requested for one
+                                              FacetValueType identifies the explicit logical type requested for one
                                               extracted field.
                                             enum:
                                             - string
@@ -560,14 +560,14 @@ spec:
                                             type: string
                                           value:
                                             description: |-
-                                              KubeseerTypedMatch is one ordered typed match. Exactly one typed payload is
+                                              FacetTypedMatch is one ordered typed match. Exactly one typed payload is
                                               populated when State is value; all payloads are omitted for null.
                                             properties:
                                               booleanValue:
                                                 type: boolean
                                               durationValue:
                                                 description: |-
-                                                  KubeseerDurationValue is the canonical duration text and exact nanosecond
+                                                  FacetDurationValue is the canonical duration text and exact nanosecond
                                                   magnitude.
                                                 properties:
                                                   canonical:
@@ -590,7 +590,7 @@ spec:
                                                 type: string
                                               quantityValue:
                                                 description: |-
-                                                  KubeseerQuantityValue is the canonical Kubernetes quantity text and exact
+                                                  FacetQuantityValue is the canonical Kubernetes quantity text and exact
                                                   normalized base-unit decimal magnitude.
                                                 properties:
                                                   baseUnits:
@@ -602,7 +602,7 @@ spec:
                                                 - canonical
                                                 type: object
                                               state:
-                                                description: KubeseerMatchState distinguishes
+                                                description: FacetMatchState distinguishes
                                                   a non-null value from an explicit
                                                   null.
                                                 enum:
@@ -625,18 +625,18 @@ spec:
                                       type: array
                                       x-kubernetes-list-type: atomic
                                     value:
-                                      description: KubeseerAggregateValue is a typed
+                                      description: FacetAggregateValue is a typed
                                         scalar or collection result.
                                       properties:
                                         matches:
                                           items:
                                             description: |-
-                                              KubeseerAggregateMatch is one typed aggregate value and optional
+                                              FacetAggregateMatch is one typed aggregate value and optional
                                               value-specific provenance.
                                             properties:
                                               contributors:
                                                 items:
-                                                  description: KubeseerResourceProvenance
+                                                  description: FacetResourceProvenance
                                                     identifies one contributing Kubernetes
                                                     resource.
                                                   properties:
@@ -664,14 +664,14 @@ spec:
                                                 x-kubernetes-list-type: atomic
                                               value:
                                                 description: |-
-                                                  KubeseerTypedMatch is one ordered typed match. Exactly one typed payload is
+                                                  FacetTypedMatch is one ordered typed match. Exactly one typed payload is
                                                   populated when State is value; all payloads are omitted for null.
                                                 properties:
                                                   booleanValue:
                                                     type: boolean
                                                   durationValue:
                                                     description: |-
-                                                      KubeseerDurationValue is the canonical duration text and exact nanosecond
+                                                      FacetDurationValue is the canonical duration text and exact nanosecond
                                                       magnitude.
                                                     properties:
                                                       canonical:
@@ -694,7 +694,7 @@ spec:
                                                     type: string
                                                   quantityValue:
                                                     description: |-
-                                                      KubeseerQuantityValue is the canonical Kubernetes quantity text and exact
+                                                      FacetQuantityValue is the canonical Kubernetes quantity text and exact
                                                       normalized base-unit decimal magnitude.
                                                     properties:
                                                       baseUnits:
@@ -706,9 +706,9 @@ spec:
                                                     - canonical
                                                     type: object
                                                   state:
-                                                    description: KubeseerMatchState
-                                                      distinguishes a non-null value
-                                                      from an explicit null.
+                                                    description: FacetMatchState distinguishes
+                                                      a non-null value from an explicit
+                                                      null.
                                                     enum:
                                                     - value
                                                     - "null"
@@ -728,7 +728,7 @@ spec:
                                           x-kubernetes-list-type: atomic
                                         state:
                                           description: |-
-                                            KubeseerAggregateValueState distinguishes an absent scalar from a value
+                                            FacetAggregateValueState distinguishes an absent scalar from a value
                                             collection, including an intentionally empty collection.
                                           enum:
                                           - absent
@@ -736,7 +736,7 @@ spec:
                                           type: string
                                         type:
                                           description: |-
-                                            KubeseerValueType identifies the explicit logical type requested for one
+                                            FacetValueType identifies the explicit logical type requested for one
                                             extracted field.
                                           enum:
                                           - string
@@ -761,8 +761,8 @@ spec:
                               name:
                                 type: string
                               state:
-                                description: KubeseerAggregateState identifies the
-                                  terminal state of one aggregate.
+                                description: FacetAggregateState identifies the terminal
+                                  state of one aggregate.
                                 enum:
                                 - values
                                 - degraded
@@ -777,8 +777,8 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         error:
-                          description: KubeseerResultError is a sanitized runtime
-                            or source-level failure.
+                          description: FacetResultError is a sanitized runtime or
+                            source-level failure.
                           properties:
                             message:
                               type: string
@@ -789,7 +789,7 @@ spec:
                           type: object
                         fieldErrors:
                           items:
-                            description: KubeseerFieldError is a sanitized field planning
+                            description: FacetFieldError is a sanitized field planning
                               failure.
                             properties:
                               message:
@@ -809,13 +809,13 @@ spec:
                         resources:
                           items:
                             description: |-
-                              KubeseerResourceResult identifies one contributing selected resource and
+                              FacetResourceResult identifies one contributing selected resource and
                               its ordered typed fields.
                             properties:
                               apiVersion:
                                 type: string
                               error:
-                                description: KubeseerResultError is a sanitized runtime
+                                description: FacetResultError is a sanitized runtime
                                   or source-level failure.
                                 properties:
                                   message:
@@ -827,11 +827,11 @@ spec:
                                 type: object
                               fields:
                                 items:
-                                  description: KubeseerFieldResult is one field-scoped
+                                  description: FacetFieldResult is one field-scoped
                                     typed outcome.
                                   properties:
                                     error:
-                                      description: KubeseerResultError is a sanitized
+                                      description: FacetResultError is a sanitized
                                         runtime or source-level failure.
                                       properties:
                                         message:
@@ -844,14 +844,14 @@ spec:
                                     matches:
                                       items:
                                         description: |-
-                                          KubeseerTypedMatch is one ordered typed match. Exactly one typed payload is
+                                          FacetTypedMatch is one ordered typed match. Exactly one typed payload is
                                           populated when State is value; all payloads are omitted for null.
                                         properties:
                                           booleanValue:
                                             type: boolean
                                           durationValue:
                                             description: |-
-                                              KubeseerDurationValue is the canonical duration text and exact nanosecond
+                                              FacetDurationValue is the canonical duration text and exact nanosecond
                                               magnitude.
                                             properties:
                                               canonical:
@@ -874,7 +874,7 @@ spec:
                                             type: string
                                           quantityValue:
                                             description: |-
-                                              KubeseerQuantityValue is the canonical Kubernetes quantity text and exact
+                                              FacetQuantityValue is the canonical Kubernetes quantity text and exact
                                               normalized base-unit decimal magnitude.
                                             properties:
                                               baseUnits:
@@ -886,7 +886,7 @@ spec:
                                             - canonical
                                             type: object
                                           state:
-                                            description: KubeseerMatchState distinguishes
+                                            description: FacetMatchState distinguishes
                                               a non-null value from an explicit null.
                                             enum:
                                             - value
@@ -905,7 +905,7 @@ spec:
                                     name:
                                       type: string
                                     state:
-                                      description: KubeseerFieldState identifies absence,
+                                      description: FacetFieldState identifies absence,
                                         values, or a field-scoped failure.
                                       enum:
                                       - absent
@@ -914,7 +914,7 @@ spec:
                                       type: string
                                     type:
                                       description: |-
-                                        KubeseerValueType identifies the explicit logical type requested for one
+                                        FacetValueType identifies the explicit logical type requested for one
                                         extracted field.
                                       enum:
                                       - string
@@ -954,7 +954,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         state:
-                          description: KubeseerSourceState identifies whether a source
+                          description: FacetSourceState identifies whether a source
                             produced values or failed.
                           enum:
                           - values
@@ -972,8 +972,8 @@ spec:
                 pattern: ^sha256:[0-9a-f]{64}$
                 type: string
               summary:
-                description: KubeseerSummary contains compact counts derived from
-                  the structural result.
+                description: FacetSummary contains compact counts derived from the
+                  structural result.
                 properties:
                   failedSources:
                     format: int64

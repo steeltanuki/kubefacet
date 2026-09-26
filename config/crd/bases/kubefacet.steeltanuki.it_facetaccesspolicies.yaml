@@ -4,21 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: kubeseeraccesspolicies.kubeseer.io
+  name: facetaccesspolicies.kubefacet.steeltanuki.it
 spec:
-  group: kubeseer.io
+  group: kubefacet.steeltanuki.it
   names:
-    kind: KubeseerAccessPolicy
-    listKind: KubeseerAccessPolicyList
-    plural: kubeseeraccesspolicies
-    singular: kubeseeraccesspolicy
+    kind: FacetAccessPolicy
+    listKind: FacetAccessPolicyList
+    plural: facetaccesspolicies
+    singular: facetaccesspolicy
   scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: KubeseerAccessPolicy is the administrator-owned installation
-          observation ceiling.
+        description: FacetAccessPolicy is the administrator-owned installation observation
+          ceiling.
         properties:
           apiVersion:
             description: |-
@@ -38,8 +38,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: KubeseerAccessPolicySpec defines the maximum observation
-              scope available to Kubeseer.
+            description: FacetAccessPolicySpec defines the maximum observation scope
+              available to Facet.
             properties:
               allowClusterScoped:
                 default: false

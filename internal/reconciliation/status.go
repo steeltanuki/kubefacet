@@ -19,10 +19,10 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,16 +33,16 @@ import (
 type StatusProjection struct {
 	ObservedGeneration int64
 	Conditions         []metav1.Condition
-	Summary            *v1alpha1.KubeseerSummary
+	Summary            *v1alpha1.FacetSummary
 	ResultHash         string
-	Result             *v1alpha1.KubeseerResult
+	Result             *v1alpha1.FacetResult
 }
 
 // ProjectStatus creates a complete normalized semantic projection. Nil and
 // empty result collections compare equal, while a nil result pointer remains
 // distinct from a present empty result.
-func ProjectStatus(status v1alpha1.KubeseerStatus) StatusProjection {
-	var summary *v1alpha1.KubeseerSummary
+func ProjectStatus(status v1alpha1.FacetStatus) StatusProjection {
+	var summary *v1alpha1.FacetSummary
 	if status.Summary != nil {
 		summary = status.Summary.DeepCopy()
 	}
@@ -57,13 +57,13 @@ func ProjectStatus(status v1alpha1.KubeseerStatus) StatusProjection {
 
 // SemanticallyEqualStatus compares the complete status projection using the
 // runtime's recursive normalization rules.
-func SemanticallyEqualStatus(left, right v1alpha1.KubeseerStatus) bool {
+func SemanticallyEqualStatus(left, right v1alpha1.FacetStatus) bool {
 	return statusProjectionEqual(ProjectStatus(left), ProjectStatus(right))
 }
 
 // SemanticallyEqualResult compares two structural results while treating nil
 // and empty collection representations as equivalent.
-func SemanticallyEqualResult(left, right *v1alpha1.KubeseerResult) bool {
+func SemanticallyEqualResult(left, right *v1alpha1.FacetResult) bool {
 	return statuscontract.SemanticResultEqual(left, right)
 }
 
@@ -73,7 +73,7 @@ func statusProjectionEqual(left, right StatusProjection) bool {
 
 // StatusPublisher performs one guarded status-subresource update at most.
 type StatusPublisher struct {
-	reader         KubeseerReader
+	reader         FacetReader
 	writer         StatusWriter
 	tracker        *FreshnessTracker
 	observer       *observability.Observer
@@ -104,7 +104,7 @@ func WithMaxStatusBytes(maxBytes int64) StatusPublisherOption {
 }
 
 // NewStatusPublisher constructs a direct-read, status-only publisher.
-func NewStatusPublisher(reader KubeseerReader, writer StatusWriter, tracker *FreshnessTracker, options ...StatusPublisherOption) *StatusPublisher {
+func NewStatusPublisher(reader FacetReader, writer StatusWriter, tracker *FreshnessTracker, options ...StatusPublisherOption) *StatusPublisher {
 	publisher := &StatusPublisher{reader: reader, writer: writer, tracker: tracker, maxStatusBytes: limits.DefaultMaxStatusBytes}
 	for _, option := range options {
 		if option != nil {
@@ -114,7 +114,7 @@ func NewStatusPublisher(reader KubeseerReader, writer StatusWriter, tracker *Fre
 	return publisher
 }
 
-// Publish re-reads the current Kubeseer, preserves spec and conditions, and
+// Publish re-reads the current Facet, preserves spec and conditions, and
 // writes the status subresource only when the normalized projection changes.
 func (p *StatusPublisher) Publish(ctx context.Context, lease Lease, evaluation statuscontract.Evaluation) (err error) {
 	if ctx == nil {
@@ -143,12 +143,12 @@ func (p *StatusPublisher) Publish(ctx context.Context, lease Lease, evaluation s
 		return staleRuntimeError("status-publish")
 	}
 
-	current := new(v1alpha1.Kubeseer)
+	current := new(v1alpha1.Facet)
 	if err := p.reader.Get(ctx, lease.Key, current); err != nil {
 		if apierrors.IsNotFound(err) || ctx.Err() != nil {
 			return err
 		}
-		return transientRuntimeError("status-read", "", ReasonStatusUnavailable, "current Kubeseer status is unavailable", err)
+		return transientRuntimeError("status-read", "", ReasonStatusUnavailable, "current Facet status is unavailable", err)
 	}
 	if current.DeletionTimestamp != nil {
 		publication = observability.StatusSkipped
@@ -237,31 +237,31 @@ func statusContainsReason(conditions []metav1.Condition, reason string) bool {
 	return false
 }
 
-func (p *StatusPublisher) composeBoundedStatus(generation int64, persisted []metav1.Condition, evaluation statuscontract.Evaluation) (v1alpha1.KubeseerStatus, error) {
+func (p *StatusPublisher) composeBoundedStatus(generation int64, persisted []metav1.Condition, evaluation statuscontract.Evaluation) (v1alpha1.FacetStatus, error) {
 	if p == nil || p.maxStatusBytes <= 0 {
-		return v1alpha1.KubeseerStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "configured status limit is invalid"}
+		return v1alpha1.FacetStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "configured status limit is invalid"}
 	}
 	composed, err := statuscontract.Compose(generation, persisted, evaluation)
 	if err != nil {
-		return v1alpha1.KubeseerStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonBuildFailure, Message: "status composition failed", Cause: err}
+		return v1alpha1.FacetStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonBuildFailure, Message: "status composition failed", Cause: err}
 	}
 	size, err := limits.CanonicalSize(composed)
 	if err != nil {
-		return v1alpha1.KubeseerStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "status candidate could not be measured", Cause: err}
+		return v1alpha1.FacetStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "status candidate could not be measured", Cause: err}
 	}
 	if int64(size) <= p.maxStatusBytes {
 		return composed, nil
 	}
 	if evaluation.ConfigurationBudgetExceeded {
-		return v1alpha1.KubeseerStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "configured status limit cannot contain configuration rejection"}
+		return v1alpha1.FacetStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "configured status limit cannot contain configuration rejection"}
 	}
 	compact, err := statuscontract.ComposeResultLimitExceeded(generation, persisted, evaluation)
 	if err != nil {
-		return v1alpha1.KubeseerStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonBuildFailure, Message: "compact status composition failed", Cause: err}
+		return v1alpha1.FacetStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonBuildFailure, Message: "compact status composition failed", Cause: err}
 	}
 	compactSize, err := limits.CanonicalSize(compact)
 	if err != nil || int64(compactSize) > p.maxStatusBytes {
-		return v1alpha1.KubeseerStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "configured status limit cannot contain compact status", Cause: err}
+		return v1alpha1.FacetStatus{}, &RuntimeError{Stage: "status-compose", Reason: ReasonStatusLimitInvalid, Message: "configured status limit cannot contain compact status", Cause: err}
 	}
 	return compact, nil
 }

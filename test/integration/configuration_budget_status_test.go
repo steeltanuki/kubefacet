@@ -23,12 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -110,7 +110,7 @@ func assertBudgetRejectionStatus(t *testing.T) {
 
 	t.Run("configuration rejection cannot be combined with observation assessments", func(t *testing.T) {
 		if _, err := statuscontract.Compose(1, nil, statuscontract.Evaluation{
-			Result:                      &v1alpha1.KubeseerResult{},
+			Result:                      &v1alpha1.FacetResult{},
 			ConfigurationBudgetExceeded: true,
 		}); err == nil {
 			t.Fatal("configuration rejection with a result was accepted")
@@ -146,15 +146,15 @@ func assertBudgetRejectionStatus(t *testing.T) {
 func assertBudgetRejectionRuntime(t *testing.T, resolver *discovery.Resolver) {
 	t.Helper()
 	key := types.NamespacedName{Namespace: "team-a", Name: "budget-runtime-owner"}
-	sources := make([]v1alpha1.KubeseerSource, limits.DefaultMaxKubeseerSources+1)
+	sources := make([]v1alpha1.FacetSource, limits.DefaultMaxFacetSources+1)
 	for index := range sources {
-		sources[index] = v1alpha1.KubeseerSource{
+		sources[index] = v1alpha1.FacetSource{
 			ID:         fmt.Sprintf("budget-source-%d", index),
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
 		}
 	}
-	object := runtimePipelineKubeseer(key, "budget-runtime-uid", 4, sources...)
+	object := runtimePipelineFacet(key, "budget-runtime-uid", 4, sources...)
 	lister := newRuntimePipelineLister()
 	policySource := &runtimePipelinePolicySource{err: errors.New("policy must not be read for a budget rejection")}
 	routes := &runtimePipelineRoutes{}
@@ -194,12 +194,12 @@ func assertBudgetRoutePromotionNonBlocking(t *testing.T, resolver *discovery.Res
 	snapshot := mustSnapshot(t, basePolicy())
 	ownerA := types.NamespacedName{Namespace: "team-a", Name: "budget-route-a"}
 	ownerB := types.NamespacedName{Namespace: "team-a", Name: "budget-route-b"}
-	sourceA := v1alpha1.KubeseerSource{ID: "budget-route-source-a", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}}
-	sourceB := v1alpha1.KubeseerSource{ID: "budget-route-source-b", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}}
+	sourceA := v1alpha1.FacetSource{ID: "budget-route-source-a", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}}
+	sourceB := v1alpha1.FacetSource{ID: "budget-route-source-b", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}}
 	targetA := mustRuntimeTarget(t, context.Background(), planner, ownerA.Namespace, sourceA)
 	targetB := mustRuntimeTarget(t, context.Background(), planner, ownerB.Namespace, sourceB)
-	objectA := newRuntimeKubeseer(ownerA, "budget-route-uid-a", 1)
-	objectB := newRuntimeKubeseer(ownerB, "budget-route-uid-b", 1)
+	objectA := newRuntimeFacet(ownerA, "budget-route-uid-a", 1)
+	objectB := newRuntimeFacet(ownerB, "budget-route-uid-b", 1)
 	tracker := reconciliation.NewFreshnessTracker()
 	tracker.Observe(objectA)
 	tracker.Observe(objectB)
@@ -236,7 +236,9 @@ func assertBudgetRoutePromotionNonBlocking(t *testing.T, resolver *discovery.Res
 		t.Fatalf("start budget route registry: %v", err)
 	}
 	replaceAErr := make(chan error, 1)
-	go func() { replaceAErr <- registry.Replace(context.Background(), leaseA, []reconciliation.AuthorizedRoute{routeA}) }()
+	go func() {
+		replaceAErr <- registry.Replace(context.Background(), leaseA, []reconciliation.AuthorizedRoute{routeA})
+	}()
 	select {
 	case <-watcher.firstStarted:
 	case <-time.After(time.Second):

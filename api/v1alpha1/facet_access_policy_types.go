@@ -33,29 +33,29 @@ const (
 	NamespaceModeAllNonSystem NamespaceMode = "AllNonSystem"
 )
 
-// KubeseerAccessPolicy is the administrator-owned installation observation ceiling.
+// FacetAccessPolicy is the administrator-owned installation observation ceiling.
 //
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=kubeseeraccesspolicies,singular=kubeseeraccesspolicy,scope=Cluster
+// +kubebuilder:resource:path=facetaccesspolicies,singular=facetaccesspolicy,scope=Cluster
 // +kubebuilder:validation:XValidation:rule="self.metadata.name == 'installation-access-ceiling'",message="metadata.name must be installation-access-ceiling"
-type KubeseerAccessPolicy struct {
+type FacetAccessPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec KubeseerAccessPolicySpec `json:"spec"`
+	Spec FacetAccessPolicySpec `json:"spec"`
 }
 
-// KubeseerAccessPolicyList contains a list of KubeseerAccessPolicy resources.
+// FacetAccessPolicyList contains a list of FacetAccessPolicy resources.
 //
 // +kubebuilder:object:root=true
-type KubeseerAccessPolicyList struct {
+type FacetAccessPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []KubeseerAccessPolicy `json:"items"`
+	Items           []FacetAccessPolicy `json:"items"`
 }
 
-// KubeseerAccessPolicySpec defines the maximum observation scope available to Kubeseer.
-type KubeseerAccessPolicySpec struct {
+// FacetAccessPolicySpec defines the maximum observation scope available to Facet.
+type FacetAccessPolicySpec struct {
 	Namespaces NamespacePolicy `json:"namespaces"`
 	// +optional
 	// +listType=atomic

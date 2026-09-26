@@ -17,15 +17,15 @@ package extraction
 import (
 	"context"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // SourceInput joins one public source declaration with the result of the
 // already-authorized resource-selection boundary.
 type SourceInput struct {
-	Source    v1alpha1.KubeseerSource
+	Source    v1alpha1.FacetSource
 	Selection selection.SelectionOutcome
 }
 
@@ -53,7 +53,7 @@ func ExtractBatchWithLimit(ctx context.Context, inputs []SourceInput, maxBytes i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	sources := make([]v1alpha1.KubeseerSource, len(inputs))
+	sources := make([]v1alpha1.FacetSource, len(inputs))
 	for index, input := range inputs {
 		sources[index] = input.Source
 	}

@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,7 +32,7 @@ func assertResourceSelectionPlanningScenarios(t *testing.T, ctx context.Context,
 	planner := selection.NewPlanner(resolver)
 
 	t.Run("source identity and canonical selectors survive planning", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:       "pod-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Selector: &v1alpha1.ResourceSelector{
@@ -77,8 +77,8 @@ func assertResourceSelectionPlanningScenarios(t *testing.T, ctx context.Context,
 	})
 
 	t.Run("namespace targets derive from scope and preserve empty intent", func(t *testing.T) {
-		base := func(namespaces *v1alpha1.NamespaceSelection) v1alpha1.KubeseerSource {
-			return v1alpha1.KubeseerSource{ID: "namespace-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: namespaces}
+		base := func(namespaces *v1alpha1.NamespaceSelection) v1alpha1.FacetSource {
+			return v1alpha1.FacetSource{ID: "namespace-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: namespaces}
 		}
 		defaultPlan, err := planner.Plan(ctx, "team-owner", base(nil))
 		if err != nil || len(defaultPlan.Targets()) != 1 || defaultPlan.Targets()[0].Namespace != "team-owner" {
@@ -96,7 +96,7 @@ func assertResourceSelectionPlanningScenarios(t *testing.T, ctx context.Context,
 			t.Fatalf("explicit empty namespace plan = %#v err=%v", emptyPlan.Targets(), err)
 		}
 
-		cluster := v1alpha1.KubeseerSource{ID: "node-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Node"}}
+		cluster := v1alpha1.FacetSource{ID: "node-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Node"}}
 		clusterPlan, err := planner.Plan(ctx, "team-owner", cluster)
 		if err != nil || len(clusterPlan.Targets()) != 1 || clusterPlan.Targets()[0].Scope != discovery.ScopeCluster || clusterPlan.Targets()[0].Namespace != "" {
 			t.Fatalf("cluster plan = %#v err=%v", clusterPlan.Targets(), err)
@@ -108,8 +108,8 @@ func assertResourceSelectionPlanningScenarios(t *testing.T, ctx context.Context,
 	})
 
 	t.Run("defensive namespace and selector validation is source scoped", func(t *testing.T) {
-		valid := func() v1alpha1.KubeseerSource {
-			return v1alpha1.KubeseerSource{ID: "invalid-input", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		valid := func() v1alpha1.FacetSource {
+			return v1alpha1.FacetSource{ID: "invalid-input", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		}
 		invalidNamespaces := valid()
 		invalidNamespaces.Namespaces = &v1alpha1.NamespaceSelection{Names: []string{"Invalid_Namespace"}}
@@ -136,7 +136,7 @@ func assertResourceSelectionPlanningScenarios(t *testing.T, ctx context.Context,
 	t.Run("discovery failure stops planning before targets exist", func(t *testing.T) {
 		discoveryFailure := errors.New("discovery payload should stay wrapped")
 		failureResolver := discovery.NewResolver(&selectionDiscoveryFailureClient{delegate: newPolicyDiscoveryClient(), cause: discoveryFailure})
-		source := v1alpha1.KubeseerSource{ID: "unavailable-source", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}}
+		source := v1alpha1.FacetSource{ID: "unavailable-source", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}}
 		_, err := selection.NewPlanner(failureResolver).Plan(ctx, "team-a", source)
 		if err == nil || !errors.Is(err, discoveryFailure) || !strings.Contains(err.Error(), `source "unavailable-source"`) {
 			t.Fatalf("planning did not preserve source-scoped discovery failure: %v", err)
@@ -156,7 +156,7 @@ func (c *selectionDiscoveryFailureClient) ServerResourcesForGroupVersion(groupVe
 	return c.delegate.ServerResourcesForGroupVersion(groupVersion)
 }
 
-func discoveryResolution(t *testing.T, ctx context.Context, resolver *discovery.Resolver, source v1alpha1.KubeseerSource) discovery.Resolution {
+func discoveryResolution(t *testing.T, ctx context.Context, resolver *discovery.Resolver, source v1alpha1.FacetSource) discovery.Resolution {
 	t.Helper()
 	resolution, err := resolver.Resolve(ctx, discovery.SourceDescriptor{SourceID: source.ID, APIVersion: source.Resource.APIVersion, Kind: source.Resource.Kind})
 	if err != nil {

@@ -14,7 +14,7 @@
 
 // Package localprobe contains the read-only observer used by the persistent
 // local environment. It deliberately imports only Kubernetes clients and the
-// public Kubeseer API; lifecycle and reconciliation remain in the shell and
+// public Facet API; lifecycle and reconciliation remain in the shell and
 // controller packages respectively.
 //
 // Responsibility: inspect the owned local environment and project bounded,
@@ -60,14 +60,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 )
 
 const (
-	ClusterName     = "kubeseer-local"
-	ContextName     = "kind-kubeseer-local"
-	Namespace       = "kubeseer-system"
-	Release         = "kubeseer"
+	ClusterName     = "kubefacet-local"
+	ContextName     = "kind-kubefacet-local"
+	Namespace       = "kubefacet-system"
+	Release         = "kubefacet"
 	PolicyName      = v1alpha1.InstallationAccessCeilingName
 	maxDiagLogLines = 200
 	maxDiagLogBytes = 64 * 1024
@@ -178,7 +178,7 @@ func LoadMetadata(path, expectedClusterName, expectedContext string) (Metadata, 
 	if !validHex(metadata.SourceRevision, 40, 64) || !validDigest(metadata.SourceIdentity, "sha256:", 64) {
 		return Metadata{}, errors.New("ownership metadata source identity is malformed")
 	}
-	if metadata.ImageReference != "" && !validDigest(metadata.ImageReference, "localhost/kubeseer-local:", 32) {
+	if metadata.ImageReference != "" && !validDigest(metadata.ImageReference, "localhost/kubefacet-local:", 32) {
 		return Metadata{}, errors.New("ownership metadata image reference is malformed")
 	}
 	if metadata.ImageID != "" && metadata.ImageReference == "" {
@@ -402,7 +402,7 @@ func (c *clients) readinessOnce(ctx context.Context, report *readinessReport) er
 		return err
 	}
 	report.Identity = identity
-	for _, name := range []string{"kubeseers.kubeseer.io", "kubeseeraccesspolicies.kubeseer.io"} {
+	for _, name := range []string{"facets.kubefacet.steeltanuki.it", "facetaccesspolicies.kubefacet.steeltanuki.it"} {
 		crd, getErr := c.apiExt.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 		if getErr != nil {
 			return fmt.Errorf("awaited CRD %s: %w", name, getErr)
@@ -425,7 +425,7 @@ func (c *clients) readinessOnce(ctx context.Context, report *readinessReport) er
 		return errors.New("awaited serving Certificate Ready=True")
 	}
 	report.Certificate = "Ready=True"
-	webhook, err := c.admission.ValidatingWebhookConfigurations().Get(ctx, "kubeseer-validating-webhook", metav1.GetOptions{})
+	webhook, err := c.admission.ValidatingWebhookConfigurations().Get(ctx, "kubefacet-validating-webhook", metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("awaited validating webhook configuration: %w", err)
 	}
@@ -443,7 +443,7 @@ func (c *clients) readinessOnce(ctx context.Context, report *readinessReport) er
 		return fmt.Errorf("awaited webhook Service EndpointSlice readiness: %w", err)
 	}
 	report.WebhookEndpoints = readyEndpoints
-	policy, err := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseeraccesspolicies"}).Get(ctx, PolicyName, metav1.GetOptions{})
+	policy, err := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facetaccesspolicies"}).Get(ctx, PolicyName, metav1.GetOptions{})
 	if err != nil || policy.GetName() != PolicyName {
 		return errors.New("awaited installation-access-ceiling policy")
 	}
@@ -452,13 +452,13 @@ func (c *clients) readinessOnce(ctx context.Context, report *readinessReport) er
 	// The shell lifecycle supplies loopback URLs after bounded port-forward
 	// setup. Keeping the URLs optional preserves a read-only probe for callers
 	// that can only observe Kubernetes objects (for example, status snapshots).
-	if endpoint := os.Getenv("KUBESEER_LOCAL_READYZ_URL"); endpoint != "" {
+	if endpoint := os.Getenv("KUBEFACET_LOCAL_READYZ_URL"); endpoint != "" {
 		if err := HTTPReady(ctx, endpoint, "ok"); err != nil {
 			return fmt.Errorf("awaited manager /readyz: %w", err)
 		}
 		report.Readyz = "HTTP 200"
 	}
-	if endpoint := os.Getenv("KUBESEER_LOCAL_METRICS_URL"); endpoint != "" {
+	if endpoint := os.Getenv("KUBEFACET_LOCAL_METRICS_URL"); endpoint != "" {
 		if err := HTTPReady(ctx, endpoint, "# HELP"); err != nil {
 			return fmt.Errorf("awaited manager /metrics: %w", err)
 		}
@@ -512,7 +512,7 @@ func Status(ctx context.Context, cfg Config) (map[string]any, error) {
 	}
 	packageStatus := map[string]any{"release": c.metadata.Release, "namespace": c.metadata.Namespace, "crds": map[string]string{}}
 	crdStatus := packageStatus["crds"].(map[string]string)
-	for _, name := range []string{"kubeseers.kubeseer.io", "kubeseeraccesspolicies.kubeseer.io"} {
+	for _, name := range []string{"facets.kubefacet.steeltanuki.it", "facetaccesspolicies.kubefacet.steeltanuki.it"} {
 		crd, getErr := c.apiExt.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 		if getErr != nil {
 			crdStatus[name] = "unavailable"
@@ -532,7 +532,7 @@ func Status(ctx context.Context, cfg Config) (map[string]any, error) {
 		managerStatus["reason"] = stableError(getErr)
 	}
 	policyStatus := map[string]any{"name": PolicyName, "status": "unavailable"}
-	if policy, getErr := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseeraccesspolicies"}).Get(ctx, PolicyName, metav1.GetOptions{}); getErr == nil && policy.GetName() == PolicyName {
+	if policy, getErr := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facetaccesspolicies"}).Get(ctx, PolicyName, metav1.GetOptions{}); getErr == nil && policy.GetName() == PolicyName {
 		policyStatus["status"] = "present"
 	} else if getErr != nil {
 		policyStatus["reason"] = stableError(getErr)
@@ -549,7 +549,7 @@ func Status(ctx context.Context, cfg Config) (map[string]any, error) {
 		observed := []string{}
 		for _, name := range names {
 			namespace := exampleNamespace(name)
-			list, listErr := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseers"}).Namespace(namespace).List(ctx, metav1.ListOptions{LabelSelector: "kubeseer.io/example=" + name, Limit: 1})
+			list, listErr := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facets"}).Namespace(namespace).List(ctx, metav1.ListOptions{LabelSelector: "kubefacet.steeltanuki.it/example=" + name, Limit: 1})
 			if listErr == nil && len(list.Items) > 0 {
 				observed = append(observed, name)
 			}
@@ -595,7 +595,7 @@ func loadCatalog(path string) ([]string, error) {
 	return names, nil
 }
 
-// Verify asserts public Kubeseer status for every registered example.
+// Verify asserts public Facet status for every registered example.
 func Verify(ctx context.Context, cfg Config) error {
 	c, err := newClients(ctx, cfg)
 	if err != nil {
@@ -627,7 +627,7 @@ func Verify(ctx context.Context, cfg Config) error {
 			namespace = exampleNamespace(name)
 		}
 		pollErr := wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, verificationTimeout(ctx), true, func(pollCtx context.Context) (bool, error) {
-			list, listErr := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseers"}).Namespace(namespace).List(pollCtx, metav1.ListOptions{LabelSelector: "kubeseer.io/example=" + name, Limit: 16})
+			list, listErr := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facets"}).Namespace(namespace).List(pollCtx, metav1.ListOptions{LabelSelector: "kubefacet.steeltanuki.it/example=" + name, Limit: 16})
 			if listErr != nil || len(list.Items) == 0 {
 				return false, nil
 			}
@@ -657,7 +657,7 @@ func verificationTimeout(ctx context.Context) time.Duration {
 }
 
 func exampleNamespace(name string) string {
-	return map[string]string{"builtin-resource": "kubeseer-example-builtin", "typed-extraction": "kubeseer-example-typed", "value-operator": "kubeseer-example-operator", "cross-namespace-aggregation": "kubeseer-example-aggregation-a", "custom-resource": "kubeseer-example-custom", "authorization-denial": "kubeseer-example-denial", "partial-degradation": "kubeseer-example-degraded"}[name]
+	return map[string]string{"builtin-resource": "kubefacet-example-builtin", "typed-extraction": "kubefacet-example-typed", "value-operator": "kubefacet-example-operator", "cross-namespace-aggregation": "kubefacet-example-aggregation-a", "custom-resource": "kubefacet-example-custom", "authorization-denial": "kubefacet-example-denial", "partial-degradation": "kubefacet-example-degraded"}[name]
 }
 
 func publicExampleOutcome(name string, object unstructured.Unstructured) bool {
@@ -923,7 +923,7 @@ func (c *clients) readinessProjection(ctx context.Context) map[string]any {
 		"webhook":     map[string]any{"caBundles": 0, "endpoints": 0},
 	}
 	crds := result["crds"].(map[string]string)
-	for _, name := range []string{"kubeseers.kubeseer.io", "kubeseeraccesspolicies.kubeseer.io"} {
+	for _, name := range []string{"facets.kubefacet.steeltanuki.it", "facetaccesspolicies.kubefacet.steeltanuki.it"} {
 		crd, err := c.apiExt.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			crds[name] = "unavailable"
@@ -944,7 +944,7 @@ func (c *clients) readinessProjection(ctx context.Context) map[string]any {
 		result["certificate"] = state
 	}
 	webhookStatus := result["webhook"].(map[string]any)
-	if webhook, err := c.admission.ValidatingWebhookConfigurations().Get(ctx, "kubeseer-validating-webhook", metav1.GetOptions{}); err == nil {
+	if webhook, err := c.admission.ValidatingWebhookConfigurations().Get(ctx, "kubefacet-validating-webhook", metav1.GetOptions{}); err == nil {
 		caBundles := 0
 		for _, item := range webhook.Webhooks {
 			if len(strings.TrimSpace(string(item.ClientConfig.CABundle))) > 0 {
@@ -963,7 +963,7 @@ func (c *clients) readinessProjection(ctx context.Context) map[string]any {
 // fields. It intentionally omits result sources, selectors, and extracted
 // values even though they are present on the Kubernetes object.
 func (c *clients) statusProjection(ctx context.Context) []map[string]any {
-	list, err := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseers"}).Namespace(c.metadata.Namespace).List(ctx, metav1.ListOptions{Limit: 64})
+	list, err := c.dynamic.Resource(schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facets"}).Namespace(c.metadata.Namespace).List(ctx, metav1.ListOptions{Limit: 64})
 	if err != nil {
 		return []map[string]any{{"observation": "unavailable", "error": stableError(err)}}
 	}
@@ -1060,8 +1060,8 @@ func Diagnostics(ctx context.Context, cfg Config) (string, error) {
 	versions := map[string]string{
 		"go": runtime.Version(), "kubernetes": metadata.KubernetesVersion, "kindNodeImage": metadata.KindNodeImage,
 		"certManager": "pinned", "schemaVersion": metadata.SchemaVersion,
-		"kind": os.Getenv("KUBESEER_LOCAL_KIND_VERSION"), "podman": os.Getenv("KUBESEER_LOCAL_PODMAN_VERSION"),
-		"kubectl": os.Getenv("KUBESEER_LOCAL_KUBECTL_VERSION"), "helm": os.Getenv("KUBESEER_LOCAL_HELM_VERSION"), "curl": os.Getenv("KUBESEER_LOCAL_CURL_VERSION"),
+		"kind": os.Getenv("KUBEFACET_LOCAL_KIND_VERSION"), "podman": os.Getenv("KUBEFACET_LOCAL_PODMAN_VERSION"),
+		"kubectl": os.Getenv("KUBEFACET_LOCAL_KUBECTL_VERSION"), "helm": os.Getenv("KUBEFACET_LOCAL_HELM_VERSION"), "curl": os.Getenv("KUBEFACET_LOCAL_CURL_VERSION"),
 	}
 	for key, value := range versions {
 		if value == "" {
@@ -1087,15 +1087,15 @@ func Diagnostics(ctx context.Context, cfg Config) (string, error) {
 		_ = add("policy", map[string]string{"name": PolicyName})
 		_ = add("status", c.statusProjection(ctx))
 		_ = add("metrics", map[string]any{"families": []string{
-			"kubeseer_reconciliations_total",
-			"kubeseer_reconciliation_duration_seconds",
-			"kubeseer_resources_read_total",
-			"kubeseer_source_failures_total",
-			"kubeseer_results_produced_total",
-			"kubeseer_status_updates_total",
-			"kubeseer_authorization_decisions_total",
-			"kubeseer_jsonpath_failures_total",
-			"kubeseer_source_watch_restarts_total",
+			"kubefacet_reconciliations_total",
+			"kubefacet_reconciliation_duration_seconds",
+			"kubefacet_resources_read_total",
+			"kubefacet_source_failures_total",
+			"kubefacet_results_produced_total",
+			"kubefacet_status_updates_total",
+			"kubefacet_authorization_decisions_total",
+			"kubefacet_jsonpath_failures_total",
+			"kubefacet_source_watch_restarts_total",
 		}})
 		_ = add("events", c.eventsProjection(ctx))
 		_ = add("logs", c.logsProjection(ctx))
@@ -1125,7 +1125,7 @@ func (c *clients) eventsProjection(ctx context.Context) []map[string]string {
 }
 
 func (c *clients) logsProjection(ctx context.Context) []map[string]string {
-	pods, err := c.core.CoreV1().Pods(c.metadata.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=kubeseer"})
+	pods, err := c.core.CoreV1().Pods(c.metadata.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=kubefacet"})
 	if err != nil {
 		return []map[string]string{{"level": "warning", "reason": stableError(err)}}
 	}

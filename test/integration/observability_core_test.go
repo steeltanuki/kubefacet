@@ -25,8 +25,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/observability"
 )
 
 type observabilityCapture struct {
@@ -68,7 +68,7 @@ func assertObservabilityCoreScenarios(t *testing.T) {
 		t.Fatalf("construct observer: %v", err)
 	}
 	ctx, attempt := observer.StartAttempt(context.Background(), observability.AttemptStart{Namespace: "team-a", Name: "demo"})
-	ctx = attempt.BindObject(ctx, observability.ObjectIdentity{UID: "kubeseer-uid", Generation: 4})
+	ctx = attempt.BindObject(ctx, observability.ObjectIdentity{UID: "kubefacet-uid", Generation: 4})
 	stageCtx, stage := attempt.StartStage(ctx, observability.StageLoad)
 	stage.End(observability.StageObservation{Stage: observability.StageLoad, Outcome: observability.OutcomeCompleted, Reason: observability.ReasonReconciliationStarted})
 	_ = stageCtx
@@ -92,7 +92,7 @@ func assertObservabilityCoreScenarios(t *testing.T) {
 	if records[0].Event != observability.EventReconciliationStarted || records[0].AttemptID != "attempt-core" || records[0].Namespace != "team-a" || records[0].Name != "demo" {
 		t.Fatalf("unexpected start envelope: %#v", records[0])
 	}
-	if records[1].UID != "kubeseer-uid" || records[1].Generation != 4 || records[1].TraceID != "" || records[1].SpanID != "" {
+	if records[1].UID != "kubefacet-uid" || records[1].Generation != 4 || records[1].TraceID != "" || records[1].SpanID != "" {
 		t.Fatalf("unexpected bound/no-trace correlation: %#v", records[1])
 	}
 	foundInternal := false
@@ -129,7 +129,7 @@ func assertObservabilityCoreScenarios(t *testing.T) {
 		}()
 	}
 	wait.Wait()
-	assertObservabilityMetricValue(t, registry, "kubeseer_resources_read_total", `scope="namespaced"`, float64(2+concurrent))
+	assertObservabilityMetricValue(t, registry, "kubefacet_resources_read_total", `scope="namespaced"`, float64(2+concurrent))
 
 	noOp := observability.NewNoop()
 	noOpCtx, noOpAttempt := noOp.StartAttempt(context.Background(), observability.AttemptStart{Namespace: "team-a", Name: "noop"})
@@ -147,15 +147,15 @@ func assertObservabilityMetricFamilies(t *testing.T, registry *prometheus.Regist
 		t.Fatalf("gather metrics: %v", err)
 	}
 	want := map[string]map[string]bool{
-		"kubeseer_reconciliations_total":           {"outcome": true, "reason": true},
-		"kubeseer_reconciliation_duration_seconds": {"outcome": true},
-		"kubeseer_resources_read_total":            {"scope": true},
-		"kubeseer_source_failures_total":           {"stage": true, "reason": true},
-		"kubeseer_results_produced_total":          {"outcome": true},
-		"kubeseer_status_updates_total":            {"outcome": true, "reason": true},
-		"kubeseer_authorization_decisions_total":   {"kind": true, "outcome": true, "reason": true},
-		"kubeseer_jsonpath_failures_total":         {"reason": true},
-		"kubeseer_source_watch_restarts_total":     {"reason": true},
+		"kubefacet_reconciliations_total":           {"outcome": true, "reason": true},
+		"kubefacet_reconciliation_duration_seconds": {"outcome": true},
+		"kubefacet_resources_read_total":            {"scope": true},
+		"kubefacet_source_failures_total":           {"stage": true, "reason": true},
+		"kubefacet_results_produced_total":          {"outcome": true},
+		"kubefacet_status_updates_total":            {"outcome": true, "reason": true},
+		"kubefacet_authorization_decisions_total":   {"kind": true, "outcome": true, "reason": true},
+		"kubefacet_jsonpath_failures_total":         {"reason": true},
+		"kubefacet_source_watch_restarts_total":     {"reason": true},
 	}
 	if len(families) != len(want) {
 		t.Fatalf("metric family count = %d, want %d", len(families), len(want))

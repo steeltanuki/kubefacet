@@ -19,12 +19,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// Subject is the complete process-local identity of one live Kubeseer
+// Subject is the complete process-local identity of one live Facet
 // reconciliation. Values are passed by copy and no method mutates them.
 type Subject struct {
 	Key         types.NamespacedName

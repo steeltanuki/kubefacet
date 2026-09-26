@@ -17,7 +17,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/internal/localprobe"
+	"github.com/steeltanuki/kubefacet/internal/localprobe"
 )
 
 func main() {
@@ -89,7 +89,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: kubeseer-local <identity|readiness|status|verify|diagnostics> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: kubefacet-local <identity|readiness|status|verify|diagnostics> [flags]")
 }
 
 func output(value any) {
@@ -101,4 +101,4 @@ func output(value any) {
 	}
 }
 
-func fail(err error) { fmt.Fprintf(os.Stderr, "KUBESEER_LOCAL_PROBE=failed: %v\n", err); os.Exit(1) }
+func fail(err error) { fmt.Fprintf(os.Stderr, "KUBEFACET_LOCAL_PROBE=failed: %v\n", err); os.Exit(1) }

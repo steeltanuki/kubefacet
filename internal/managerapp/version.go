@@ -25,7 +25,7 @@ type VersionInfo struct {
 
 // VersionString returns a stable, log-friendly identity for the executable.
 func VersionString(info VersionInfo) string {
-	return "kubeseer version=" + known(info.Version) +
+	return "kubefacet version=" + known(info.Version) +
 		" commit=" + known(info.Commit) +
 		" date=" + known(info.Date)
 }

@@ -19,12 +19,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertValueOperatorTransformationScenarios(t *testing.T) {
@@ -32,27 +32,27 @@ func assertValueOperatorTransformationScenarios(t *testing.T) {
 
 	t.Run("default replaces absence and null while preserving non-null values", func(t *testing.T) {
 		fallback := stringOperand("fallback")
-		absentSource := operatorSource("transform-default-absent", v1alpha1.KubeseerField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorDefault, Value: fallback}}})
+		absentSource := operatorSource("transform-default-absent", v1alpha1.FacetField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorDefault, Value: fallback}}})
 		absent, typedBefore := evaluateOperatorSource(t, absentSource, []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{}})})
 		assertAcceptedStringField(t, absent, "fallback")
 		if typedBefore.Resources()[0].Fields()[0].State() != typedoutput.FieldStateAbsent {
 			t.Fatal("default test did not begin with an absent typed field")
 		}
 
-		nullSource := operatorSource("transform-default-null", v1alpha1.KubeseerField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorDefault, Value: stringOperand("fallback")}}})
+		nullSource := operatorSource("transform-default-null", v1alpha1.FacetField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorDefault, Value: stringOperand("fallback")}}})
 		null, typedNull := evaluateOperatorSource(t, nullSource, []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"value": nil}})})
 		assertAcceptedStringField(t, null, "fallback")
 		if !typedNull.Resources()[0].Fields()[0].Matches()[0].IsNull() {
 			t.Fatal("default test did not begin with an explicit null match")
 		}
 
-		presentSource := operatorSource("transform-default-present", v1alpha1.KubeseerField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorDefault, Value: stringOperand("fallback")}}})
+		presentSource := operatorSource("transform-default-present", v1alpha1.FacetField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorDefault, Value: stringOperand("fallback")}}})
 		present, _ := evaluateOperatorSource(t, presentSource, []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"value": "original"}})})
 		assertAcceptedStringField(t, present, "original")
 	})
 
 	t.Run("coalesce keeps the first non-null, one null, or absence", func(t *testing.T) {
-		source := operatorSource("transform-coalesce-values", v1alpha1.KubeseerField{Name: "value", Path: "{.data.values[*]}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorCoalesce}}})
+		source := operatorSource("transform-coalesce-values", v1alpha1.FacetField{Name: "value", Path: "{.data.values[*]}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorCoalesce}}})
 		outcome, _ := evaluateOperatorSource(t, source, []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"values": []any{nil, "first", "second"}}})})
 		assertAcceptedStringField(t, outcome, "first")
 		if len(outcome.Resources()[0].Fields()[0].Matches()) != 1 {
@@ -64,7 +64,7 @@ func assertValueOperatorTransformationScenarios(t *testing.T) {
 			t.Fatalf("coalesce all-null outcome = %#v", nulls.Resources())
 		}
 
-		absentSource := operatorSource("transform-coalesce-absent", v1alpha1.KubeseerField{Name: "value", Path: "{.data.missing}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorCoalesce}}})
+		absentSource := operatorSource("transform-coalesce-absent", v1alpha1.FacetField{Name: "value", Path: "{.data.missing}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorCoalesce}}})
 		absent, _ := evaluateOperatorSource(t, absentSource, []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{}})})
 		if len(absent.Resources()) != 1 || absent.Resources()[0].Fields()[0].State() != typedoutput.FieldStateAbsent {
 			t.Fatalf("coalesce changed absence = %#v", absent.Resources())
@@ -72,7 +72,7 @@ func assertValueOperatorTransformationScenarios(t *testing.T) {
 	})
 
 	t.Run("chains are ordered and all fields use implicit AND", func(t *testing.T) {
-		defaultThenEq := operatorSource("transform-before-predicate", v1alpha1.KubeseerField{Name: "value", Path: "{.data.missing}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{
+		defaultThenEq := operatorSource("transform-before-predicate", v1alpha1.FacetField{Name: "value", Path: "{.data.missing}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{
 			{Operator: v1alpha1.OperatorDefault, Value: stringOperand("fallback")},
 			{Operator: v1alpha1.OperatorEq, Value: stringOperand("fallback")},
 		}})
@@ -80,7 +80,7 @@ func assertValueOperatorTransformationScenarios(t *testing.T) {
 		assertSingleResourceState(t, accepted, operators.ResourceAccepted)
 		assertAcceptedStringField(t, accepted, "fallback")
 
-		eqThenDefault := operatorSource("predicate-before-transform", v1alpha1.KubeseerField{Name: "value", Path: "{.data.missing}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{
+		eqThenDefault := operatorSource("predicate-before-transform", v1alpha1.FacetField{Name: "value", Path: "{.data.missing}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{
 			{Operator: v1alpha1.OperatorEq, Value: stringOperand("fallback")},
 			{Operator: v1alpha1.OperatorDefault, Value: stringOperand("fallback")},
 		}})
@@ -90,16 +90,16 @@ func assertValueOperatorTransformationScenarios(t *testing.T) {
 			t.Fatal("rejected resource exposed temporary transformed fields")
 		}
 
-		andSource := v1alpha1.KubeseerSource{ID: "transform-resource-and", Fields: []v1alpha1.KubeseerField{
-			{Name: "alpha", Path: "{.data.alpha}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand("yes")}}},
-			{Name: "zeta", Path: "{.data.zeta}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand("no")}}},
+		andSource := v1alpha1.FacetSource{ID: "transform-resource-and", Fields: []v1alpha1.FacetField{
+			{Name: "alpha", Path: "{.data.alpha}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand("yes")}}},
+			{Name: "zeta", Path: "{.data.zeta}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand("no")}}},
 		}}
 		andOutcome, _ := evaluateOperatorSource(t, andSource, []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"alpha": "yes", "zeta": "yes"}})})
 		assertSingleResourceState(t, andOutcome, operators.ResourceRejected)
 	})
 
 	t.Run("accepted, rejected, and unsuccessful resources project with isolation", func(t *testing.T) {
-		source := operatorSource("transform-projection", v1alpha1.KubeseerField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: integerOperand(2)}}})
+		source := operatorSource("transform-projection", v1alpha1.FacetField{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: integerOperand(2)}}})
 		accepted := selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"value": int64(2)}})
 		accepted.Provenance.Name, accepted.Provenance.UID = "accepted", "uid-accepted"
 		rejected := selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"value": int64(1)}})
@@ -133,11 +133,11 @@ func assertValueOperatorTransformationScenarios(t *testing.T) {
 	})
 }
 
-func operatorSource(id string, field v1alpha1.KubeseerField) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{ID: id, Fields: []v1alpha1.KubeseerField{field}}
+func operatorSource(id string, field v1alpha1.FacetField) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{ID: id, Fields: []v1alpha1.FacetField{field}}
 }
 
-func evaluateOperatorSource(t *testing.T, source v1alpha1.KubeseerSource, resources []selection.SelectedResource) (operators.SourceOutcome, typedoutput.SourceOutcome) {
+func evaluateOperatorSource(t *testing.T, source v1alpha1.FacetSource, resources []selection.SelectedResource) (operators.SourceOutcome, typedoutput.SourceOutcome) {
 	t.Helper()
 	extracted := extraction.ExtractBatch(context.Background(), []extraction.SourceInput{{
 		Source:    source,

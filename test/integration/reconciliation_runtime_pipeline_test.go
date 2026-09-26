@@ -23,14 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,26 +43,26 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 	t.Helper()
 	policy := basePolicy()
 	valuesSource := runtimePipelineValuesSource("values-source")
-	deniedSource := v1alpha1.KubeseerSource{
+	deniedSource := v1alpha1.FacetSource{
 		ID:         "denied-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-b"}},
-		Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
+		Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
 	}
-	readSource := v1alpha1.KubeseerSource{
+	readSource := v1alpha1.FacetSource{
 		ID:         "read-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
-		Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
+		Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
 	}
-	emptySource := v1alpha1.KubeseerSource{
+	emptySource := v1alpha1.FacetSource{
 		ID:         "empty-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{}},
-		Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
+		Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
 	}
 	key := types.NamespacedName{Namespace: "team-a", Name: "pipeline-owner"}
-	object := runtimePipelineKubeseer(key, "pipeline-uid", 1, valuesSource, deniedSource, readSource, emptySource)
+	object := runtimePipelineFacet(key, "pipeline-uid", 1, valuesSource, deniedSource, readSource, emptySource)
 
 	t.Run("mixed outcomes preserve order, siblings, and sanitized failures", func(t *testing.T) {
 		reader := newRuntimePipelineReader(object)
@@ -140,12 +140,12 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 	})
 
 	t.Run("all deterministic failures and an empty object remain publishable", func(t *testing.T) {
-		invalidSource := v1alpha1.KubeseerSource{
+		invalidSource := v1alpha1.FacetSource{
 			ID:       "invalid-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Selector: &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("},
 		}
-		allFailedObject := runtimePipelineKubeseer(key, "pipeline-uid-failed", 1, deniedSource, invalidSource)
+		allFailedObject := runtimePipelineFacet(key, "pipeline-uid-failed", 1, deniedSource, invalidSource)
 		reader := newRuntimePipelineReader(allFailedObject)
 		lister := newRuntimePipelineLister()
 		publisher := &runtimePipelinePublisher{}
@@ -169,7 +169,7 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 		}
 
 		emptyKey := types.NamespacedName{Namespace: "team-a", Name: "empty-pipeline"}
-		emptyObject := runtimePipelineKubeseer(emptyKey, "pipeline-uid-empty", 1)
+		emptyObject := runtimePipelineFacet(emptyKey, "pipeline-uid-empty", 1)
 		emptyPolicy := &runtimePipelinePolicySource{err: errors.New("policy unavailable must not block present empty result")}
 		emptyPublisher := &runtimePipelinePublisher{}
 		emptyRuntime := mustRuntimePipelineWithPolicy(t, resolver, newRuntimePipelineReader(emptyObject), newRuntimePipelineLister(), emptyPolicy, &runtimePipelineRoutes{}, emptyPublisher, reconciliation.NewFreshnessTracker())
@@ -197,7 +197,7 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 		}
 		initialListCalls := len(lister.Calls())
 		tracker.InvalidateAll()
-		policySource.SetPolicy(mutatePolicy(policy, func(next *v1alpha1.KubeseerAccessPolicy) {
+		policySource.SetPolicy(mutatePolicy(policy, func(next *v1alpha1.FacetAccessPolicy) {
 			next.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{""}, Kinds: []string{"Node"}}}
 		}))
 		if _, err := runtime.Reconcile(ctx, reconcile.Request{NamespacedName: key}); err != nil {
@@ -225,9 +225,9 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 	t.Run("discovery and read availability are retryable but invalid configuration is not", func(t *testing.T) {
 		discoveryFailure := errors.New("discovery response must stay private")
 		failureResolver := discovery.NewResolver(&selectionDiscoveryFailureClient{delegate: newPolicyDiscoveryClient(), cause: discoveryFailure})
-		discoverySource := v1alpha1.KubeseerSource{ID: "discovery-source", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}}
+		discoverySource := v1alpha1.FacetSource{ID: "discovery-source", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}}
 		discoveryKey := types.NamespacedName{Namespace: "team-a", Name: "discovery-owner"}
-		discoveryObject := runtimePipelineKubeseer(discoveryKey, "discovery-uid", 1, discoverySource)
+		discoveryObject := runtimePipelineFacet(discoveryKey, "discovery-uid", 1, discoverySource)
 		discoveryPublisher := &runtimePipelinePublisher{}
 		discoveryLister := newRuntimePipelineLister()
 		discoveryRuntime := mustRuntimePipeline(t, failureResolver, newRuntimePipelineReader(discoveryObject), discoveryLister, policy, &runtimePipelineRoutes{}, discoveryPublisher, reconciliation.NewFreshnessTracker())
@@ -240,7 +240,7 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 		}
 
 		invalidKey := types.NamespacedName{Namespace: "team-a", Name: "invalid-owner"}
-		invalidObject := runtimePipelineKubeseer(invalidKey, "invalid-uid", 1, v1alpha1.KubeseerSource{ID: "invalid-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Selector: &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("}})
+		invalidObject := runtimePipelineFacet(invalidKey, "invalid-uid", 1, v1alpha1.FacetSource{ID: "invalid-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Selector: &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("}})
 		invalidPublisher := &runtimePipelinePublisher{}
 		invalidLister := newRuntimePipelineLister()
 		invalidRuntime := mustRuntimePipeline(t, resolver, newRuntimePipelineReader(invalidObject), invalidLister, policy, &runtimePipelineRoutes{}, invalidPublisher, reconciliation.NewFreshnessTracker())
@@ -254,7 +254,7 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 		first := runtimePipelineValuesSource("cancel-first")
 		second := runtimePipelineValuesSource("cancel-second")
 		cancelKey := types.NamespacedName{Namespace: "team-a", Name: "cancel-owner"}
-		cancelObject := runtimePipelineKubeseer(cancelKey, "cancel-uid", 1, first, second)
+		cancelObject := runtimePipelineFacet(cancelKey, "cancel-uid", 1, first, second)
 		lister := newRuntimePipelineLister()
 		started := make(chan struct{})
 		var startedOnce sync.Once
@@ -295,10 +295,10 @@ func assertReconciliationRuntimePipelineScenarios(t *testing.T, ctx context.Cont
 	t.Run("same-key work is excluded while another key progresses", func(t *testing.T) {
 		firstKey := types.NamespacedName{Namespace: "team-a", Name: "busy-owner"}
 		secondKey := types.NamespacedName{Namespace: "team-a", Name: "free-owner"}
-		empty := func(id string) v1alpha1.KubeseerSource {
-			return v1alpha1.KubeseerSource{ID: id, Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{}}}
+		empty := func(id string) v1alpha1.FacetSource {
+			return v1alpha1.FacetSource{ID: id, Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{}}}
 		}
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(firstKey, "busy-uid", 1, empty("busy-source")), runtimePipelineKubeseer(secondKey, "free-uid", 1, empty("free-source")))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(firstKey, "busy-uid", 1, empty("busy-source")), runtimePipelineFacet(secondKey, "free-uid", 1, empty("free-source")))
 		publisher := &runtimePipelinePublisher{blockKey: firstKey, blockStarted: make(chan struct{}), blockRelease: make(chan struct{})}
 		runtime := mustRuntimePipeline(t, resolver, reader, newRuntimePipelineLister(), policy, &runtimePipelineRoutes{}, publisher, reconciliation.NewFreshnessTracker())
 		firstDone := make(chan error, 1)
@@ -364,15 +364,15 @@ func assertAdmissionValidationRuntimeScenarios(t *testing.T, ctx context.Context
 	source := runtimePipelineValuesSource("admission-runtime-source")
 	legacyKey := types.NamespacedName{Namespace: "team-a", Name: "admission-runtime-legacy"}
 	admittedKey := types.NamespacedName{Namespace: "team-a", Name: "admission-runtime-admitted"}
-	legacy := runtimePipelineKubeseer(legacyKey, "admission-runtime-legacy-uid", 1, source)
-	admitted := runtimePipelineKubeseer(admittedKey, "admission-runtime-admitted-uid", 1, source)
+	legacy := runtimePipelineFacet(legacyKey, "admission-runtime-legacy-uid", 1, source)
+	admitted := runtimePipelineFacet(admittedKey, "admission-runtime-admitted-uid", 1, source)
 
 	discoveryClient := newPolicyDiscoveryClient()
 	admissionResolver := discovery.NewResolver(discoveryClient)
 	runtimeResolver := discovery.NewResolver(discoveryClient)
 	policySource := &authorizationPipelinePolicySource{policy: policy}
 	validator := admission.NewValidator(admissionResolver, policySource)
-	if result := validator.ValidateKubeseer(ctx, admitted); !result.Valid() {
+	if result := validator.ValidateFacet(ctx, admitted); !result.Valid() {
 		t.Fatalf("admission accepted fixture with issues: %#v", result.IssuesCopy())
 	}
 	if policySource.Calls() != 1 {
@@ -430,7 +430,7 @@ func assertAdmissionValidationRuntimeScenarios(t *testing.T, ctx context.Context
 	}
 
 	tracker.InvalidateAll()
-	policySource.SetPolicy(mutatePolicy(policy, func(next *v1alpha1.KubeseerAccessPolicy) {
+	policySource.SetPolicy(mutatePolicy(policy, func(next *v1alpha1.FacetAccessPolicy) {
 		next.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{""}, Kinds: []string{"Node"}}}
 	}))
 	listCallsBeforeNarrowing := len(lister.Calls())
@@ -448,7 +448,7 @@ func assertAdmissionValidationRuntimeScenarios(t *testing.T, ctx context.Context
 	}
 
 	tracker.InvalidateAll()
-	policySource.SetError(apierrors.NewNotFound(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseeraccesspolicies"}, v1alpha1.InstallationAccessCeilingName))
+	policySource.SetError(apierrors.NewNotFound(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facetaccesspolicies"}, v1alpha1.InstallationAccessCeilingName))
 	listCallsBeforeDeletion := len(lister.Calls())
 	for _, key := range []types.NamespacedName{legacyKey, admittedKey} {
 		if _, err := runtime.Reconcile(ctx, reconcile.Request{NamespacedName: key}); err != nil {
@@ -485,20 +485,20 @@ func latestRuntimePipelinePublication(publications []runtimePipelinePublication,
 	return runtimePipelinePublication{}, false
 }
 
-func runtimePipelineValuesSource(id string) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{
+func runtimePipelineValuesSource(id string) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{
 		ID:         id,
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "bad-number", Path: "{.data.bad}", Type: v1alpha1.ValueTypeInteger},
 			{Name: "good", Path: "{.data.good}", Type: v1alpha1.ValueTypeString},
 		},
 	}
 }
 
-func runtimePipelineKubeseer(key types.NamespacedName, uid types.UID, generation int64, sources ...v1alpha1.KubeseerSource) *v1alpha1.Kubeseer {
-	return &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: uid, Generation: generation}, Spec: v1alpha1.KubeseerSpec{Sources: append([]v1alpha1.KubeseerSource(nil), sources...)}}
+func runtimePipelineFacet(key types.NamespacedName, uid types.UID, generation int64, sources ...v1alpha1.FacetSource) *v1alpha1.Facet {
+	return &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: uid, Generation: generation}, Spec: v1alpha1.FacetSpec{Sources: append([]v1alpha1.FacetSource(nil), sources...)}}
 }
 
 func runtimePipelineResource(name string, uid types.UID, good, bad string) *unstructured.Unstructured {
@@ -514,7 +514,7 @@ func runtimePipelineResource(name string, uid types.UID, good, bad string) *unst
 	}}
 }
 
-func mustRuntimePipeline(t *testing.T, resolver *discovery.Resolver, reader *runtimePipelineReader, lister *runtimePipelineLister, policy *v1alpha1.KubeseerAccessPolicy, routes *runtimePipelineRoutes, publisher *runtimePipelinePublisher, tracker *reconciliation.FreshnessTracker) *reconciliation.Runtime {
+func mustRuntimePipeline(t *testing.T, resolver *discovery.Resolver, reader *runtimePipelineReader, lister *runtimePipelineLister, policy *v1alpha1.FacetAccessPolicy, routes *runtimePipelineRoutes, publisher *runtimePipelinePublisher, tracker *reconciliation.FreshnessTracker) *reconciliation.Runtime {
 	t.Helper()
 	return mustRuntimePipelineWithPolicy(t, resolver, reader, lister, &runtimePipelinePolicySource{policy: policy}, routes, publisher, tracker)
 }
@@ -542,29 +542,29 @@ func mustRuntimePipelineWithPolicy(t *testing.T, resolver *discovery.Resolver, r
 
 type runtimePipelineReader struct {
 	mu      sync.Mutex
-	objects map[types.NamespacedName]*v1alpha1.Kubeseer
+	objects map[types.NamespacedName]*v1alpha1.Facet
 }
 
-func newRuntimePipelineReader(objects ...*v1alpha1.Kubeseer) *runtimePipelineReader {
-	reader := &runtimePipelineReader{objects: make(map[types.NamespacedName]*v1alpha1.Kubeseer)}
+func newRuntimePipelineReader(objects ...*v1alpha1.Facet) *runtimePipelineReader {
+	reader := &runtimePipelineReader{objects: make(map[types.NamespacedName]*v1alpha1.Facet)}
 	for _, object := range objects {
 		reader.objects[types.NamespacedName{Namespace: object.Namespace, Name: object.Name}] = object.DeepCopy()
 	}
 	return reader
 }
 
-func (r *runtimePipelineReader) Get(_ context.Context, key types.NamespacedName, object *v1alpha1.Kubeseer) error {
+func (r *runtimePipelineReader) Get(_ context.Context, key types.NamespacedName, object *v1alpha1.Facet) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	current := r.objects[key]
 	if current == nil {
-		return apierrors.NewNotFound(schemaGroupResourceKubeseer(), key.Name)
+		return apierrors.NewNotFound(schemaGroupResourceFacet(), key.Name)
 	}
 	*object = *current.DeepCopy()
 	return nil
 }
 
-func (r *runtimePipelineReader) List(_ context.Context, list *v1alpha1.KubeseerList) error {
+func (r *runtimePipelineReader) List(_ context.Context, list *v1alpha1.FacetList) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	list.Items = list.Items[:0]
@@ -574,18 +574,18 @@ func (r *runtimePipelineReader) List(_ context.Context, list *v1alpha1.KubeseerL
 	return nil
 }
 
-func schemaGroupResourceKubeseer() schema.GroupResource {
-	return schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseers"}
+func schemaGroupResourceFacet() schema.GroupResource {
+	return schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facets"}
 }
 
 type runtimePipelinePolicySource struct {
 	mu     sync.Mutex
-	policy *v1alpha1.KubeseerAccessPolicy
+	policy *v1alpha1.FacetAccessPolicy
 	err    error
 	calls  int
 }
 
-func (s *runtimePipelinePolicySource) Get(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+func (s *runtimePipelinePolicySource) Get(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls++
@@ -604,7 +604,7 @@ func (s *runtimePipelinePolicySource) Calls() int {
 	return s.calls
 }
 
-func (s *runtimePipelinePolicySource) SetPolicy(policy *v1alpha1.KubeseerAccessPolicy) {
+func (s *runtimePipelinePolicySource) SetPolicy(policy *v1alpha1.FacetAccessPolicy) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.policy = policy.DeepCopy()
@@ -725,7 +725,7 @@ func (r *runtimePipelineRoutes) LastRouteCount() int {
 type runtimePipelinePublication struct {
 	Lease      reconciliation.Lease
 	Evaluation statuscontract.Evaluation
-	Result     v1alpha1.KubeseerResult
+	Result     v1alpha1.FacetResult
 }
 
 type runtimePipelinePublisher struct {

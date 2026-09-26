@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/steeltanuki/kubeseer/api/v1alpha1"
-	accesspolicy "github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	harness "github.com/steeltanuki/kubeseer/test/envtest"
+	. "github.com/steeltanuki/kubefacet/api/v1alpha1"
+	accesspolicy "github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	harness "github.com/steeltanuki/kubefacet/test/envtest"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,20 +43,20 @@ import (
 )
 
 const (
-	kubeseerResource     = "kubeseers"
-	kubeseerCRDName      = "kubeseers.kubeseer.io"
-	accessPolicyResource = "kubeseeraccesspolicies"
-	accessPolicyCRDName  = "kubeseeraccesspolicies.kubeseer.io"
-	unservedAPIVersion   = "kubeseer.io/v1beta1"
+	facetResource        = "facets"
+	facetCRDName         = "facets.kubefacet.steeltanuki.it"
+	accessPolicyResource = "facetaccesspolicies"
+	accessPolicyCRDName  = "facetaccesspolicies.kubefacet.steeltanuki.it"
+	unservedAPIVersion   = "kubefacet.steeltanuki.it/v1beta1"
 	apiRequestTimeout    = 30 * time.Second
 	crdInstallMaxWait    = 20 * time.Second
 	crdInstallPollDelay  = 100 * time.Millisecond
 )
 
-var kubeseerResourceGVR = schema.GroupVersionResource{
+var facetResourceGVR = schema.GroupVersionResource{
 	Group:    GroupVersion.Group,
 	Version:  GroupVersion.Version,
-	Resource: kubeseerResource,
+	Resource: facetResource,
 }
 
 var accessPolicyResourceGVR = schema.GroupVersionResource{
@@ -92,16 +92,16 @@ func TestAPIContract(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), apiRequestTimeout)
 	defer cancel()
 
-	assertCRDEstablished(t, ctx, clients.APIExtensions, kubeseerCRDName)
+	assertCRDEstablished(t, ctx, clients.APIExtensions, facetCRDName)
 	assertCRDEstablished(t, ctx, clients.APIExtensions, accessPolicyCRDName)
 	assertInstalledCRDContract(t, ctx, clients.APIExtensions)
 	assertInstalledAccessPolicyCRDContract(t, ctx, clients.APIExtensions)
-	assertResourceRegistered(t, clients.Discovery, kubeseerResource, true)
+	assertResourceRegistered(t, clients.Discovery, facetResource, true)
 	assertResourceRegistered(t, clients.Discovery, accessPolicyResource, false)
 	namespace := environment.Scope().Namespace
-	resources := clients.Dynamic.Resource(kubeseerResourceGVR).Namespace(namespace)
+	resources := clients.Dynamic.Resource(facetResourceGVR).Namespace(namespace)
 	accessPolicies := clients.Dynamic.Resource(accessPolicyResourceGVR)
-	environment.AddCleanup("delete Kubeseer API contract fixtures", func(ctx context.Context) error {
+	environment.AddCleanup("delete Facet API contract fixtures", func(ctx context.Context) error {
 		for _, name := range []string{"minimal", "valid-source", "negative-generation", "status-isolation", "typed-persistence", "untyped-field-compatible", "invalid-field-type", "typed-result-persistence", "native-scalar-persistence", "operator-persistence", "operator-empty", "invalid-operator-name", "duplicate-source-ids", "missing-resource", "invalid-namespace", "duplicate-namespaces", "missing-field-name", "missing-field-path", "invalid-field-name", "overlong-field-path", "duplicate-field-names", "aggregation-persistence", "aggregation-empty", "invalid-aggregation-function", "invalid-aggregation-rounding", "invalid-aggregation-precision"} {
 			err := resources.Delete(ctx, name, metav1.DeleteOptions{})
 			if err != nil && !apierrors.IsNotFound(err) {
@@ -110,7 +110,7 @@ func TestAPIContract(t *testing.T) {
 		}
 		return nil
 	})
-	environment.AddCleanup("delete KubeseerAccessPolicy API contract fixture", func(ctx context.Context) error {
+	environment.AddCleanup("delete FacetAccessPolicy API contract fixture", func(ctx context.Context) error {
 		err := accessPolicies.Delete(ctx, InstallationAccessCeilingName, metav1.DeleteOptions{})
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
@@ -140,11 +140,11 @@ func TestAPIContract(t *testing.T) {
 	assertAccessPolicyClientSource(t, ctx, environment.Config())
 
 	t.Logf("API contract passed with Kubernetes assets %s", environment.AssetsDirectory())
-	t.Log("API_CONTRACT=kubeseer-v1alpha1 STATUS=passed")
+	t.Log("API_CONTRACT=facet-v1alpha1 STATUS=passed")
 	t.Log("API_CONTRACT=field-extraction-types STATUS=passed")
 	t.Log("API_CONTRACT=resource-selection-types STATUS=passed")
-	t.Log("API_CONTRACT=kubeseer-access-policy STATUS=passed")
-	t.Log("API_CONTRACT=kubeseer-access-policy-admission STATUS=passed")
+	t.Log("API_CONTRACT=facet-access-policy STATUS=passed")
+	t.Log("API_CONTRACT=facet-access-policy-admission STATUS=passed")
 	t.Log("API_CONTRACT=typed-output-model-types STATUS=passed")
 	t.Log("API_CONTRACT=value-operators-types STATUS=passed")
 	t.Log("API_CONTRACT=status-and-conditions-api STATUS=passed")
@@ -159,9 +159,9 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 
 	typeScheme := runtime.NewScheme()
 	if err := AddToScheme(typeScheme); err != nil {
-		t.Fatalf("register Kubeseer typed scheme: %v", err)
+		t.Fatalf("register Facet typed scheme: %v", err)
 	}
-	for _, object := range []runtime.Object{&Kubeseer{}, &KubeseerList{}} {
+	for _, object := range []runtime.Object{&Facet{}, &FacetList{}} {
 		gvks, _, err := typeScheme.ObjectKinds(object)
 		if err != nil {
 			t.Fatalf("resolve typed GVK for %T: %v", object, err)
@@ -170,18 +170,18 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 			t.Fatalf("unexpected typed GVK for %T: %v", object, gvks)
 		}
 	}
-	if object, err := typeScheme.New(GroupVersion.WithKind("Kubeseer")); err != nil || object == nil {
-		t.Fatalf("construct Kubeseer from the registered scheme: object=%T err=%v", object, err)
+	if object, err := typeScheme.New(GroupVersion.WithKind("Facet")); err != nil || object == nil {
+		t.Fatalf("construct Facet from the registered scheme: object=%T err=%v", object, err)
 	}
 
-	original := &Kubeseer{
-		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "Kubeseer"},
+	original := &Facet{
+		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "Facet"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "typed-persistence",
 			Namespace: namespace,
 			Labels:    map[string]string{"contract": "typed"},
 		},
-		Spec: KubeseerSpec{Sources: []KubeseerSource{{
+		Spec: FacetSpec{Sources: []FacetSource{{
 			ID:         "typed-source",
 			Resource:   ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &NamespaceSelection{Names: []string{"team-a"}},
@@ -195,15 +195,15 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 				}},
 				FieldSelector: "metadata.namespace=team-a",
 			},
-			Fields: []KubeseerField{
-				{Name: "resourceName", Path: "{.metadata.name}", Type: ValueTypeString, Operators: []KubeseerOperator{
-					{Operator: OperatorStartsWith, Value: &KubeseerOperatorOperand{State: MatchStateValue, StringValue: &operatorPrefix}},
-					{Operator: OperatorIn, Values: []KubeseerOperatorOperand{{State: MatchStateValue, StringValue: &operatorMember}}},
+			Fields: []FacetField{
+				{Name: "resourceName", Path: "{.metadata.name}", Type: ValueTypeString, Operators: []FacetOperator{
+					{Operator: OperatorStartsWith, Value: &FacetOperatorOperand{State: MatchStateValue, StringValue: &operatorPrefix}},
+					{Operator: OperatorIn, Values: []FacetOperatorOperand{{State: MatchStateValue, StringValue: &operatorMember}}},
 				}},
 				{Name: "display-key", Path: "{.data['display-name']}", Type: ValueTypeString},
 			},
 		}}},
-		Status: KubeseerStatus{
+		Status: FacetStatus{
 			ObservedGeneration: 7,
 			Conditions: []metav1.Condition{{
 				Type:               "Ready",
@@ -213,23 +213,23 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 				Reason:             "Available",
 				Message:            "API contract is available",
 			}},
-			Summary: &KubeseerSummary{
+			Summary: &FacetSummary{
 				SuccessfulSources: 2,
 				FailedSources:     1,
 				MatchedResources:  3,
 			},
 			ResultHash: "sha256:" + strings.Repeat("a", 64),
-			Result:     &KubeseerResult{},
+			Result:     &FacetResult{},
 		},
 	}
 
 	encoded, err := json.Marshal(original)
 	if err != nil {
-		t.Fatalf("serialize typed Kubeseer: %v", err)
+		t.Fatalf("serialize typed Facet: %v", err)
 	}
-	var decoded Kubeseer
+	var decoded Facet
 	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("deserialize typed Kubeseer: %v", err)
+		t.Fatalf("deserialize typed Facet: %v", err)
 	}
 	if decoded.TypeMeta != original.TypeMeta || decoded.Name != original.Name || decoded.Namespace != original.Namespace || !reflect.DeepEqual(original.Labels, decoded.Labels) || !reflect.DeepEqual(original.Spec, decoded.Spec) {
 		t.Fatalf("typed JSON round-trip changed identity, metadata, or spec: original=%#v decoded=%#v", original, decoded)
@@ -244,24 +244,24 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 		t.Fatalf("typed JSON round-trip changed source fields: original=%#v decoded=%#v", original.Spec.Sources[0].Fields, decoded.Spec.Sources[0].Fields)
 	}
 
-	emptyNamespaces := &Kubeseer{Spec: KubeseerSpec{Sources: []KubeseerSource{{ID: "empty-namespaces", Resource: ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &NamespaceSelection{Names: []string{}}}}}}
+	emptyNamespaces := &Facet{Spec: FacetSpec{Sources: []FacetSource{{ID: "empty-namespaces", Resource: ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &NamespaceSelection{Names: []string{}}}}}}
 	emptyJSON, err := json.Marshal(emptyNamespaces)
 	if err != nil {
 		t.Fatalf("serialize explicit empty namespaces: %v", err)
 	}
-	var decodedEmpty Kubeseer
+	var decodedEmpty Facet
 	if err := json.Unmarshal(emptyJSON, &decodedEmpty); err != nil {
 		t.Fatalf("deserialize explicit empty namespaces: %v", err)
 	}
 	if decodedEmpty.Spec.Sources[0].Namespaces == nil || decodedEmpty.Spec.Sources[0].Namespaces.Names == nil || len(decodedEmpty.Spec.Sources[0].Namespaces.Names) != 0 {
 		t.Fatalf("explicit empty namespaces lost pointer/list semantics: %#v", decodedEmpty.Spec.Sources[0])
 	}
-	omittedNamespaces := &Kubeseer{Spec: KubeseerSpec{Sources: []KubeseerSource{{ID: "omitted-namespaces", Resource: ResourceReference{APIVersion: "v1", Kind: "Pod"}}}}}
+	omittedNamespaces := &Facet{Spec: FacetSpec{Sources: []FacetSource{{ID: "omitted-namespaces", Resource: ResourceReference{APIVersion: "v1", Kind: "Pod"}}}}}
 	omittedJSON, err := json.Marshal(omittedNamespaces)
 	if err != nil {
 		t.Fatalf("serialize omitted namespaces: %v", err)
 	}
-	var decodedOmitted Kubeseer
+	var decodedOmitted Facet
 	if err := json.Unmarshal(omittedJSON, &decodedOmitted); err != nil {
 		t.Fatalf("deserialize omitted namespaces: %v", err)
 	}
@@ -275,10 +275,10 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 		}
 	}
 
-	withoutSources := &Kubeseer{TypeMeta: original.TypeMeta, Spec: KubeseerSpec{}}
+	withoutSources := &Facet{TypeMeta: original.TypeMeta, Spec: FacetSpec{}}
 	withoutSourcesJSON, err := json.Marshal(withoutSources)
 	if err != nil {
-		t.Fatalf("serialize typed Kubeseer without sources: %v", err)
+		t.Fatalf("serialize typed Facet without sources: %v", err)
 	}
 	var serializedFields map[string]json.RawMessage
 	if err := json.Unmarshal(withoutSourcesJSON, &serializedFields); err != nil {
@@ -292,7 +292,7 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 		t.Fatalf("typed empty sources field was synthesized: %s", withoutSourcesJSON)
 	}
 
-	apiObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Kubeseer{
+	apiObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Facet{
 		TypeMeta: original.TypeMeta,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      original.Name,
@@ -302,17 +302,17 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 		Spec: original.Spec,
 	})
 	if err != nil {
-		t.Fatalf("convert typed Kubeseer for API persistence: %v", err)
+		t.Fatalf("convert typed Facet for API persistence: %v", err)
 	}
 	apiObject["apiVersion"] = GroupVersion.String()
-	apiObject["kind"] = "Kubeseer"
+	apiObject["kind"] = "Facet"
 	created, err := resources.Create(ctx, &unstructured.Unstructured{Object: apiObject}, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("persist typed Kubeseer through the API server: %v", err)
+		t.Fatalf("persist typed Facet through the API server: %v", err)
 	}
-	var persisted Kubeseer
+	var persisted Facet
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &persisted); err != nil {
-		t.Fatalf("decode persisted Kubeseer into typed object: %v", err)
+		t.Fatalf("decode persisted Facet into typed object: %v", err)
 	}
 	if persisted.Name != original.Name || persisted.Namespace != namespace || !reflect.DeepEqual(persisted.Spec, original.Spec) {
 		t.Fatalf("typed API persistence changed identity or spec: original=%#v persisted=%#v", original, persisted)
@@ -349,7 +349,7 @@ func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dyn
 func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	untyped := newKubeseer("untyped-field-compatible", namespace, map[string]interface{}{
+	untyped := newFacet("untyped-field-compatible", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "untyped-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -383,7 +383,7 @@ func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources 
 		t.Fatalf("omitted field type received an API default: %#v", field)
 	}
 
-	invalid := newKubeseer("invalid-field-type", namespace, map[string]interface{}{
+	invalid := newFacet("invalid-field-type", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "invalid-type-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -402,7 +402,7 @@ func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources 
 	if err != nil {
 		t.Fatalf("serialize typed result as JSON: %v", err)
 	}
-	var decodedJSON KubeseerResult
+	var decodedJSON FacetResult
 	if err := json.Unmarshal(encodedJSON, &decodedJSON); err != nil {
 		t.Fatalf("deserialize typed result JSON: %v", err)
 	}
@@ -414,7 +414,7 @@ func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources 
 	if err != nil {
 		t.Fatalf("serialize typed result as YAML: %v", err)
 	}
-	var decodedYAML KubeseerResult
+	var decodedYAML FacetResult
 	if err := yaml.Unmarshal(encodedYAML, &decodedYAML); err != nil {
 		t.Fatalf("deserialize typed result YAML: %v", err)
 	}
@@ -439,7 +439,7 @@ func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources 
 
 	assertTypedResultStatusPersistence(t, ctx, resources, namespace, result)
 
-	empty := newKubeseer("typed-empty-result", namespace, map[string]interface{}{})
+	empty := newFacet("typed-empty-result", namespace, map[string]interface{}{})
 	emptyCreated, err := resources.Create(ctx, empty, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("create empty typed-result fixture: %v", err)
@@ -461,7 +461,7 @@ func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources 
 func assertValueOperatorsAPIScenarios(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	operatorResource := newKubeseer("operator-persistence", namespace, map[string]interface{}{
+	operatorResource := newFacet("operator-persistence", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "operator-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -533,7 +533,7 @@ func assertValueOperatorsAPIScenarios(t *testing.T, ctx context.Context, resourc
 		t.Fatalf("second persisted operator operand changed: %#v", secondValues[0])
 	}
 
-	empty := newKubeseer("operator-empty", namespace, map[string]interface{}{
+	empty := newFacet("operator-empty", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "empty-operator-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -562,7 +562,7 @@ func assertValueOperatorsAPIScenarios(t *testing.T, ctx context.Context, resourc
 		}
 	}
 
-	invalid := newKubeseer("invalid-operator-name", namespace, map[string]interface{}{
+	invalid := newFacet("invalid-operator-name", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "invalid-operator-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -583,7 +583,7 @@ func assertValueOperatorsAPIScenarios(t *testing.T, ctx context.Context, resourc
 func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	aggregationResource := newKubeseer("aggregation-persistence", namespace, map[string]interface{}{
+	aggregationResource := newFacet("aggregation-persistence", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "aggregation-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -652,7 +652,7 @@ func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Conte
 		t.Fatalf("omitted precision received an API default: %#v", byName["count-replicas"])
 	}
 
-	empty := newKubeseer("aggregation-empty", namespace, map[string]interface{}{
+	empty := newFacet("aggregation-empty", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":           "empty-aggregation-source",
 			"resource":     map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -675,7 +675,7 @@ func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Conte
 		}
 	}
 
-	invalidFunction := newKubeseer("invalid-aggregation-function", namespace, map[string]interface{}{
+	invalidFunction := newFacet("invalid-aggregation-function", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "invalid-aggregation-function-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -687,7 +687,7 @@ func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Conte
 	assertInvalidCreate(t, ctx, resources, invalidFunction, "unsupported aggregation function")
 	assertNotPersisted(t, ctx, resources, invalidFunction.GetName())
 
-	invalidRounding := newKubeseer("invalid-aggregation-rounding", namespace, map[string]interface{}{
+	invalidRounding := newFacet("invalid-aggregation-rounding", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "invalid-aggregation-rounding-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -699,7 +699,7 @@ func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Conte
 	assertInvalidCreate(t, ctx, resources, invalidRounding, "unsupported aggregation rounding mode")
 	assertNotPersisted(t, ctx, resources, invalidRounding.GetName())
 
-	invalidPrecision := newKubeseer("invalid-aggregation-precision", namespace, map[string]interface{}{
+	invalidPrecision := newFacet("invalid-aggregation-precision", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "invalid-aggregation-precision-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -712,10 +712,10 @@ func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Conte
 	assertNotPersisted(t, ctx, resources, invalidPrecision.GetName())
 }
 
-func typedResultSemanticallyEqual(left, right KubeseerResult) bool {
+func typedResultSemanticallyEqual(left, right FacetResult) bool {
 	leftCopy := *left.DeepCopy()
 	rightCopy := *right.DeepCopy()
-	for _, result := range []*KubeseerResult{&leftCopy, &rightCopy} {
+	for _, result := range []*FacetResult{&leftCopy, &rightCopy} {
 		for sourceIndex := range result.Sources {
 			for resourceIndex := range result.Sources[sourceIndex].Resources {
 				for fieldIndex := range result.Sources[sourceIndex].Resources[resourceIndex].Fields {
@@ -732,7 +732,7 @@ func typedResultSemanticallyEqual(left, right KubeseerResult) bool {
 	return reflect.DeepEqual(leftCopy, rightCopy)
 }
 
-func typedResultFixture() KubeseerResult {
+func typedResultFixture() FacetResult {
 	emptyString := ""
 	zero := int64(0)
 	falseValue := false
@@ -741,34 +741,34 @@ func typedResultFixture() KubeseerResult {
 	object := `{"name":"demo"}`
 	list := `["first",2]`
 
-	return KubeseerResult{
-		Sources: []KubeseerSourceResult{
+	return FacetResult{
+		Sources: []FacetSourceResult{
 			{
 				ID:    "typed-source",
 				State: SourceStateValues,
-				FieldErrors: []KubeseerFieldError{{
+				FieldErrors: []FacetFieldError{{
 					Name:   "planning",
 					Reason: "MissingType",
 				}},
-				Resources: []KubeseerResourceResult{{
+				Resources: []FacetResourceResult{{
 					APIVersion: "v1",
 					Kind:       "Pod",
 					Namespace:  "team-a",
 					Name:       "demo",
 					UID:        types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout001"),
-					Fields: []KubeseerFieldResult{
+					Fields: []FacetFieldResult{
 						{Name: "absent", Type: ValueTypeString, State: FieldStateAbsent},
-						{Name: "empty-string", Type: ValueTypeString, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, StringValue: &emptyString}}},
-						{Name: "zero", Type: ValueTypeInteger, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, IntegerValue: &zero}}},
-						{Name: "false", Type: ValueTypeBoolean, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, BooleanValue: &falseValue}}},
-						{Name: "null", Type: ValueTypeObject, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateNull}}},
-						{Name: "number", Type: ValueTypeNumber, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, NumberValue: &number}}},
-						{Name: "timestamp", Type: ValueTypeTimestamp, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, TimestampValue: &timestamp}}},
-						{Name: "quantity", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, QuantityValue: &KubeseerQuantityValue{Canonical: "1.5", BaseUnits: "1.5"}}}},
-						{Name: "error", Type: ValueTypeNumber, State: FieldStateError, Error: &KubeseerResultError{Reason: "InvalidValue", Message: "invalid number"}},
-						{Name: "duration", Type: ValueTypeDuration, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, DurationValue: &KubeseerDurationValue{Canonical: "1.5s", Nanoseconds: 1500000000}}}},
-						{Name: "object", Type: ValueTypeObject, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, ObjectValue: &object}}},
-						{Name: "list", Type: ValueTypeList, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, ListValue: &list}}},
+						{Name: "empty-string", Type: ValueTypeString, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, StringValue: &emptyString}}},
+						{Name: "zero", Type: ValueTypeInteger, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, IntegerValue: &zero}}},
+						{Name: "false", Type: ValueTypeBoolean, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, BooleanValue: &falseValue}}},
+						{Name: "null", Type: ValueTypeObject, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateNull}}},
+						{Name: "number", Type: ValueTypeNumber, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, NumberValue: &number}}},
+						{Name: "timestamp", Type: ValueTypeTimestamp, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, TimestampValue: &timestamp}}},
+						{Name: "quantity", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, QuantityValue: &FacetQuantityValue{Canonical: "1.5", BaseUnits: "1.5"}}}},
+						{Name: "error", Type: ValueTypeNumber, State: FieldStateError, Error: &FacetResultError{Reason: "InvalidValue", Message: "invalid number"}},
+						{Name: "duration", Type: ValueTypeDuration, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, DurationValue: &FacetDurationValue{Canonical: "1.5s", Nanoseconds: 1500000000}}}},
+						{Name: "object", Type: ValueTypeObject, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, ObjectValue: &object}}},
+						{Name: "list", Type: ValueTypeList, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, ListValue: &list}}},
 					},
 				},
 					{
@@ -777,55 +777,55 @@ func typedResultFixture() KubeseerResult {
 						Namespace:  "team-a",
 						Name:       "failed",
 						UID:        types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout002"),
-						Error:      &KubeseerResultError{Reason: "OperatorFailed", Message: "operator evaluation failed"},
+						Error:      &FacetResultError{Reason: "OperatorFailed", Message: "operator evaluation failed"},
 					},
 				},
-				Aggregates: []KubeseerAggregateResult{{
+				Aggregates: []FacetAggregateResult{{
 					Name:     "replica-average",
 					Function: AggregationAverage,
 					Field:    "replicas",
 					State:    AggregateStateDegraded,
-					Groups: []KubeseerAggregateGroup{{
-						Keys: []KubeseerAggregateKey{{
+					Groups: []FacetAggregateGroup{{
+						Keys: []FacetAggregateKey{{
 							Field: "team",
 							Type:  ValueTypeString,
-							Value: KubeseerTypedMatch{State: MatchStateValue, StringValue: &emptyString},
+							Value: FacetTypedMatch{State: MatchStateValue, StringValue: &emptyString},
 						}},
-						Value: KubeseerAggregateValue{
+						Value: FacetAggregateValue{
 							Type:  ValueTypeNumber,
 							State: AggregateValueValues,
-							Matches: []KubeseerAggregateMatch{{
-								Value: KubeseerTypedMatch{State: MatchStateValue, NumberValue: &number},
-								Contributors: []KubeseerResourceProvenance{{
+							Matches: []FacetAggregateMatch{{
+								Value: FacetTypedMatch{State: MatchStateValue, NumberValue: &number},
+								Contributors: []FacetResourceProvenance{{
 									APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "demo", UID: types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout001"),
 								}},
 							}},
 						},
 					}},
-					Failures: []KubeseerAggregateResourceFailure{{
-						Provenance: KubeseerResourceProvenance{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "failed", UID: types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout002")},
-						Error:      KubeseerResultError{Reason: "target-field-error", Message: "field evaluation failed"},
+					Failures: []FacetAggregateResourceFailure{{
+						Provenance: FacetResourceProvenance{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "failed", UID: types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout002")},
+						Error:      FacetResultError{Reason: "target-field-error", Message: "field evaluation failed"},
 					}},
 				}},
 			},
 			{
 				ID:    "failed-source",
 				State: SourceStateError,
-				Error: &KubeseerResultError{Reason: "ReadUnavailable", Message: "source unavailable"},
+				Error: &FacetResultError{Reason: "ReadUnavailable", Message: "source unavailable"},
 			},
 		},
 	}
 }
 
-func assertTypedResultStatusPersistence(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string, result KubeseerResult) {
+func assertTypedResultStatusPersistence(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string, result FacetResult) {
 	t.Helper()
 
-	object := newKubeseer("typed-result-persistence", namespace, map[string]interface{}{})
+	object := newFacet("typed-result-persistence", namespace, map[string]interface{}{})
 	created, err := resources.Create(ctx, object, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("create typed result persistence fixture: %v", err)
 	}
-	statusObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Kubeseer{Status: KubeseerStatus{Result: &result}})
+	statusObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Facet{Status: FacetStatus{Result: &result}})
 	if err != nil {
 		t.Fatalf("convert typed result status for API persistence: %v", err)
 	}
@@ -842,7 +842,7 @@ func assertTypedResultStatusPersistence(t *testing.T, ctx context.Context, resou
 	if err != nil {
 		t.Fatalf("get typed result status fixture: %v", err)
 	}
-	var decoded Kubeseer
+	var decoded Facet
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(stored.Object, &decoded); err != nil {
 		t.Fatalf("decode persisted typed result: %v", err)
 	}
@@ -854,38 +854,38 @@ func assertTypedResultStatusPersistence(t *testing.T, ctx context.Context, resou
 func assertNativeScalarPersistence(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	quantityNano := KubeseerQuantityValue{Canonical: "100n", BaseUnits: "0.0000001"}
-	quantityMicro := KubeseerQuantityValue{Canonical: "100u", BaseUnits: "0.0001"}
-	durationZero := KubeseerDurationValue{Canonical: "0s", Nanoseconds: 0}
-	durationMicro := KubeseerDurationValue{Canonical: "1µs", Nanoseconds: 1000}
-	result := KubeseerResult{
-		Sources: []KubeseerSourceResult{{
+	quantityNano := FacetQuantityValue{Canonical: "100n", BaseUnits: "0.0000001"}
+	quantityMicro := FacetQuantityValue{Canonical: "100u", BaseUnits: "0.0001"}
+	durationZero := FacetDurationValue{Canonical: "0s", Nanoseconds: 0}
+	durationMicro := FacetDurationValue{Canonical: "1µs", Nanoseconds: 1000}
+	result := FacetResult{
+		Sources: []FacetSourceResult{{
 			ID:    "native-scalar-persisted-source",
 			State: SourceStateValues,
-			Resources: []KubeseerResourceResult{{
+			Resources: []FacetResourceResult{{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
 				Namespace:  namespace,
 				Name:       "native-scalar-persisted-resource",
 				UID:        types.UID("native-scalar-persisted-uid"),
-				Fields: []KubeseerFieldResult{
-					{Name: "duration-micro", Type: ValueTypeDuration, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, DurationValue: &durationMicro}}},
-					{Name: "duration-zero", Type: ValueTypeDuration, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, DurationValue: &durationZero}}},
+				Fields: []FacetFieldResult{
+					{Name: "duration-micro", Type: ValueTypeDuration, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, DurationValue: &durationMicro}}},
+					{Name: "duration-zero", Type: ValueTypeDuration, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, DurationValue: &durationZero}}},
 					{Name: "absent-duration", Type: ValueTypeDuration, State: FieldStateAbsent},
-					{Name: "null-quantity", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateNull}}},
-					{Name: "quantity-micro", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, QuantityValue: &quantityMicro}}},
-					{Name: "quantity-nano", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []KubeseerTypedMatch{{State: MatchStateValue, QuantityValue: &quantityNano}}},
+					{Name: "null-quantity", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateNull}}},
+					{Name: "quantity-micro", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, QuantityValue: &quantityMicro}}},
+					{Name: "quantity-nano", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, QuantityValue: &quantityNano}}},
 				},
 			}},
 		}},
 	}
 
-	object := newKubeseer("native-scalar-persistence", namespace, map[string]interface{}{})
+	object := newFacet("native-scalar-persistence", namespace, map[string]interface{}{})
 	created, err := resources.Create(ctx, object, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("create native scalar persistence fixture: %v", err)
 	}
-	statusObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Kubeseer{Status: KubeseerStatus{Result: &result}})
+	statusObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Facet{Status: FacetStatus{Result: &result}})
 	if err != nil {
 		t.Fatalf("convert native scalar result for API persistence: %v", err)
 	}
@@ -902,7 +902,7 @@ func assertNativeScalarPersistence(t *testing.T, ctx context.Context, resources 
 	if err != nil {
 		t.Fatalf("get native scalar persistence fixture: %v", err)
 	}
-	var decoded Kubeseer
+	var decoded Facet
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(stored.Object, &decoded); err != nil {
 		t.Fatalf("decode persisted native scalar result: %v", err)
 	}
@@ -912,7 +912,7 @@ func assertNativeScalarPersistence(t *testing.T, ctx context.Context, resources 
 	if len(decoded.Status.Result.Sources) != 1 || len(decoded.Status.Result.Sources[0].Resources) != 1 {
 		t.Fatalf("decoded native scalar result envelope = %#v", decoded.Status.Result)
 	}
-	fields := make(map[string]KubeseerFieldResult, len(decoded.Status.Result.Sources[0].Resources[0].Fields))
+	fields := make(map[string]FacetFieldResult, len(decoded.Status.Result.Sources[0].Resources[0].Fields))
 	for _, field := range decoded.Status.Result.Sources[0].Resources[0].Fields {
 		fields[field.Name] = field
 	}
@@ -944,9 +944,9 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 
 	scheme := runtime.NewScheme()
 	if err := AddToScheme(scheme); err != nil {
-		t.Fatalf("register KubeseerAccessPolicy scheme: %v", err)
+		t.Fatalf("register FacetAccessPolicy scheme: %v", err)
 	}
-	for _, object := range []runtime.Object{&KubeseerAccessPolicy{}, &KubeseerAccessPolicyList{}} {
+	for _, object := range []runtime.Object{&FacetAccessPolicy{}, &FacetAccessPolicyList{}} {
 		gvks, _, err := scheme.ObjectKinds(object)
 		if err != nil {
 			t.Fatalf("resolve policy GVK for %T: %v", object, err)
@@ -955,7 +955,7 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 			t.Fatalf("unexpected policy GVKs for %T: %v", object, gvks)
 		}
 	}
-	for _, kind := range []string{"KubeseerAccessPolicy", "KubeseerAccessPolicyList"} {
+	for _, kind := range []string{"FacetAccessPolicy", "FacetAccessPolicyList"} {
 		if object, err := scheme.New(GroupVersion.WithKind(kind)); err != nil || object == nil {
 			t.Fatalf("construct %s from policy scheme: object=%T err=%v", kind, object, err)
 		}
@@ -964,13 +964,13 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 		t.Fatalf("unexpected active policy name: %q", InstallationAccessCeilingName)
 	}
 
-	original := &KubeseerAccessPolicy{
-		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "KubeseerAccessPolicy"},
+	original := &FacetAccessPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "FacetAccessPolicy"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   InstallationAccessCeilingName,
 			Labels: map[string]string{"contract": "typed-policy"},
 		},
-		Spec: KubeseerAccessPolicySpec{
+		Spec: FacetAccessPolicySpec{
 			Namespaces: NamespacePolicy{
 				Mode:             NamespaceModeAllNonSystem,
 				Include:          []string{"observability"},
@@ -988,7 +988,7 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 	if err != nil {
 		t.Fatalf("serialize typed access policy: %v", err)
 	}
-	var decoded KubeseerAccessPolicy
+	var decoded FacetAccessPolicy
 	if err := json.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatalf("deserialize typed access policy: %v", err)
 	}
@@ -1011,7 +1011,7 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 		t.Fatalf("explicit empty systemNamespaces was not preserved as []: %s", namespaceFields["systemNamespaces"])
 	}
 
-	withoutOverride := &KubeseerAccessPolicy{Spec: KubeseerAccessPolicySpec{Namespaces: NamespacePolicy{Mode: NamespaceModeAllNonSystem}}}
+	withoutOverride := &FacetAccessPolicy{Spec: FacetAccessPolicySpec{Namespaces: NamespacePolicy{Mode: NamespaceModeAllNonSystem}}}
 	withoutOverrideJSON, err := json.Marshal(withoutOverride)
 	if err != nil {
 		t.Fatalf("serialize policy without system namespace override: %v", err)
@@ -1039,7 +1039,7 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 	if err := typedClient.Create(ctx, original.DeepCopy()); err != nil {
 		t.Fatalf("persist typed access policy through controller-runtime: %v", err)
 	}
-	var persisted KubeseerAccessPolicy
+	var persisted FacetAccessPolicy
 	if err := typedClient.Get(ctx, crclient.ObjectKey{Name: InstallationAccessCeilingName}, &persisted); err != nil {
 		t.Fatalf("get typed access policy through controller-runtime: %v", err)
 	}
@@ -1063,7 +1063,7 @@ func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *
 		t.Fatalf("delete typed access policy fixture: %v", err)
 	}
 
-	t.Log("API_CONTRACT=kubeseer-access-policy-types STATUS=passed")
+	t.Log("API_CONTRACT=facet-access-policy-types STATUS=passed")
 }
 
 func assertAccessPolicyClientSource(t *testing.T, ctx context.Context, config *rest.Config) {
@@ -1080,12 +1080,12 @@ func assertAccessPolicyClientSource(t *testing.T, ctx context.Context, config *r
 	if err != nil {
 		t.Fatalf("create controller-runtime policy source client: %v", err)
 	}
-	policy := &KubeseerAccessPolicy{
-		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "KubeseerAccessPolicy"},
+	policy := &FacetAccessPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "FacetAccessPolicy"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: InstallationAccessCeilingName,
 		},
-		Spec: KubeseerAccessPolicySpec{
+		Spec: FacetAccessPolicySpec{
 			Namespaces: NamespacePolicy{
 				Mode:             NamespaceModeExplicit,
 				Include:          []string{"team-a"},
@@ -1119,14 +1119,14 @@ func assertAccessPolicyClientSource(t *testing.T, ctx context.Context, config *r
 func assertInstalledCRDContract(t *testing.T, ctx context.Context, client apiextensionsclient.Interface) {
 	t.Helper()
 
-	crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, kubeseerCRDName, metav1.GetOptions{})
+	crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, facetCRDName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get installed CRD contract: %v", err)
 	}
 	if crd.Spec.Group != GroupVersion.Group || crd.Spec.Scope != apiextensionsv1.NamespaceScoped {
 		t.Fatalf("installed CRD identity or scope is incorrect: %#v", crd.Spec)
 	}
-	if crd.Spec.Names.Kind != "Kubeseer" || crd.Spec.Names.ListKind != "KubeseerList" || crd.Spec.Names.Plural != kubeseerResource || crd.Spec.Names.Singular != "kubeseer" {
+	if crd.Spec.Names.Kind != "Facet" || crd.Spec.Names.ListKind != "FacetList" || crd.Spec.Names.Plural != facetResource || crd.Spec.Names.Singular != "facet" {
 		t.Fatalf("installed CRD names are incorrect: %#v", crd.Spec.Names)
 	}
 	if len(crd.Spec.Versions) != 1 {
@@ -1445,7 +1445,7 @@ func assertInstalledAccessPolicyCRDContract(t *testing.T, ctx context.Context, c
 	if crd.Spec.Group != GroupVersion.Group || crd.Spec.Scope != apiextensionsv1.ClusterScoped {
 		t.Fatalf("installed access policy CRD identity or scope is incorrect: %#v", crd.Spec)
 	}
-	if crd.Spec.Names.Kind != "KubeseerAccessPolicy" || crd.Spec.Names.ListKind != "KubeseerAccessPolicyList" || crd.Spec.Names.Plural != accessPolicyResource || crd.Spec.Names.Singular != "kubeseeraccesspolicy" {
+	if crd.Spec.Names.Kind != "FacetAccessPolicy" || crd.Spec.Names.ListKind != "FacetAccessPolicyList" || crd.Spec.Names.Plural != accessPolicyResource || crd.Spec.Names.Singular != "facetaccesspolicy" {
 		t.Fatalf("installed access policy CRD names are incorrect: %#v", crd.Spec.Names)
 	}
 	if len(crd.Spec.Versions) != 1 {
@@ -1632,29 +1632,29 @@ func assertResourceRegistered(t *testing.T, client discovery.DiscoveryInterface,
 func createMinimalResource(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	created, err := resources.Create(ctx, newKubeseer("minimal", namespace, map[string]interface{}{}), metav1.CreateOptions{})
+	created, err := resources.Create(ctx, newFacet("minimal", namespace, map[string]interface{}{}), metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("create minimal Kubeseer: %v", err)
+		t.Fatalf("create minimal Facet: %v", err)
 	}
 	if created.GetName() != "minimal" || created.GetNamespace() != namespace {
-		t.Fatalf("minimal Kubeseer was not persisted as requested: %#v", created.Object)
+		t.Fatalf("minimal Facet was not persisted as requested: %#v", created.Object)
 	}
 	if _, err := resources.Get(ctx, "minimal", metav1.GetOptions{}); err != nil {
-		t.Fatalf("get persisted minimal Kubeseer: %v", err)
+		t.Fatalf("get persisted minimal Facet: %v", err)
 	}
 }
 
 func createValidSourceResource(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	created, err := resources.Create(ctx, newKubeseer("valid-source", namespace, map[string]interface{}{
+	created, err := resources.Create(ctx, newFacet("valid-source", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "source-one",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
 		}},
 	}), metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("create Kubeseer with valid source: %v", err)
+		t.Fatalf("create Facet with valid source: %v", err)
 	}
 	if _, found, err := unstructured.NestedSlice(created.Object, "spec", "sources"); err != nil || !found {
 		t.Fatalf("persisted valid source was not returned: found=%t err=%v object=%#v", found, err, created.Object)
@@ -1664,14 +1664,14 @@ func createValidSourceResource(t *testing.T, ctx context.Context, resources dyna
 func assertMissingSpecRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	assertInvalidCreate(t, ctx, resources, newKubeseer("missing-spec", namespace, nil), "missing spec")
+	assertInvalidCreate(t, ctx, resources, newFacet("missing-spec", namespace, nil), "missing spec")
 	assertNotPersisted(t, ctx, resources, "missing-spec")
 }
 
 func assertInvalidSourceRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	assertInvalidCreate(t, ctx, resources, newKubeseer("invalid-source", namespace, map[string]interface{}{
+	assertInvalidCreate(t, ctx, resources, newFacet("invalid-source", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{"id": "Invalid_Source"}},
 	}), "invalid source ID")
 	assertNotPersisted(t, ctx, resources, "invalid-source")
@@ -1695,19 +1695,19 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 	}{
 		{
 			name: "duplicate source IDs",
-			object: newKubeseer("duplicate-source-ids", namespace, map[string]interface{}{
+			object: newFacet("duplicate-source-ids", namespace, map[string]interface{}{
 				"sources": []interface{}{validSource("duplicate"), validSource("duplicate")},
 			}),
 		},
 		{
 			name: "missing resource coordinates",
-			object: newKubeseer("missing-resource", namespace, map[string]interface{}{
+			object: newFacet("missing-resource", namespace, map[string]interface{}{
 				"sources": []interface{}{map[string]interface{}{"id": "missing-resource"}},
 			}),
 		},
 		{
 			name: "invalid namespace name",
-			object: newKubeseer("invalid-namespace", namespace, map[string]interface{}{
+			object: newFacet("invalid-namespace", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("invalid-namespace")
 					source["namespaces"] = map[string]interface{}{"names": []interface{}{"Invalid_Namespace"}}
@@ -1717,7 +1717,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 		},
 		{
 			name: "duplicate namespace names",
-			object: newKubeseer("duplicate-namespaces", namespace, map[string]interface{}{
+			object: newFacet("duplicate-namespaces", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("duplicate-namespaces")
 					source["namespaces"] = map[string]interface{}{"names": []interface{}{"team-a", "team-a"}}
@@ -1727,7 +1727,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 		},
 		{
 			name: "missing field name",
-			object: newKubeseer("missing-field-name", namespace, map[string]interface{}{
+			object: newFacet("missing-field-name", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("missing-field-name")
 					source["fields"] = []interface{}{map[string]interface{}{"path": "{.metadata.name}"}}
@@ -1737,7 +1737,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 		},
 		{
 			name: "missing field path",
-			object: newKubeseer("missing-field-path", namespace, map[string]interface{}{
+			object: newFacet("missing-field-path", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("missing-field-path")
 					source["fields"] = []interface{}{map[string]interface{}{"name": "resourceName"}}
@@ -1747,7 +1747,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 		},
 		{
 			name: "invalid field name",
-			object: newKubeseer("invalid-field-name", namespace, map[string]interface{}{
+			object: newFacet("invalid-field-name", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("invalid-field-name")
 					source["fields"] = []interface{}{map[string]interface{}{"name": "Invalid_Name", "path": "{.metadata.name}"}}
@@ -1757,7 +1757,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 		},
 		{
 			name: "overlong field path",
-			object: newKubeseer("overlong-field-path", namespace, map[string]interface{}{
+			object: newFacet("overlong-field-path", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("overlong-field-path")
 					source["fields"] = []interface{}{map[string]interface{}{"name": "resourceName", "path": strings.Repeat("a", 1025)}}
@@ -1767,7 +1767,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 		},
 		{
 			name: "duplicate field names",
-			object: newKubeseer("duplicate-field-names", namespace, map[string]interface{}{
+			object: newFacet("duplicate-field-names", namespace, map[string]interface{}{
 				"sources": []interface{}{func() map[string]interface{} {
 					source := validSource("duplicate-field-names")
 					source["fields"] = []interface{}{
@@ -1790,7 +1790,7 @@ func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, r
 func assertNonListSourcesRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	assertInvalidCreate(t, ctx, resources, newKubeseer("non-list-sources", namespace, map[string]interface{}{
+	assertInvalidCreate(t, ctx, resources, newFacet("non-list-sources", namespace, map[string]interface{}{
 		"sources": "not-a-list",
 	}), "non-list sources")
 	assertNotPersisted(t, ctx, resources, "non-list-sources")
@@ -1799,7 +1799,7 @@ func assertNonListSourcesRejected(t *testing.T, ctx context.Context, resources d
 func assertNegativeObservedGenerationRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	created, err := resources.Create(ctx, newKubeseer("negative-generation", namespace, map[string]interface{}{}), metav1.CreateOptions{})
+	created, err := resources.Create(ctx, newFacet("negative-generation", namespace, map[string]interface{}{}), metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("create negative-generation fixture: %v", err)
 	}
@@ -1853,7 +1853,7 @@ func assertAdmissionValidationStructureRejected(t *testing.T, ctx context.Contex
 		return map[string]interface{}{"state": "value", "stringValue": "value"}
 	}
 
-	kubeseerCases := []struct {
+	facetCases := []struct {
 		name string
 		spec map[string]interface{}
 	}{
@@ -1967,10 +1967,10 @@ func assertAdmissionValidationStructureRejected(t *testing.T, ctx context.Contex
 			}()}},
 		},
 	}
-	for _, test := range kubeseerCases {
-		t.Run("Kubeseer "+test.name, func(t *testing.T) {
+	for _, test := range facetCases {
+		t.Run("Facet "+test.name, func(t *testing.T) {
 			name := "budget-" + strings.ReplaceAll(test.name, " ", "-")
-			assertInvalidCreate(t, ctx, resources, newKubeseer(name, namespace, test.spec), test.name)
+			assertInvalidCreate(t, ctx, resources, newFacet(name, namespace, test.spec), test.name)
 			assertNotPersisted(t, ctx, resources, name)
 		})
 	}
@@ -2044,7 +2044,7 @@ func assertAdmissionValidationStructureRejected(t *testing.T, ctx context.Contex
 		},
 	}
 	for _, test := range policyCases {
-		t.Run("KubeseerAccessPolicy "+test.name, func(t *testing.T) {
+		t.Run("FacetAccessPolicy "+test.name, func(t *testing.T) {
 			spec := validAccessPolicySpec()
 			test.mutate(spec)
 			assertInvalidCreate(t, ctx, accessPolicies, newAccessPolicy(InstallationAccessCeilingName, spec), test.name)
@@ -2055,7 +2055,7 @@ func assertAdmissionValidationStructureRejected(t *testing.T, ctx context.Contex
 func assertStatusUpdatePreservesSpec(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
 	t.Helper()
 
-	created, err := resources.Create(ctx, newKubeseer("status-isolation", namespace, map[string]interface{}{
+	created, err := resources.Create(ctx, newFacet("status-isolation", namespace, map[string]interface{}{
 		"sources": []interface{}{map[string]interface{}{
 			"id":       "stable-source",
 			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
@@ -2307,7 +2307,7 @@ func validAccessPolicySpec() map[string]interface{} {
 func newAccessPolicy(name string, spec map[string]interface{}) *unstructured.Unstructured {
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": GroupVersion.String(),
-		"kind":       "KubeseerAccessPolicy",
+		"kind":       "FacetAccessPolicy",
 		"metadata": map[string]interface{}{
 			"name": name,
 		},
@@ -2321,11 +2321,11 @@ func assertUnservedVersionRejected(t *testing.T, ctx context.Context, client dyn
 	unservedResources := client.Resource(schema.GroupVersionResource{
 		Group:    GroupVersion.Group,
 		Version:  "v1beta1",
-		Resource: kubeseerResource,
+		Resource: facetResource,
 	}).Namespace(namespace)
 	_, err := unservedResources.Create(ctx, &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": unservedAPIVersion,
-		"kind":       "Kubeseer",
+		"kind":       "Facet",
 		"metadata":   map[string]interface{}{"name": "unserved-version"},
 		"spec":       map[string]interface{}{},
 	}}, metav1.CreateOptions{})
@@ -2352,10 +2352,10 @@ func assertNotPersisted(t *testing.T, ctx context.Context, resources dynamic.Res
 	}
 }
 
-func newKubeseer(name, namespace string, spec map[string]interface{}) *unstructured.Unstructured {
+func newFacet(name, namespace string, spec map[string]interface{}) *unstructured.Unstructured {
 	object := map[string]interface{}{
 		"apiVersion": GroupVersion.String(),
-		"kind":       "Kubeseer",
+		"kind":       "Facet",
 		"metadata": map[string]interface{}{
 			"name":      name,
 			"namespace": namespace,

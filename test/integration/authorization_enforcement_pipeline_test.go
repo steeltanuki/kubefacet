@@ -24,13 +24,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,7 +53,7 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 		deniedSource.Fields[0].Path = "{.data.secret}"
 		deniedSource.Selector = &v1alpha1.ResourceSelector{FieldSelector: "metadata.name=denied-selector-sentinel"}
 		key := types.NamespacedName{Namespace: "team-a", Name: "authorization-pipeline-owner"}
-		object := runtimePipelineKubeseer(key, types.UID("authorization-owner-uid"), 3, allowedSource, deniedSource)
+		object := runtimePipelineFacet(key, types.UID("authorization-owner-uid"), 3, allowedSource, deniedSource)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetHook(func(ctx context.Context, target selection.ReadTarget, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
@@ -148,7 +148,7 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 		policy.Generation = 2
 		source := authorizationPipelineSource("transition-source", "team-a")
 		key := types.NamespacedName{Namespace: "team-a", Name: "authorization-transition-owner"}
-		object := runtimePipelineKubeseer(key, types.UID("authorization-transition-owner-uid"), 1, source)
+		object := runtimePipelineFacet(key, types.UID("authorization-transition-owner-uid"), 1, source)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetHook(func(ctx context.Context, target selection.ReadTarget, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
@@ -171,7 +171,7 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 			t.Fatalf("initial transition state: calls=%d publications=%d", initialCalls, len(publisher.Publications()))
 		}
 
-		narrowed := mutatePolicy(policy, func(next *v1alpha1.KubeseerAccessPolicy) {
+		narrowed := mutatePolicy(policy, func(next *v1alpha1.FacetAccessPolicy) {
 			next.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{""}, Kinds: []string{"Node"}}}
 		})
 		tracker.InvalidateAll()
@@ -218,7 +218,7 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 
 	t.Run("zero sources and terminal policy states remain fail closed and deterministic", func(t *testing.T) {
 		key := types.NamespacedName{Namespace: "team-a", Name: "authorization-empty-owner"}
-		object := runtimePipelineKubeseer(key, types.UID("authorization-empty-uid"), 1)
+		object := runtimePipelineFacet(key, types.UID("authorization-empty-uid"), 1)
 		policySource := &authorizationPipelinePolicySource{err: errors.New("raw policy payload sentinel")}
 		recorder := &authorizationPipelineRecorder{}
 		publisher := &runtimePipelinePublisher{}
@@ -234,10 +234,10 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 			t.Fatalf("zero-source publication = %#v", publications)
 		}
 
-		invalid := v1alpha1.KubeseerSource{ID: "invalid-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Selector: &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("}, Fields: []v1alpha1.KubeseerField{{Name: "not-evaluated-secret", Path: "{.data.not-evaluated-secret}", Type: v1alpha1.ValueTypeString}}}
-		unknown := v1alpha1.KubeseerSource{ID: "unknown-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "UnknownKind"}, Fields: []v1alpha1.KubeseerField{{Name: "unknown-secret", Path: "{.data.unknown-secret}", Type: v1alpha1.ValueTypeString}}}
+		invalid := v1alpha1.FacetSource{ID: "invalid-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Selector: &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("}, Fields: []v1alpha1.FacetField{{Name: "not-evaluated-secret", Path: "{.data.not-evaluated-secret}", Type: v1alpha1.ValueTypeString}}}
+		unknown := v1alpha1.FacetSource{ID: "unknown-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "UnknownKind"}, Fields: []v1alpha1.FacetField{{Name: "unknown-secret", Path: "{.data.unknown-secret}", Type: v1alpha1.ValueTypeString}}}
 		deterministicKey := types.NamespacedName{Namespace: "team-a", Name: "authorization-not-evaluated-owner"}
-		deterministicObject := runtimePipelineKubeseer(deterministicKey, types.UID("authorization-not-evaluated-uid"), 1, invalid, unknown)
+		deterministicObject := runtimePipelineFacet(deterministicKey, types.UID("authorization-not-evaluated-uid"), 1, invalid, unknown)
 		deterministicPublisher := &runtimePipelinePublisher{}
 		deterministicSource := &authorizationPipelinePolicySource{policy: basePolicy()}
 		deterministicRuntime := mustAuthorizationPipelineRuntime(t, resolver, newRuntimePipelineReader(deterministicObject), newRuntimePipelineLister(), deterministicSource, &runtimePipelineRoutes{}, deterministicPublisher, reconciliation.NewFreshnessTracker(), authorization.NewEnforcer(&authorizationPipelineRecorder{}))
@@ -263,7 +263,7 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 	t.Run("unavailable policy retries without using cached authorization", func(t *testing.T) {
 		key := types.NamespacedName{Namespace: "team-a", Name: "authorization-unavailable-owner"}
 		source := authorizationPipelineSource("unavailable-source", "team-a")
-		object := runtimePipelineKubeseer(key, types.UID("authorization-unavailable-uid"), 1, source)
+		object := runtimePipelineFacet(key, types.UID("authorization-unavailable-uid"), 1, source)
 		policySource := &authorizationPipelinePolicySource{err: errors.New("raw unavailable policy sentinel")}
 		publisher := &runtimePipelinePublisher{}
 		lister := newRuntimePipelineLister()
@@ -289,7 +289,7 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 	t.Run("policy invalidation cancels in-flight work before publication", func(t *testing.T) {
 		key := types.NamespacedName{Namespace: "team-a", Name: "authorization-stale-owner"}
 		source := authorizationPipelineSource("stale-source", "team-a")
-		object := runtimePipelineKubeseer(key, types.UID("authorization-stale-uid"), 1, source)
+		object := runtimePipelineFacet(key, types.UID("authorization-stale-uid"), 1, source)
 		started := make(chan struct{})
 		var startedOnce sync.Once
 		lister := newRuntimePipelineLister()
@@ -326,12 +326,12 @@ func assertAuthorizationEnforcementPipelineScenarios(t *testing.T, ctx context.C
 	})
 }
 
-func authorizationPipelineSource(id string, namespaces ...string) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{
+func authorizationPipelineSource(id string, namespaces ...string) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{
 		ID:         id,
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: append([]string(nil), namespaces...)},
-		Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
+		Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
 	}
 }
 
@@ -396,12 +396,12 @@ func (r *authorizationPipelineRecorder) Records() []authorization.Record {
 
 type authorizationPipelinePolicySource struct {
 	mu     sync.Mutex
-	policy *v1alpha1.KubeseerAccessPolicy
+	policy *v1alpha1.FacetAccessPolicy
 	err    error
 	gets   int
 }
 
-func (s *authorizationPipelinePolicySource) Get(ctx context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+func (s *authorizationPipelinePolicySource) Get(ctx context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 	if ctx != nil && ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -417,7 +417,7 @@ func (s *authorizationPipelinePolicySource) Get(ctx context.Context) (*v1alpha1.
 	return s.policy.DeepCopy(), nil
 }
 
-func (s *authorizationPipelinePolicySource) SetPolicy(policy *v1alpha1.KubeseerAccessPolicy) {
+func (s *authorizationPipelinePolicySource) SetPolicy(policy *v1alpha1.FacetAccessPolicy) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.policy = policy.DeepCopy()

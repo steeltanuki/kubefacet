@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/internal/managerapp"
+	"github.com/steeltanuki/kubefacet/internal/managerapp"
 )
 
 func assertPackagingUpgradeRollbackScenarios(t *testing.T) {
@@ -39,8 +39,8 @@ func assertPackagingUpgradeRollbackScenarios(t *testing.T) {
 		"helm.sh/hook-weight: \"5\"",
 		"helm.sh/hook-weight: \"10\"",
 		"--expected-version=" + appVersion,
-		"--expected-image=ghcr.io/steeltanuki/kubeseer:" + appVersion,
-		"--expected-kubeseer-crd-storage-version=v1alpha1",
+		"--expected-image=ghcr.io/steeltanuki/kubefacet:" + appVersion,
+		"--expected-facet-crd-storage-version=v1alpha1",
 		"--expected-access-policy-crd-storage-version=v1alpha1",
 		"--timeout=180s",
 	} {
@@ -57,7 +57,7 @@ func assertPackagingUpgradeRollbackScenarios(t *testing.T) {
 	}
 
 	changedImage := renderPackagingChart(t, chartDir, "--set", "image.tag=0.2.0")
-	if !strings.Contains(changedImage, "image: \"ghcr.io/steeltanuki/kubeseer:0.2.0\"") || !strings.Contains(changedImage, "--expected-image=ghcr.io/steeltanuki/kubeseer:0.2.0") {
+	if !strings.Contains(changedImage, "image: \"ghcr.io/steeltanuki/kubefacet:0.2.0\"") || !strings.Contains(changedImage, "--expected-image=ghcr.io/steeltanuki/kubefacet:0.2.0") {
 		t.Fatal("image upgrade did not propagate the immutable image identity to rollout verification")
 	}
 

@@ -24,12 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -49,7 +49,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 	ownerA := types.NamespacedName{Namespace: "team-a", Name: "route-owner-a"}
 	ownerB := types.NamespacedName{Namespace: "team-a", Name: "route-owner-b"}
 
-	namespacedSourceA := v1alpha1.KubeseerSource{
+	namespacedSourceA := v1alpha1.FacetSource{
 		ID:         "watch-source-a",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
@@ -58,7 +58,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 			MatchLabels:   map[string]string{"route-label-sentinel": "route-value-sentinel"},
 			FieldSelector: "metadata.name=route-value-sentinel",
 		},
-		Fields: []v1alpha1.KubeseerField{{Name: "route-field", Path: "spec.route.path.sentinel", Type: v1alpha1.ValueTypeString}},
+		Fields: []v1alpha1.FacetField{{Name: "route-field", Path: "spec.route.path.sentinel", Type: v1alpha1.ValueTypeString}},
 	}
 	namespacedSourceB := namespacedSourceA
 	namespacedSourceB.ID = "watch-source-b"
@@ -83,7 +83,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 			t.Fatalf("start route registry: %v", err)
 		}
 
-		deniedSource := v1alpha1.KubeseerSource{
+		deniedSource := v1alpha1.FacetSource{
 			ID:         "watch-denied-source",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-b"}},
@@ -100,7 +100,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 			t.Fatalf("denied target started %d WATCH calls", got)
 		}
 
-		objectA := newRuntimeKubeseer(ownerA, "uid-a", 1)
+		objectA := newRuntimeFacet(ownerA, "uid-a", 1)
 		tracker.Observe(objectA)
 		leaseA, _, releaseA, err := tracker.Acquire(ctx, ownerA, objectA.UID, objectA.Generation)
 		if err != nil {
@@ -127,7 +127,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 			t.Fatalf("initial route indexes: watches=%d bindings=%d", registry.WatchCount(), registry.BindingCount(ownerA))
 		}
 
-		objectB := newRuntimeKubeseer(ownerB, "uid-b", 1)
+		objectB := newRuntimeFacet(ownerB, "uid-b", 1)
 		tracker.Observe(objectB)
 		leaseB, _, releaseB, err := tracker.Acquire(ctx, ownerB, objectB.UID, objectB.Generation)
 		if err != nil {
@@ -185,11 +185,11 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 			}
 		}
 
-		clusterPolicy := mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		clusterPolicy := mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.AllowClusterScoped = true
 		})
 		clusterSnapshot := mustSnapshot(t, clusterPolicy)
-		clusterSource := v1alpha1.KubeseerSource{ID: "watch-cluster-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Node"}}
+		clusterSource := v1alpha1.FacetSource{ID: "watch-cluster-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Node"}}
 		clusterTarget := mustRuntimeTarget(t, ctx, planner, ownerA.Namespace, clusterSource)
 		clusterDecision := clusterSnapshot.Evaluate(selection.RequestForTarget(clusterTarget))
 		if !clusterDecision.Allowed {
@@ -241,7 +241,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 		if err := registry.Start(watchContext, queue); err != nil {
 			t.Fatalf("start restart registry: %v", err)
 		}
-		object := newRuntimeKubeseer(ownerA, "uid-restart", 1)
+		object := newRuntimeFacet(ownerA, "uid-restart", 1)
 		tracker.Observe(object)
 		lease, _, release, err := tracker.Acquire(ctx, ownerA, object.UID, object.Generation)
 		if err != nil {
@@ -310,7 +310,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 		}
 		for index, test := range addresses {
 			owner := types.NamespacedName{Namespace: "team-a", Name: fmt.Sprintf("adapter-owner-%d", index)}
-			object := newRuntimeKubeseer(owner, types.UID(fmt.Sprintf("adapter-owner-uid-%d", index)), 1)
+			object := newRuntimeFacet(owner, types.UID(fmt.Sprintf("adapter-owner-uid-%d", index)), 1)
 			tracker.Observe(object)
 			lease, _, release, err := tracker.Acquire(ctx, owner, object.UID, object.Generation)
 			if err != nil {
@@ -349,7 +349,7 @@ func assertReconciliationRuntimeWatchRoutingScenarios(t *testing.T, ctx context.
 	})
 }
 
-func mustRuntimeTarget(t *testing.T, ctx context.Context, planner *selection.Planner, ownerNamespace string, source v1alpha1.KubeseerSource) selection.ReadTarget {
+func mustRuntimeTarget(t *testing.T, ctx context.Context, planner *selection.Planner, ownerNamespace string, source v1alpha1.FacetSource) selection.ReadTarget {
 	t.Helper()
 	plan, err := planner.Plan(ctx, ownerNamespace, source)
 	if err != nil {

@@ -14,7 +14,7 @@
 
 package extraction
 
-import "github.com/steeltanuki/kubeseer/internal/selection"
+import "github.com/steeltanuki/kubefacet/internal/selection"
 
 // MatchSet preserves the distinction between no match and one match whose
 // native value is nil. Values are stored privately and copied on access.

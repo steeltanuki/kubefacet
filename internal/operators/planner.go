@@ -21,16 +21,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 // CompileSource validates every operator declaration before any typed
 // resource is evaluated. Field declarations are copied and sorted; the API
 // object and its operand pointers are never retained by the plan.
-func CompileSource(source v1alpha1.KubeseerSource) PlanOutcome {
+func CompileSource(source v1alpha1.FacetSource) PlanOutcome {
 	type indexedField struct {
-		field v1alpha1.KubeseerField
+		field v1alpha1.FacetField
 		index int
 	}
 	fields := make([]indexedField, len(source.Fields))
@@ -113,7 +113,7 @@ func CompileSource(source v1alpha1.KubeseerSource) PlanOutcome {
 // CompileBatch compiles sources independently and preserves declaration
 // order. There is intentionally no plan cache: each call observes current
 // declarations and recompiles deterministically.
-func CompileBatch(sources []v1alpha1.KubeseerSource) []PlanOutcome {
+func CompileBatch(sources []v1alpha1.FacetSource) []PlanOutcome {
 	if sources == nil {
 		return nil
 	}
@@ -124,7 +124,7 @@ func CompileBatch(sources []v1alpha1.KubeseerSource) []PlanOutcome {
 	return outcomes
 }
 
-func planOperator(sourceID string, field v1alpha1.KubeseerField, index int, declaration v1alpha1.KubeseerOperator) (OperatorPlan, *OperatorError) {
+func planOperator(sourceID string, field v1alpha1.FacetField, index int, declaration v1alpha1.FacetOperator) (OperatorPlan, *OperatorError) {
 	name := declaration.Operator
 	if !supportedOperator(name) {
 		return OperatorPlan{}, planningError(sourceID, field.Name, index, string(name), ReasonUnsupportedOperator, "operator is not supported", nil)
@@ -178,7 +178,7 @@ func planOperator(sourceID string, field v1alpha1.KubeseerField, index int, decl
 	return OperatorPlan{index: index, kind: name}, nil
 }
 
-func decodeOperand(sourceID string, field v1alpha1.KubeseerField, index, valueIndex int, name v1alpha1.KubeseerOperatorName, operand v1alpha1.KubeseerOperatorOperand) (typedoutput.Match, *OperatorError) {
+func decodeOperand(sourceID string, field v1alpha1.FacetField, index, valueIndex int, name v1alpha1.FacetOperatorName, operand v1alpha1.FacetOperatorOperand) (typedoutput.Match, *OperatorError) {
 	if operand.State != v1alpha1.MatchStateValue {
 		return typedoutput.Match{}, operandPlanningError(sourceID, field.Name, index, valueIndex, string(name), ReasonInvalidOperand, "operand state is invalid", nil)
 	}
@@ -238,7 +238,7 @@ func pointerValue[T any](value *T) any {
 	return *value
 }
 
-func operandBranchType(branch string) v1alpha1.KubeseerValueType {
+func operandBranchType(branch string) v1alpha1.FacetValueType {
 	switch branch {
 	case "stringValue":
 		return v1alpha1.ValueTypeString
@@ -282,7 +282,7 @@ func decodeJSONOperand(text string, object bool) (any, bool) {
 	return value, ok
 }
 
-func supportedOperator(name v1alpha1.KubeseerOperatorName) bool {
+func supportedOperator(name v1alpha1.FacetOperatorName) bool {
 	switch name {
 	case v1alpha1.OperatorEq, v1alpha1.OperatorNe,
 		v1alpha1.OperatorGt, v1alpha1.OperatorGte,
@@ -298,7 +298,7 @@ func supportedOperator(name v1alpha1.KubeseerOperatorName) bool {
 	}
 }
 
-func compatibleOperator(name v1alpha1.KubeseerOperatorName, typeName v1alpha1.KubeseerValueType) bool {
+func compatibleOperator(name v1alpha1.FacetOperatorName, typeName v1alpha1.FacetValueType) bool {
 	switch name {
 	case v1alpha1.OperatorEq, v1alpha1.OperatorNe, v1alpha1.OperatorIn, v1alpha1.OperatorNotIn:
 		return scalarEqualityType(typeName)
@@ -313,7 +313,7 @@ func compatibleOperator(name v1alpha1.KubeseerOperatorName, typeName v1alpha1.Ku
 	}
 }
 
-func scalarEqualityType(typeName v1alpha1.KubeseerValueType) bool {
+func scalarEqualityType(typeName v1alpha1.FacetValueType) bool {
 	switch typeName {
 	case v1alpha1.ValueTypeString, v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeNumber,
 		v1alpha1.ValueTypeBoolean, v1alpha1.ValueTypeTimestamp, v1alpha1.ValueTypeDuration,
@@ -324,7 +324,7 @@ func scalarEqualityType(typeName v1alpha1.KubeseerValueType) bool {
 	}
 }
 
-func orderableType(typeName v1alpha1.KubeseerValueType) bool {
+func orderableType(typeName v1alpha1.FacetValueType) bool {
 	switch typeName {
 	case v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeNumber, v1alpha1.ValueTypeTimestamp,
 		v1alpha1.ValueTypeDuration, v1alpha1.ValueTypeQuantity:
@@ -334,7 +334,7 @@ func orderableType(typeName v1alpha1.KubeseerValueType) bool {
 	}
 }
 
-func requiresSingleValue(name v1alpha1.KubeseerOperatorName) bool {
+func requiresSingleValue(name v1alpha1.FacetOperatorName) bool {
 	switch name {
 	case v1alpha1.OperatorEq, v1alpha1.OperatorNe,
 		v1alpha1.OperatorGt, v1alpha1.OperatorGte,
@@ -348,7 +348,7 @@ func requiresSingleValue(name v1alpha1.KubeseerOperatorName) bool {
 	}
 }
 
-func requiresManyValues(name v1alpha1.KubeseerOperatorName) bool {
+func requiresManyValues(name v1alpha1.FacetOperatorName) bool {
 	return name == v1alpha1.OperatorIn || name == v1alpha1.OperatorNotIn
 }
 

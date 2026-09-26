@@ -17,7 +17,7 @@ package typedoutput
 import (
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -36,7 +36,7 @@ const (
 )
 
 type value struct {
-	typeName v1alpha1.KubeseerValueType
+	typeName v1alpha1.FacetValueType
 	kind     valueKind
 
 	stringValue    string
@@ -65,7 +65,7 @@ type Match struct {
 	value value
 }
 
-func newNullMatch(typeName v1alpha1.KubeseerValueType) Match {
+func newNullMatch(typeName v1alpha1.FacetValueType) Match {
 	return Match{state: matchStateNull, value: value{typeName: typeName}}
 }
 
@@ -74,7 +74,7 @@ func newValueMatch(converted value) Match {
 }
 
 // Type returns the declared logical type of the match, including null matches.
-func (m Match) Type() v1alpha1.KubeseerValueType { return m.value.typeName }
+func (m Match) Type() v1alpha1.FacetValueType { return m.value.typeName }
 
 // IsNull reports whether the match represents an explicit null.
 func (m Match) IsNull() bool { return m.state == matchStateNull }

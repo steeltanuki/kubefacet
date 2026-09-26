@@ -19,42 +19,42 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// Kubeseer is the root custom resource for declarative Kubernetes observation.
+// Facet is the root custom resource for declarative Kubernetes observation.
 //
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=kubeseers,singular=kubeseer,scope=Namespaced
+// +kubebuilder:resource:path=facets,singular=facet,scope=Namespaced
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
-type Kubeseer struct {
+type Facet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Spec   KubeseerSpec   `json:"spec"`
-	Status KubeseerStatus `json:"status,omitempty"`
+	Spec   FacetSpec   `json:"spec"`
+	Status FacetStatus `json:"status,omitempty"`
 }
 
-// KubeseerList contains a list of Kubeseer resources.
+// FacetList contains a list of Facet resources.
 //
 // +kubebuilder:object:root=true
-type KubeseerList struct {
+type FacetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Kubeseer `json:"items"`
+	Items           []Facet `json:"items"`
 }
 
-// KubeseerSpec contains the stable foundation envelope for future sources.
-type KubeseerSpec struct {
+// FacetSpec contains the stable foundation envelope for future sources.
+type FacetSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=id
 	// +kubebuilder:validation:MaxItems=32
-	Sources []KubeseerSource `json:"sources,omitempty"`
+	Sources []FacetSource `json:"sources,omitempty"`
 }
 
-// KubeseerSource identifies one Kubernetes resource selection without granting
+// FacetSource identifies one Kubernetes resource selection without granting
 // permissions or embedding installation-policy configuration.
-type KubeseerSource struct {
+type FacetSource struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
@@ -63,7 +63,7 @@ type KubeseerSource struct {
 	// +kubebuilder:validation:Required
 	Resource ResourceReference `json:"resource"`
 
-	// A nil pointer means the containing Kubeseer namespace for namespaced
+	// A nil pointer means the containing Facet namespace for namespaced
 	// resources; a non-nil empty Names list intentionally selects no namespace.
 	// +optional
 	Namespaces *NamespaceSelection `json:"namespaces,omitempty"`
@@ -75,53 +75,53 @@ type KubeseerSource struct {
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=64
-	Fields []KubeseerField `json:"fields,omitempty"`
+	Fields []FacetField `json:"fields,omitempty"`
 
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=32
-	Aggregations []KubeseerAggregation `json:"aggregations,omitempty"`
+	Aggregations []FacetAggregation `json:"aggregations,omitempty"`
 }
 
-// KubeseerAggregationFunction identifies one supported source-wide reducer.
+// FacetAggregationFunction identifies one supported source-wide reducer.
 // +kubebuilder:validation:Enum=collect;count;sum;min;max;average;first;last;distinct
-type KubeseerAggregationFunction string
+type FacetAggregationFunction string
 
 const (
-	AggregationCollect  KubeseerAggregationFunction = "collect"
-	AggregationCount    KubeseerAggregationFunction = "count"
-	AggregationSum      KubeseerAggregationFunction = "sum"
-	AggregationMin      KubeseerAggregationFunction = "min"
-	AggregationMax      KubeseerAggregationFunction = "max"
-	AggregationAverage  KubeseerAggregationFunction = "average"
-	AggregationFirst    KubeseerAggregationFunction = "first"
-	AggregationLast     KubeseerAggregationFunction = "last"
-	AggregationDistinct KubeseerAggregationFunction = "distinct"
+	AggregationCollect  FacetAggregationFunction = "collect"
+	AggregationCount    FacetAggregationFunction = "count"
+	AggregationSum      FacetAggregationFunction = "sum"
+	AggregationMin      FacetAggregationFunction = "min"
+	AggregationMax      FacetAggregationFunction = "max"
+	AggregationAverage  FacetAggregationFunction = "average"
+	AggregationFirst    FacetAggregationFunction = "first"
+	AggregationLast     FacetAggregationFunction = "last"
+	AggregationDistinct FacetAggregationFunction = "distinct"
 )
 
-// KubeseerRoundingMode identifies the closed set of average rounding rules.
+// FacetRoundingMode identifies the closed set of average rounding rules.
 // +kubebuilder:validation:Enum=halfEven;halfAwayFromZero;towardZero;awayFromZero
-type KubeseerRoundingMode string
+type FacetRoundingMode string
 
 const (
-	RoundingHalfEven         KubeseerRoundingMode = "halfEven"
-	RoundingHalfAwayFromZero KubeseerRoundingMode = "halfAwayFromZero"
-	RoundingTowardZero       KubeseerRoundingMode = "towardZero"
-	RoundingAwayFromZero     KubeseerRoundingMode = "awayFromZero"
+	RoundingHalfEven         FacetRoundingMode = "halfEven"
+	RoundingHalfAwayFromZero FacetRoundingMode = "halfAwayFromZero"
+	RoundingTowardZero       FacetRoundingMode = "towardZero"
+	RoundingAwayFromZero     FacetRoundingMode = "awayFromZero"
 )
 
-// KubeseerAggregation declares one typed reduction over the containing
+// FacetAggregation declares one typed reduction over the containing
 // source's extracted field outcomes. Average options are resolved at runtime
 // so omission remains distinguishable from invalid options on other functions.
-type KubeseerAggregation struct {
+type FacetAggregation struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$`
 	Name string `json:"name"`
 
 	// +kubebuilder:validation:Required
-	Function KubeseerAggregationFunction `json:"function"`
+	Function FacetAggregationFunction `json:"function"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=63
@@ -142,12 +142,12 @@ type KubeseerAggregation struct {
 	Precision *int32 `json:"precision,omitempty"`
 
 	// +optional
-	RoundingMode KubeseerRoundingMode `json:"roundingMode,omitempty"`
+	RoundingMode FacetRoundingMode `json:"roundingMode,omitempty"`
 }
 
-// KubeseerField declares one named native-value extraction from a selected
+// FacetField declares one named native-value extraction from a selected
 // resource.
-type KubeseerField struct {
+type FacetField struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$`
@@ -162,75 +162,75 @@ type KubeseerField struct {
 	// Typed conversion reports a field-scoped missing-type failure when it is
 	// omitted.
 	// +optional
-	Type KubeseerValueType `json:"type,omitempty"`
+	Type FacetValueType `json:"type,omitempty"`
 
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
-	Operators []KubeseerOperator `json:"operators,omitempty"`
+	Operators []FacetOperator `json:"operators,omitempty"`
 }
 
-// KubeseerValueType identifies the explicit logical type requested for one
+// FacetValueType identifies the explicit logical type requested for one
 // extracted field.
 // +kubebuilder:validation:Enum=string;integer;number;boolean;timestamp;duration;quantity;object;list
-type KubeseerValueType string
+type FacetValueType string
 
 const (
-	ValueTypeString    KubeseerValueType = "string"
-	ValueTypeInteger   KubeseerValueType = "integer"
-	ValueTypeNumber    KubeseerValueType = "number"
-	ValueTypeBoolean   KubeseerValueType = "boolean"
-	ValueTypeTimestamp KubeseerValueType = "timestamp"
-	ValueTypeDuration  KubeseerValueType = "duration"
-	ValueTypeQuantity  KubeseerValueType = "quantity"
-	ValueTypeObject    KubeseerValueType = "object"
-	ValueTypeList      KubeseerValueType = "list"
+	ValueTypeString    FacetValueType = "string"
+	ValueTypeInteger   FacetValueType = "integer"
+	ValueTypeNumber    FacetValueType = "number"
+	ValueTypeBoolean   FacetValueType = "boolean"
+	ValueTypeTimestamp FacetValueType = "timestamp"
+	ValueTypeDuration  FacetValueType = "duration"
+	ValueTypeQuantity  FacetValueType = "quantity"
+	ValueTypeObject    FacetValueType = "object"
+	ValueTypeList      FacetValueType = "list"
 )
 
-// KubeseerOperatorName identifies one supported field operator.
+// FacetOperatorName identifies one supported field operator.
 // +kubebuilder:validation:Enum=eq;ne;gt;gte;lt;lte;contains;startsWith;endsWith;matches;exists;notExists;in;notIn;default;coalesce
-type KubeseerOperatorName string
+type FacetOperatorName string
 
 const (
-	OperatorEq         KubeseerOperatorName = "eq"
-	OperatorNe         KubeseerOperatorName = "ne"
-	OperatorGt         KubeseerOperatorName = "gt"
-	OperatorGte        KubeseerOperatorName = "gte"
-	OperatorLt         KubeseerOperatorName = "lt"
-	OperatorLte        KubeseerOperatorName = "lte"
-	OperatorContains   KubeseerOperatorName = "contains"
-	OperatorStartsWith KubeseerOperatorName = "startsWith"
-	OperatorEndsWith   KubeseerOperatorName = "endsWith"
-	OperatorMatches    KubeseerOperatorName = "matches"
-	OperatorExists     KubeseerOperatorName = "exists"
-	OperatorNotExists  KubeseerOperatorName = "notExists"
-	OperatorIn         KubeseerOperatorName = "in"
-	OperatorNotIn      KubeseerOperatorName = "notIn"
-	OperatorDefault    KubeseerOperatorName = "default"
-	OperatorCoalesce   KubeseerOperatorName = "coalesce"
+	OperatorEq         FacetOperatorName = "eq"
+	OperatorNe         FacetOperatorName = "ne"
+	OperatorGt         FacetOperatorName = "gt"
+	OperatorGte        FacetOperatorName = "gte"
+	OperatorLt         FacetOperatorName = "lt"
+	OperatorLte        FacetOperatorName = "lte"
+	OperatorContains   FacetOperatorName = "contains"
+	OperatorStartsWith FacetOperatorName = "startsWith"
+	OperatorEndsWith   FacetOperatorName = "endsWith"
+	OperatorMatches    FacetOperatorName = "matches"
+	OperatorExists     FacetOperatorName = "exists"
+	OperatorNotExists  FacetOperatorName = "notExists"
+	OperatorIn         FacetOperatorName = "in"
+	OperatorNotIn      FacetOperatorName = "notIn"
+	OperatorDefault    FacetOperatorName = "default"
+	OperatorCoalesce   FacetOperatorName = "coalesce"
 )
 
-// KubeseerOperator declares one ordered operation over a typed field.
-type KubeseerOperator struct {
+// FacetOperator declares one ordered operation over a typed field.
+type FacetOperator struct {
 	// +kubebuilder:validation:Required
-	Operator KubeseerOperatorName `json:"operator"`
+	Operator FacetOperatorName `json:"operator"`
 
 	// +optional
-	Value *KubeseerOperatorOperand `json:"value,omitempty"`
+	Value *FacetOperatorOperand `json:"value,omitempty"`
 
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=128
-	Values []KubeseerOperatorOperand `json:"values,omitempty"`
+	Values []FacetOperatorOperand `json:"values,omitempty"`
 }
 
-// KubeseerOperatorOperand is a structural typed operand. Exactly one payload
+// FacetOperatorOperand is a structural typed operand. Exactly one payload
 // branch is valid when State is MatchStateValue; MatchStateNull is rejected by
 // runtime operator planning and exists to keep an explicit null distinct from
 // an omitted operand.
-type KubeseerOperatorOperand struct {
+type FacetOperatorOperand struct {
 	// +kubebuilder:validation:Required
-	State KubeseerMatchState `json:"state"`
+	State FacetMatchState `json:"state"`
 
 	// +optional
 	StringValue *string `json:"stringValue,omitempty"`
@@ -303,8 +303,8 @@ type ResourceSelector struct {
 	FieldSelector string `json:"fieldSelector,omitempty"`
 }
 
-// KubeseerStatus contains controller-observed state for a Kubeseer resource.
-type KubeseerStatus struct {
+// FacetStatus contains controller-observed state for a Facet resource.
+type FacetStatus struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -315,7 +315,7 @@ type KubeseerStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
-	Summary *KubeseerSummary `json:"summary,omitempty"`
+	Summary *FacetSummary `json:"summary,omitempty"`
 
 	// +optional
 	// +kubebuilder:validation:MaxLength=71
@@ -323,11 +323,11 @@ type KubeseerStatus struct {
 	ResultHash string `json:"resultHash,omitempty"`
 
 	// +optional
-	Result *KubeseerResult `json:"result,omitempty"`
+	Result *FacetResult `json:"result,omitempty"`
 }
 
-// KubeseerSummary contains compact counts derived from the structural result.
-type KubeseerSummary struct {
+// FacetSummary contains compact counts derived from the structural result.
+type FacetSummary struct {
 	// +kubebuilder:validation:Minimum=0
 	SuccessfulSources int64 `json:"successfulSources"`
 
@@ -338,164 +338,164 @@ type KubeseerSummary struct {
 	MatchedResources int64 `json:"matchedResources"`
 }
 
-// KubeseerResult is the structural, ordered typed-output snapshot published
+// FacetResult is the structural, ordered typed-output snapshot published
 // in status.
-type KubeseerResult struct {
+type FacetResult struct {
 	// +optional
 	// +listType=atomic
-	Sources []KubeseerSourceResult `json:"sources,omitempty"`
+	Sources []FacetSourceResult `json:"sources,omitempty"`
 }
 
-// KubeseerSourceState identifies whether a source produced values or failed.
+// FacetSourceState identifies whether a source produced values or failed.
 // +kubebuilder:validation:Enum=values;error
-type KubeseerSourceState string
+type FacetSourceState string
 
 const (
-	SourceStateValues KubeseerSourceState = "values"
-	SourceStateError  KubeseerSourceState = "error"
+	SourceStateValues FacetSourceState = "values"
+	SourceStateError  FacetSourceState = "error"
 )
 
-// KubeseerFieldState identifies absence, values, or a field-scoped failure.
+// FacetFieldState identifies absence, values, or a field-scoped failure.
 // +kubebuilder:validation:Enum=absent;values;error
-type KubeseerFieldState string
+type FacetFieldState string
 
 const (
-	FieldStateAbsent KubeseerFieldState = "absent"
-	FieldStateValues KubeseerFieldState = "values"
-	FieldStateError  KubeseerFieldState = "error"
+	FieldStateAbsent FacetFieldState = "absent"
+	FieldStateValues FacetFieldState = "values"
+	FieldStateError  FacetFieldState = "error"
 )
 
-// KubeseerMatchState distinguishes a non-null value from an explicit null.
+// FacetMatchState distinguishes a non-null value from an explicit null.
 // +kubebuilder:validation:Enum=value;null
-type KubeseerMatchState string
+type FacetMatchState string
 
 const (
-	MatchStateValue KubeseerMatchState = "value"
-	MatchStateNull  KubeseerMatchState = "null"
+	MatchStateValue FacetMatchState = "value"
+	MatchStateNull  FacetMatchState = "null"
 )
 
-// KubeseerSourceResult is one source-scoped typed-output result.
-type KubeseerSourceResult struct {
+// FacetSourceResult is one source-scoped typed-output result.
+type FacetSourceResult struct {
 	// +kubebuilder:validation:Required
 	ID string `json:"id"`
 
 	// +kubebuilder:validation:Required
-	State KubeseerSourceState `json:"state"`
+	State FacetSourceState `json:"state"`
 
 	// +optional
 	// +listType=atomic
-	FieldErrors []KubeseerFieldError `json:"fieldErrors,omitempty"`
+	FieldErrors []FacetFieldError `json:"fieldErrors,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	Resources []KubeseerResourceResult `json:"resources,omitempty"`
+	Resources []FacetResourceResult `json:"resources,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	Aggregates []KubeseerAggregateResult `json:"aggregates,omitempty"`
+	Aggregates []FacetAggregateResult `json:"aggregates,omitempty"`
 
 	// +optional
-	Error *KubeseerResultError `json:"error,omitempty"`
+	Error *FacetResultError `json:"error,omitempty"`
 }
 
-// KubeseerAggregateState identifies the terminal state of one aggregate.
+// FacetAggregateState identifies the terminal state of one aggregate.
 // +kubebuilder:validation:Enum=values;degraded;error
-type KubeseerAggregateState string
+type FacetAggregateState string
 
 const (
-	AggregateStateValues   KubeseerAggregateState = "values"
-	AggregateStateDegraded KubeseerAggregateState = "degraded"
-	AggregateStateError    KubeseerAggregateState = "error"
+	AggregateStateValues   FacetAggregateState = "values"
+	AggregateStateDegraded FacetAggregateState = "degraded"
+	AggregateStateError    FacetAggregateState = "error"
 )
 
-// KubeseerAggregateValueState distinguishes an absent scalar from a value
+// FacetAggregateValueState distinguishes an absent scalar from a value
 // collection, including an intentionally empty collection.
 // +kubebuilder:validation:Enum=absent;values
-type KubeseerAggregateValueState string
+type FacetAggregateValueState string
 
 const (
-	AggregateValueAbsent KubeseerAggregateValueState = "absent"
-	AggregateValueValues KubeseerAggregateValueState = "values"
+	AggregateValueAbsent FacetAggregateValueState = "absent"
+	AggregateValueValues FacetAggregateValueState = "values"
 )
 
-// KubeseerAggregateResult is one source-scoped aggregate outcome.
-type KubeseerAggregateResult struct {
+// FacetAggregateResult is one source-scoped aggregate outcome.
+type FacetAggregateResult struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
 	// +kubebuilder:validation:Required
-	Function KubeseerAggregationFunction `json:"function"`
+	Function FacetAggregationFunction `json:"function"`
 
 	// +kubebuilder:validation:Required
 	Field string `json:"field"`
 
 	// +kubebuilder:validation:Required
-	State KubeseerAggregateState `json:"state"`
+	State FacetAggregateState `json:"state"`
 
 	// +optional
 	// +listType=atomic
-	Groups []KubeseerAggregateGroup `json:"groups,omitempty"`
+	Groups []FacetAggregateGroup `json:"groups,omitempty"`
 
 	// +optional
 	// +listType=atomic
-	Failures []KubeseerAggregateResourceFailure `json:"failures,omitempty"`
+	Failures []FacetAggregateResourceFailure `json:"failures,omitempty"`
 
 	// +optional
-	Error *KubeseerResultError `json:"error,omitempty"`
+	Error *FacetResultError `json:"error,omitempty"`
 }
 
-// KubeseerAggregateKey is one ordered typed group-key component.
-type KubeseerAggregateKey struct {
+// FacetAggregateKey is one ordered typed group-key component.
+type FacetAggregateKey struct {
 	// +kubebuilder:validation:Required
 	Field string `json:"field"`
 
 	// +kubebuilder:validation:Required
-	Type KubeseerValueType `json:"type"`
+	Type FacetValueType `json:"type"`
 
 	// +kubebuilder:validation:Required
-	Value KubeseerTypedMatch `json:"value"`
+	Value FacetTypedMatch `json:"value"`
 }
 
-// KubeseerAggregateGroup is one ordered key and reduced value.
-type KubeseerAggregateGroup struct {
+// FacetAggregateGroup is one ordered key and reduced value.
+type FacetAggregateGroup struct {
 	// +optional
 	// +listType=atomic
-	Keys []KubeseerAggregateKey `json:"keys,omitempty"`
+	Keys []FacetAggregateKey `json:"keys,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Value KubeseerAggregateValue `json:"value"`
-
-	// +optional
-	// +listType=atomic
-	Contributors []KubeseerResourceProvenance `json:"contributors,omitempty"`
-}
-
-// KubeseerAggregateValue is a typed scalar or collection result.
-type KubeseerAggregateValue struct {
-	// +kubebuilder:validation:Required
-	Type KubeseerValueType `json:"type"`
-
-	// +kubebuilder:validation:Required
-	State KubeseerAggregateValueState `json:"state"`
+	Value FacetAggregateValue `json:"value"`
 
 	// +optional
 	// +listType=atomic
-	Matches []KubeseerAggregateMatch `json:"matches,omitempty"`
+	Contributors []FacetResourceProvenance `json:"contributors,omitempty"`
 }
 
-// KubeseerAggregateMatch is one typed aggregate value and optional
+// FacetAggregateValue is a typed scalar or collection result.
+type FacetAggregateValue struct {
+	// +kubebuilder:validation:Required
+	Type FacetValueType `json:"type"`
+
+	// +kubebuilder:validation:Required
+	State FacetAggregateValueState `json:"state"`
+
+	// +optional
+	// +listType=atomic
+	Matches []FacetAggregateMatch `json:"matches,omitempty"`
+}
+
+// FacetAggregateMatch is one typed aggregate value and optional
 // value-specific provenance.
-type KubeseerAggregateMatch struct {
+type FacetAggregateMatch struct {
 	// +kubebuilder:validation:Required
-	Value KubeseerTypedMatch `json:"value"`
+	Value FacetTypedMatch `json:"value"`
 
 	// +optional
 	// +listType=atomic
-	Contributors []KubeseerResourceProvenance `json:"contributors,omitempty"`
+	Contributors []FacetResourceProvenance `json:"contributors,omitempty"`
 }
 
-// KubeseerResourceProvenance identifies one contributing Kubernetes resource.
-type KubeseerResourceProvenance struct {
+// FacetResourceProvenance identifies one contributing Kubernetes resource.
+type FacetResourceProvenance struct {
 	// +kubebuilder:validation:Required
 	APIVersion string `json:"apiVersion"`
 
@@ -512,19 +512,19 @@ type KubeseerResourceProvenance struct {
 	UID types.UID `json:"uid"`
 }
 
-// KubeseerAggregateResourceFailure associates a sanitized failure with the
+// FacetAggregateResourceFailure associates a sanitized failure with the
 // resource whose contribution could not be evaluated.
-type KubeseerAggregateResourceFailure struct {
+type FacetAggregateResourceFailure struct {
 	// +kubebuilder:validation:Required
-	Provenance KubeseerResourceProvenance `json:"provenance"`
+	Provenance FacetResourceProvenance `json:"provenance"`
 
 	// +kubebuilder:validation:Required
-	Error KubeseerResultError `json:"error"`
+	Error FacetResultError `json:"error"`
 }
 
-// KubeseerResourceResult identifies one contributing selected resource and
+// FacetResourceResult identifies one contributing selected resource and
 // its ordered typed fields.
-type KubeseerResourceResult struct {
+type FacetResourceResult struct {
 	// +kubebuilder:validation:Required
 	APIVersion string `json:"apiVersion"`
 
@@ -542,36 +542,36 @@ type KubeseerResourceResult struct {
 
 	// +optional
 	// +listType=atomic
-	Fields []KubeseerFieldResult `json:"fields,omitempty"`
+	Fields []FacetFieldResult `json:"fields,omitempty"`
 
 	// +optional
-	Error *KubeseerResultError `json:"error,omitempty"`
+	Error *FacetResultError `json:"error,omitempty"`
 }
 
-// KubeseerFieldResult is one field-scoped typed outcome.
-type KubeseerFieldResult struct {
+// FacetFieldResult is one field-scoped typed outcome.
+type FacetFieldResult struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
 	// +optional
-	Type KubeseerValueType `json:"type,omitempty"`
+	Type FacetValueType `json:"type,omitempty"`
 
 	// +kubebuilder:validation:Required
-	State KubeseerFieldState `json:"state"`
+	State FacetFieldState `json:"state"`
 
 	// +optional
 	// +listType=atomic
-	Matches []KubeseerTypedMatch `json:"matches,omitempty"`
+	Matches []FacetTypedMatch `json:"matches,omitempty"`
 
 	// +optional
-	Error *KubeseerResultError `json:"error,omitempty"`
+	Error *FacetResultError `json:"error,omitempty"`
 }
 
-// KubeseerTypedMatch is one ordered typed match. Exactly one typed payload is
+// FacetTypedMatch is one ordered typed match. Exactly one typed payload is
 // populated when State is value; all payloads are omitted for null.
-type KubeseerTypedMatch struct {
+type FacetTypedMatch struct {
 	// +kubebuilder:validation:Required
-	State KubeseerMatchState `json:"state"`
+	State FacetMatchState `json:"state"`
 
 	// +optional
 	StringValue *string `json:"stringValue,omitempty"`
@@ -589,10 +589,10 @@ type KubeseerTypedMatch struct {
 	TimestampValue *metav1.Time `json:"timestampValue,omitempty"`
 
 	// +optional
-	DurationValue *KubeseerDurationValue `json:"durationValue,omitempty"`
+	DurationValue *FacetDurationValue `json:"durationValue,omitempty"`
 
 	// +optional
-	QuantityValue *KubeseerQuantityValue `json:"quantityValue,omitempty"`
+	QuantityValue *FacetQuantityValue `json:"quantityValue,omitempty"`
 
 	// +optional
 	ObjectValue *string `json:"objectValue,omitempty"`
@@ -601,9 +601,9 @@ type KubeseerTypedMatch struct {
 	ListValue *string `json:"listValue,omitempty"`
 }
 
-// KubeseerDurationValue is the canonical duration text and exact nanosecond
+// FacetDurationValue is the canonical duration text and exact nanosecond
 // magnitude.
-type KubeseerDurationValue struct {
+type FacetDurationValue struct {
 	// +kubebuilder:validation:Required
 	Canonical string `json:"canonical"`
 
@@ -611,9 +611,9 @@ type KubeseerDurationValue struct {
 	Nanoseconds int64 `json:"nanoseconds"`
 }
 
-// KubeseerQuantityValue is the canonical Kubernetes quantity text and exact
+// FacetQuantityValue is the canonical Kubernetes quantity text and exact
 // normalized base-unit decimal magnitude.
-type KubeseerQuantityValue struct {
+type FacetQuantityValue struct {
 	// +kubebuilder:validation:Required
 	Canonical string `json:"canonical"`
 
@@ -621,8 +621,8 @@ type KubeseerQuantityValue struct {
 	BaseUnits string `json:"baseUnits"`
 }
 
-// KubeseerFieldError is a sanitized field planning failure.
-type KubeseerFieldError struct {
+// FacetFieldError is a sanitized field planning failure.
+type FacetFieldError struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -633,8 +633,8 @@ type KubeseerFieldError struct {
 	Message string `json:"message,omitempty"`
 }
 
-// KubeseerResultError is a sanitized runtime or source-level failure.
-type KubeseerResultError struct {
+// FacetResultError is a sanitized runtime or source-level failure.
+type FacetResultError struct {
 	// +kubebuilder:validation:Required
 	Reason string `json:"reason"`
 

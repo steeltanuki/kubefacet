@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/internal/purge"
+	"github.com/steeltanuki/kubefacet/internal/purge"
 )
 
 var (
@@ -41,11 +41,11 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 1 && args[0] == "--version" {
-		_, err := fmt.Fprintf(stdout, "kubeseer-purge version=%s commit=%s date=%s\n", valueOrUnknown(buildVersion), valueOrUnknown(buildCommit), valueOrUnknown(buildDate))
+		_, err := fmt.Fprintf(stdout, "kubefacet-purge version=%s commit=%s date=%s\n", valueOrUnknown(buildVersion), valueOrUnknown(buildCommit), valueOrUnknown(buildDate))
 		return err
 	}
 	options := purge.Options{Timeout: 2 * time.Minute}
-	flags := flag.NewFlagSet("kubeseer-purge", flag.ContinueOnError)
+	flags := flag.NewFlagSet("kubefacet-purge", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&options.KubeconfigPath, "kubeconfig", "", "absolute kubeconfig path")
 	flags.StringVar(&options.ContextName, "context", "", "explicit Kubernetes context")
@@ -56,7 +56,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 || flags.Arg(0) != purge.ConfirmationToken {
-		return errors.New("usage: kubeseer-purge --kubeconfig /absolute/path --context CONTEXT --confirm-context CONTEXT --confirm-server SERVER purge-kubeseer-crds")
+		return errors.New("usage: kubefacet-purge --kubeconfig /absolute/path --context CONTEXT --confirm-context CONTEXT --confirm-server SERVER purge-kubefacet-crds")
 	}
 	options.Confirmation = flags.Arg(0)
 	if options.Timeout <= 0 {
@@ -70,7 +70,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	if _, err := fmt.Fprintf(stdout, "PURGE_TARGET context=%s server=%s\n", target.Context, target.Server); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(stdout, "PURGE_PLAN collections=kubeseers.kubeseer.io,kubeseeraccesspolicies.kubeseer.io order=instances-before-crds"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "PURGE_PLAN collections=facets.kubefacet.steeltanuki.it,facetaccesspolicies.kubefacet.steeltanuki.it order=instances-before-crds"); err != nil {
 		return err
 	}
 

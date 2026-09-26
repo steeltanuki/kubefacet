@@ -25,9 +25,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/managerapp"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/managerapp"
 	"k8s.io/klog/v2/klogr"
 	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 	ctrlruntimeLog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -139,7 +139,7 @@ func splitDNSNames(value string) []string {
 
 func runPackage(args []string, stdout, stderr io.Writer) error {
 	if len(args) < 1 {
-		return errors.New("usage: kubeseer package <preflight|policy|verify|pre-delete|post-delete>")
+		return errors.New("usage: kubefacet package <preflight|policy|verify|pre-delete|post-delete>")
 	}
 	action, err := managerapp.ParsePackageAction(args[0])
 	if err != nil {
@@ -162,8 +162,8 @@ func runPackage(args []string, stdout, stderr io.Writer) error {
 }
 
 func runCleanup(action managerapp.PackageAction, args []string, stdout, stderr io.Writer) error {
-	releaseName := os.Getenv("KUBESEER_RELEASE_NAME")
-	releaseNamespace := os.Getenv("KUBESEER_RELEASE_NAMESPACE")
+	releaseName := os.Getenv("KUBEFACET_RELEASE_NAME")
+	releaseNamespace := os.Getenv("KUBEFACET_RELEASE_NAMESPACE")
 	timeout := 2 * time.Minute
 	flags := flag.NewFlagSet("package "+string(action), flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -209,12 +209,12 @@ func runCleanup(action managerapp.PackageAction, args []string, stdout, stderr i
 func runLifecycle(action managerapp.PackageAction, args []string, stdout, stderr io.Writer) error {
 	managerConfig := managerapp.DefaultConfig()
 	options := managerapp.LifecycleOptions{
-		ReleaseName:                           os.Getenv("KUBESEER_RELEASE_NAME"),
-		ReleaseNamespace:                      os.Getenv("KUBESEER_RELEASE_NAMESPACE"),
+		ReleaseName:                           os.Getenv("KUBEFACET_RELEASE_NAME"),
+		ReleaseNamespace:                      os.Getenv("KUBEFACET_RELEASE_NAMESPACE"),
 		DeploymentName:                        managerapp.DefaultDeploymentName,
 		WebhookServiceName:                    managerapp.DefaultWebhookServiceName,
 		CertificateMode:                       managerapp.CertificateModeCertManager,
-		ExpectedKubeseerCRDStorageVersion:     v1alpha1.GroupVersion.Version,
+		ExpectedFacetCRDStorageVersion:        v1alpha1.GroupVersion.Version,
 		ExpectedAccessPolicyCRDStorageVersion: v1alpha1.GroupVersion.Version,
 		WebhookPort:                           int32(managerConfig.WebhookPort),
 		WebhookCertPath:                       filepath.Join(managerConfig.WebhookCertDir, managerConfig.WebhookCertName),
@@ -234,7 +234,7 @@ func runLifecycle(action managerapp.PackageAction, args []string, stdout, stderr
 	flags.StringVar(&options.CertificateMode, "certificate-mode", options.CertificateMode, "certificate lifecycle mode")
 	flags.StringVar(&options.ExpectedVersion, "expected-version", options.ExpectedVersion, "expected manager version")
 	flags.StringVar(&options.ExpectedImage, "expected-image", options.ExpectedImage, "expected manager image")
-	flags.StringVar(&options.ExpectedKubeseerCRDStorageVersion, "expected-kubeseer-crd-storage-version", options.ExpectedKubeseerCRDStorageVersion, "expected Kubeseer CRD storage version")
+	flags.StringVar(&options.ExpectedFacetCRDStorageVersion, "expected-facet-crd-storage-version", options.ExpectedFacetCRDStorageVersion, "expected Facet CRD storage version")
 	flags.StringVar(&options.ExpectedAccessPolicyCRDStorageVersion, "expected-access-policy-crd-storage-version", options.ExpectedAccessPolicyCRDStorageVersion, "expected access-policy CRD storage version")
 	flags.IntVar(&webhookPort, "webhook-port", webhookPort, "webhook TLS port")
 	flags.StringVar(&options.WebhookCertPath, "webhook-cert-path", options.WebhookCertPath, "webhook serving certificate path")
@@ -271,8 +271,8 @@ func runLifecycle(action managerapp.PackageAction, args []string, stdout, stderr
 
 func runPolicy(args []string, stdout, stderr io.Writer) error {
 	policyFile := ""
-	releaseName := os.Getenv("KUBESEER_RELEASE_NAME")
-	releaseNamespace := os.Getenv("KUBESEER_RELEASE_NAMESPACE")
+	releaseName := os.Getenv("KUBEFACET_RELEASE_NAME")
+	releaseNamespace := os.Getenv("KUBEFACET_RELEASE_NAMESPACE")
 	flags := flag.NewFlagSet("package policy", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&policyFile, "policy-file", policyFile, "absolute path to the rendered policy JSON")

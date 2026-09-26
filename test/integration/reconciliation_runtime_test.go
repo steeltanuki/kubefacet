@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,8 +36,8 @@ func assertReconciliationRuntimeSchedulingScenarios(t *testing.T) {
 	keyA := types.NamespacedName{Namespace: "team-a", Name: "runtime-a"}
 	keyB := types.NamespacedName{Namespace: "team-b", Name: "runtime-b"}
 	store := newRuntimeTestStore(
-		newRuntimeKubeseer(keyA, "uid-a", 1),
-		newRuntimeKubeseer(keyB, "uid-b", 1),
+		newRuntimeFacet(keyA, "uid-a", 1),
+		newRuntimeFacet(keyB, "uid-b", 1),
 	)
 	routes := &runtimeTestRoutes{}
 	tracker := reconciliation.NewFreshnessTracker()
@@ -52,15 +52,15 @@ func assertReconciliationRuntimeSchedulingScenarios(t *testing.T) {
 			t.Fatal("route manager started after invalid trigger setup")
 		}
 		if store.ListCalls() != 0 {
-			t.Fatalf("invalid setup issued %d Kubeseer lists", store.ListCalls())
+			t.Fatalf("invalid setup issued %d Facet lists", store.ListCalls())
 		}
 	})
 
 	t.Run("lifecycle events update identity before enqueue and suppress status-only updates", func(t *testing.T) {
 		queue := newRuntimeQueue()
 		handler := reconciliation.NewLifecycleHandler(tracker, routes)
-		object := newRuntimeKubeseer(keyA, "uid-a", 1)
-		handler.Create(context.Background(), event.TypedCreateEvent[*v1alpha1.Kubeseer]{Object: object}, queue)
+		object := newRuntimeFacet(keyA, "uid-a", 1)
+		handler.Create(context.Background(), event.TypedCreateEvent[*v1alpha1.Facet]{Object: object}, queue)
 		if got := queue.Len(); got != 1 {
 			t.Fatalf("create queue length = %d, want 1", got)
 		}
@@ -72,10 +72,10 @@ func assertReconciliationRuntimeSchedulingScenarios(t *testing.T) {
 		newObject := object.DeepCopy()
 		newObject.Generation = 2
 		newObject.ResourceVersion = "2"
-		if !(reconciliation.KubeseerPredicate{}).Update(event.TypedUpdateEvent[*v1alpha1.Kubeseer]{ObjectOld: object, ObjectNew: newObject}) {
+		if !(reconciliation.FacetPredicate{}).Update(event.TypedUpdateEvent[*v1alpha1.Facet]{ObjectOld: object, ObjectNew: newObject}) {
 			t.Fatal("generation update was suppressed")
 		}
-		handler.Update(context.Background(), event.TypedUpdateEvent[*v1alpha1.Kubeseer]{ObjectOld: object, ObjectNew: newObject}, queue)
+		handler.Update(context.Background(), event.TypedUpdateEvent[*v1alpha1.Facet]{ObjectOld: object, ObjectNew: newObject}, queue)
 		select {
 		case <-child.Done():
 		case <-time.After(time.Second):
@@ -88,16 +88,16 @@ func assertReconciliationRuntimeSchedulingScenarios(t *testing.T) {
 		statusOnlyOld := newObject.DeepCopy()
 		statusOnlyNew := newObject.DeepCopy()
 		statusOnlyNew.Status.ObservedGeneration = 2
-		if (reconciliation.KubeseerPredicate{}).Update(event.TypedUpdateEvent[*v1alpha1.Kubeseer]{ObjectOld: statusOnlyOld, ObjectNew: statusOnlyNew}) {
+		if (reconciliation.FacetPredicate{}).Update(event.TypedUpdateEvent[*v1alpha1.Facet]{ObjectOld: statusOnlyOld, ObjectNew: statusOnlyNew}) {
 			t.Fatal("status-only update was not suppressed")
 		}
 
 		deleting := newObject.DeepCopy()
 		deleting.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-		if !(reconciliation.KubeseerPredicate{}).Update(event.TypedUpdateEvent[*v1alpha1.Kubeseer]{ObjectOld: newObject, ObjectNew: deleting}) {
+		if !(reconciliation.FacetPredicate{}).Update(event.TypedUpdateEvent[*v1alpha1.Facet]{ObjectOld: newObject, ObjectNew: deleting}) {
 			t.Fatal("deletion timestamp update was suppressed")
 		}
-		handler.Update(context.Background(), event.TypedUpdateEvent[*v1alpha1.Kubeseer]{ObjectOld: newObject, ObjectNew: deleting}, queue)
+		handler.Update(context.Background(), event.TypedUpdateEvent[*v1alpha1.Facet]{ObjectOld: newObject, ObjectNew: deleting}, queue)
 		state, ok := tracker.State(keyA)
 		if !ok || !state.Deleting {
 			t.Fatalf("deletion state = %#v, present=%t", state, ok)
@@ -146,12 +146,12 @@ func assertReconciliationRuntimeSchedulingScenarios(t *testing.T) {
 		defer queue.ShutDown()
 		waitForRuntimeQueue(t, queue, 2)
 		if got := store.ListCalls(); got == 0 {
-			t.Fatal("periodic source did not list Kubeseers")
+			t.Fatal("periodic source did not list Facets")
 		}
 		drainRuntimeQueue(queue)
 		policyHandler := reconciliation.NewPolicyHandler(tracker, routes, source)
-		policy := &v1alpha1.KubeseerAccessPolicy{ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName, UID: "policy-uid"}}
-		policyHandler.Create(context.Background(), event.TypedCreateEvent[*v1alpha1.KubeseerAccessPolicy]{Object: policy}, queue)
+		policy := &v1alpha1.FacetAccessPolicy{ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName, UID: "policy-uid"}}
+		policyHandler.Create(context.Background(), event.TypedCreateEvent[*v1alpha1.FacetAccessPolicy]{Object: policy}, queue)
 		waitForRuntimeQueue(t, queue, 2)
 		if tracker.PolicyEpoch() == 0 {
 			t.Fatal("policy fan-out did not advance policy epoch")
@@ -181,33 +181,33 @@ func assertReconciliationRuntimeSchedulingScenarios(t *testing.T) {
 
 type runtimeTestStore struct {
 	mu      sync.Mutex
-	objects map[types.NamespacedName]*v1alpha1.Kubeseer
+	objects map[types.NamespacedName]*v1alpha1.Facet
 	listErr error
 	gets    int
 	lists   int
 }
 
-func newRuntimeTestStore(objects ...*v1alpha1.Kubeseer) *runtimeTestStore {
-	store := &runtimeTestStore{objects: make(map[types.NamespacedName]*v1alpha1.Kubeseer)}
+func newRuntimeTestStore(objects ...*v1alpha1.Facet) *runtimeTestStore {
+	store := &runtimeTestStore{objects: make(map[types.NamespacedName]*v1alpha1.Facet)}
 	for _, object := range objects {
 		store.objects[types.NamespacedName{Namespace: object.Namespace, Name: object.Name}] = object.DeepCopy()
 	}
 	return store
 }
 
-func (s *runtimeTestStore) Get(_ context.Context, key types.NamespacedName, object *v1alpha1.Kubeseer) error {
+func (s *runtimeTestStore) Get(_ context.Context, key types.NamespacedName, object *v1alpha1.Facet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gets++
 	current := s.objects[key]
 	if current == nil {
-		return apierrors.NewNotFound(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseers"}, key.Name)
+		return apierrors.NewNotFound(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facets"}, key.Name)
 	}
 	*object = *current.DeepCopy()
 	return nil
 }
 
-func (s *runtimeTestStore) List(_ context.Context, list *v1alpha1.KubeseerList) error {
+func (s *runtimeTestStore) List(_ context.Context, list *v1alpha1.FacetList) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lists++
@@ -227,8 +227,8 @@ func (s *runtimeTestStore) ListCalls() int {
 	return s.lists
 }
 
-func newRuntimeKubeseer(key types.NamespacedName, uid types.UID, generation int64) *v1alpha1.Kubeseer {
-	return &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: uid, Generation: generation}}
+func newRuntimeFacet(key types.NamespacedName, uid types.UID, generation int64) *v1alpha1.Facet {
+	return &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: uid, Generation: generation}}
 }
 
 type runtimeTestRoutes struct {

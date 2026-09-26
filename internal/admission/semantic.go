@@ -19,12 +19,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,10 +33,10 @@ import (
 
 var kindIdentifierPattern = regexp.MustCompile("^[A-Z][A-Za-z0-9]*$")
 
-// ValidateKubeseerSemantics runs all deterministic, dependency-free
+// ValidateFacetSemantics runs all deterministic, dependency-free
 // validation stages. It never calls discovery, policy sources, or resource
 // clients and never mutates the proposed object.
-func ValidateKubeseerSemantics(object *v1alpha1.Kubeseer) Result {
+func ValidateFacetSemantics(object *v1alpha1.Facet) Result {
 	if object == nil {
 		return result([]Issue{invalidIssue("spec", "MissingObject", "object must be provided")})
 	}
@@ -60,7 +60,7 @@ func ValidateKubeseerSemantics(object *v1alpha1.Kubeseer) Result {
 
 // ValidateAccessPolicySemantics validates a proposed policy through the
 // shared policy compiler's complete declaration validator.
-func ValidateAccessPolicySemantics(object *v1alpha1.KubeseerAccessPolicy) Result {
+func ValidateAccessPolicySemantics(object *v1alpha1.FacetAccessPolicy) Result {
 	issues := make([]Issue, 0)
 	for _, failure := range accesspolicy.Validate(object) {
 		if failure == nil {
@@ -71,7 +71,7 @@ func ValidateAccessPolicySemantics(object *v1alpha1.KubeseerAccessPolicy) Result
 	return result(issues)
 }
 
-func validateSourceIdentity(prefix string, source v1alpha1.KubeseerSource) []Issue {
+func validateSourceIdentity(prefix string, source v1alpha1.FacetSource) []Issue {
 	issues := make([]Issue, 0)
 	if source.ID == "" || len(source.ID) > 63 || len(validation.IsDNS1123Label(source.ID)) != 0 {
 		issues = append(issues, invalidIssue(prefix+".id", "InvalidSourceID", "source id must be a valid DNS-1123 label"))
@@ -87,7 +87,7 @@ func validateSourceIdentity(prefix string, source v1alpha1.KubeseerSource) []Iss
 	return issues
 }
 
-func validateNamespaces(prefix string, source v1alpha1.KubeseerSource) []Issue {
+func validateNamespaces(prefix string, source v1alpha1.FacetSource) []Issue {
 	if source.Namespaces == nil {
 		return nil
 	}
@@ -107,7 +107,7 @@ func validateNamespaces(prefix string, source v1alpha1.KubeseerSource) []Issue {
 	return issues
 }
 
-func validateSelector(prefix string, source v1alpha1.KubeseerSource) []Issue {
+func validateSelector(prefix string, source v1alpha1.FacetSource) []Issue {
 	selector := source.Selector
 	if selector == nil {
 		return nil
@@ -128,7 +128,7 @@ func validateSelector(prefix string, source v1alpha1.KubeseerSource) []Issue {
 	return issues
 }
 
-func validateSourceDeclarations(prefix string, source v1alpha1.KubeseerSource) []Issue {
+func validateSourceDeclarations(prefix string, source v1alpha1.FacetSource) []Issue {
 	issues := make([]Issue, 0)
 	fieldIndexes := make(map[string]int, len(source.Fields))
 	for index, field := range source.Fields {
@@ -220,8 +220,8 @@ func validateSourceDeclarations(prefix string, source v1alpha1.KubeseerSource) [
 	return issues
 }
 
-func validateGroupingFields(prefix string, source v1alpha1.KubeseerSource) []Issue {
-	fieldTypes := make(map[string]v1alpha1.KubeseerValueType, len(source.Fields))
+func validateGroupingFields(prefix string, source v1alpha1.FacetSource) []Issue {
+	fieldTypes := make(map[string]v1alpha1.FacetValueType, len(source.Fields))
 	for _, field := range source.Fields {
 		if _, found := fieldTypes[field.Name]; !found {
 			fieldTypes[field.Name] = field.Type
@@ -250,7 +250,7 @@ func validateGroupingFields(prefix string, source v1alpha1.KubeseerSource) []Iss
 	return issues
 }
 
-func firstFieldIndex(fields []v1alpha1.KubeseerField, name string) int {
+func firstFieldIndex(fields []v1alpha1.FacetField, name string) int {
 	for index, field := range fields {
 		if field.Name == name {
 			return index
@@ -259,7 +259,7 @@ func firstFieldIndex(fields []v1alpha1.KubeseerField, name string) int {
 	return 0
 }
 
-func firstAggregationIndex(aggregations []v1alpha1.KubeseerAggregation, name string) int {
+func firstAggregationIndex(aggregations []v1alpha1.FacetAggregation, name string) int {
 	for index, aggregation := range aggregations {
 		if aggregation.Name == name {
 			return index
@@ -268,7 +268,7 @@ func firstAggregationIndex(aggregations []v1alpha1.KubeseerAggregation, name str
 	return 0
 }
 
-func supportedGroupingType(fieldType v1alpha1.KubeseerValueType) bool {
+func supportedGroupingType(fieldType v1alpha1.FacetValueType) bool {
 	switch fieldType {
 	case v1alpha1.ValueTypeString, v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeNumber,
 		v1alpha1.ValueTypeBoolean, v1alpha1.ValueTypeTimestamp, v1alpha1.ValueTypeDuration,

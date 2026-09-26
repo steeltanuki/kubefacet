@@ -19,11 +19,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // Validator composes bounded pure validation, current discovery, and one
@@ -63,18 +63,18 @@ func NewValidatorWithBudgetValidator(resolver selection.DiscoveryResolver, polic
 	return &Validator{resolver: resolver, policySource: policySource, limits: budgetValidator.Limits(), budgets: budgetValidator}
 }
 
-// ValidateKubeseer validates one proposed Kubeseer through the staged
+// ValidateFacet validates one proposed Facet through the staged
 // admission pipeline. Pure budget or semantic issues prevent all dynamic
 // discovery and policy work.
-func (v *Validator) ValidateKubeseer(ctx context.Context, object *v1alpha1.Kubeseer) Result {
+func (v *Validator) ValidateFacet(ctx context.Context, object *v1alpha1.Facet) Result {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	issues := budgetIssues(v.budgetValidator().ValidateKubeseer(object))
+	issues := budgetIssues(v.budgetValidator().ValidateFacet(object))
 	if len(issues) != 0 {
 		return result(issues)
 	}
-	semantic := ValidateKubeseerSemantics(object)
+	semantic := ValidateFacetSemantics(object)
 	if len(semantic.Issues) != 0 {
 		return semantic
 	}
@@ -127,8 +127,8 @@ func (v *Validator) ValidateKubeseer(ctx context.Context, object *v1alpha1.Kubes
 }
 
 // ValidateAccessPolicy validates a proposed policy without reading the
-// currently persisted policy or any Kubeseer object.
-func (v *Validator) ValidateAccessPolicy(_ context.Context, object *v1alpha1.KubeseerAccessPolicy) Result {
+// currently persisted policy or any Facet object.
+func (v *Validator) ValidateAccessPolicy(_ context.Context, object *v1alpha1.FacetAccessPolicy) Result {
 	issues := budgetIssues(v.budgetValidator().ValidateAccessPolicy(object))
 	if len(issues) != 0 {
 		return result(issues)
@@ -137,7 +137,7 @@ func (v *Validator) ValidateAccessPolicy(_ context.Context, object *v1alpha1.Kub
 }
 
 // ValidatePolicy is an explicit policy-named compatibility alias.
-func (v *Validator) ValidatePolicy(ctx context.Context, object *v1alpha1.KubeseerAccessPolicy) Result {
+func (v *Validator) ValidatePolicy(ctx context.Context, object *v1alpha1.FacetAccessPolicy) Result {
 	return v.ValidateAccessPolicy(ctx, object)
 }
 
@@ -212,7 +212,7 @@ func policyTerminalIssue(reason accesspolicy.PolicyReason) Issue {
 	}
 }
 
-func policyDecisionIssue(sourceIndex int, source v1alpha1.KubeseerSource, target selection.ReadTarget, decision accesspolicy.Decision) Issue {
+func policyDecisionIssue(sourceIndex int, source v1alpha1.FacetSource, target selection.ReadTarget, decision accesspolicy.Decision) Issue {
 	path := fmt.Sprintf("spec.sources[%d].resource", sourceIndex)
 	if decision.Reason == accesspolicy.ReasonNamespaceDenied && source.Namespaces != nil {
 		for namespaceIndex, namespace := range source.Namespaces.Names {

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha1 defines the public Kubernetes API types for Kubeseer.
+// Package v1alpha1 defines the public Kubernetes API types for KubeFacet.
 //
-// Responsibility: own the versioned Kubeseer resource, list, spec, and status
+// Responsibility: own the versioned Facet resource, list, spec, and status
 // value contracts that are serialized through the Kubernetes API.
 //
 // Boundary: this package exposes API values and scheme registration only.
@@ -22,5 +22,5 @@
 // supplied by consuming modules rather than being hidden in this package.
 //
 // +kubebuilder:object:generate=true
-// +groupName=kubeseer.io
+// +groupName=kubefacet.steeltanuki.it
 package v1alpha1

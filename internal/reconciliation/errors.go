@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/admission"
 )
 
 // FailureReason identifies a sanitized runtime failure without exposing
@@ -75,7 +75,7 @@ func (e *RuntimeError) Unwrap() error {
 }
 
 func configurationBudgetRuntimeError(issues []admission.BudgetIssue) *RuntimeError {
-	message := "current Kubeseer exceeds the configured admission budget"
+	message := "current Facet exceeds the configured admission budget"
 	if len(issues) > 0 {
 		message = issues[0].Path + ": " + issues[0].Message
 	}

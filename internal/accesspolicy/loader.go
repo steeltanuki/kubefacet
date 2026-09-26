@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,14 +27,14 @@ import (
 // accepts a caller-selected name: implementations retrieve the active
 // installation singleton only.
 type PolicySource interface {
-	Get(ctx context.Context) (*v1alpha1.KubeseerAccessPolicy, error)
+	Get(ctx context.Context) (*v1alpha1.FacetAccessPolicy, error)
 }
 
 // PolicySourceFunc adapts a function into a narrow PolicySource for tests and
 // other in-process adapters.
-type PolicySourceFunc func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error)
+type PolicySourceFunc func(context.Context) (*v1alpha1.FacetAccessPolicy, error)
 
-func (f PolicySourceFunc) Get(ctx context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+func (f PolicySourceFunc) Get(ctx context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 	return f(ctx)
 }
 
@@ -49,13 +49,13 @@ func NewClientPolicySource(c client.Reader) *ClientPolicySource {
 	return &ClientPolicySource{client: c}
 }
 
-// Get retrieves only KubeseerAccessPolicy/installation-access-ceiling.
-func (s *ClientPolicySource) Get(ctx context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+// Get retrieves only FacetAccessPolicy/installation-access-ceiling.
+func (s *ClientPolicySource) Get(ctx context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 	if s == nil || s.client == nil {
 		return nil, context.Canceled
 	}
 
-	policy := new(v1alpha1.KubeseerAccessPolicy)
+	policy := new(v1alpha1.FacetAccessPolicy)
 	err := s.client.Get(ctx, client.ObjectKey{Name: v1alpha1.InstallationAccessCeilingName}, policy)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func Load(ctx context.Context, source PolicySource) Snapshot {
 // PolicyValidation is an optional pure pre-compilation guard. It is used by
 // the runtime to apply the shared admission budget boundary before any policy
 // compiler work occurs, without importing a domain package here.
-type PolicyValidation func(*v1alpha1.KubeseerAccessPolicy) error
+type PolicyValidation func(*v1alpha1.FacetAccessPolicy) error
 
 // LoadWithValidation reads and compiles one fresh policy snapshot after the
 // supplied validation callback succeeds. A validation failure is deliberately

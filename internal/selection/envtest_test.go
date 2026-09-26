@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	harness "github.com/steeltanuki/kubeseer/test/envtest"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	harness "github.com/steeltanuki/kubefacet/test/envtest"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,7 +55,7 @@ func TestEnvtestSelection(t *testing.T) {
 
 	ownerNamespace := environment.Scope().Namespace
 	otherNamespace := environment.Scope().Prefix + "-other"
-	if _, err := clients.Core.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespace, Labels: map[string]string{"kubeseer.io/test-scope": environment.Scope().Prefix}}}, metav1.CreateOptions{}); err != nil {
+	if _, err := clients.Core.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespace, Labels: map[string]string{"kubefacet.steeltanuki.it/test-scope": environment.Scope().Prefix}}}, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("create cross-namespace fixture: %v", err)
 	}
 	environment.AddCleanup("delete selection fixture namespace", func(ctx context.Context) error {
@@ -95,7 +95,7 @@ func TestEnvtestSelection(t *testing.T) {
 	executor := selection.NewExecutor(lister, selection.WithVerifier(verifier))
 
 	t.Run("exact name and labels use server-side AND selection", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:       "exact-label-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"},
 			Selector: &v1alpha1.ResourceSelector{
@@ -113,7 +113,7 @@ func TestEnvtestSelection(t *testing.T) {
 	})
 
 	t.Run("match expressions and supported field selector", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:       "expression-field-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"},
 			Selector: &v1alpha1.ResourceSelector{
@@ -128,7 +128,7 @@ func TestEnvtestSelection(t *testing.T) {
 	})
 
 	t.Run("match all and no match are successful outcomes", func(t *testing.T) {
-		all := v1alpha1.KubeseerSource{ID: "all-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"}}
+		all := v1alpha1.FacetSource{ID: "all-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"}}
 		allOutcome := executeSource(t, ctx, resolver, executor, ownerNamespace, all)
 		if allOutcome.Err != nil || len(allOutcome.Resources) != 3 {
 			t.Fatalf("match-all outcome = %#v", allOutcome)
@@ -143,7 +143,7 @@ func TestEnvtestSelection(t *testing.T) {
 	})
 
 	t.Run("server pagination completes with a bounded page limit", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{ID: "pagination-api-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"}}
+		source := v1alpha1.FacetSource{ID: "pagination-api-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"}}
 		paginatedOutcome := executeSource(t, ctx, resolver, selection.NewExecutor(lister, selection.WithPageLimit(1), selection.WithVerifier(verifier)), ownerNamespace, source)
 		if paginatedOutcome.Err != nil || len(paginatedOutcome.Resources) != 3 {
 			t.Fatalf("server-paginated outcome = %#v", paginatedOutcome)
@@ -156,7 +156,7 @@ func TestEnvtestSelection(t *testing.T) {
 	})
 
 	t.Run("cross namespace and cluster scope preserve provenance", func(t *testing.T) {
-		crossNamespace := v1alpha1.KubeseerSource{
+		crossNamespace := v1alpha1.FacetSource{
 			ID:         "cross-namespace-source",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{otherNamespace, ownerNamespace}},
@@ -167,7 +167,7 @@ func TestEnvtestSelection(t *testing.T) {
 			t.Fatalf("cross namespace outcome = %#v", crossOutcome)
 		}
 
-		node := v1alpha1.KubeseerSource{
+		node := v1alpha1.FacetSource{
 			ID:       "cluster-node-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Node"},
 			Selector: &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"role": "worker"}},
@@ -179,19 +179,19 @@ func TestEnvtestSelection(t *testing.T) {
 	})
 
 	t.Run("CRD-backed resources use their discovered identity", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:       "widget-source",
-			Resource: v1alpha1.ResourceReference{APIVersion: "selection.kubeseer.io/v1", Kind: "Widget"},
+			Resource: v1alpha1.ResourceReference{APIVersion: "selection.kubefacet.steeltanuki.it/v1", Kind: "Widget"},
 			Selector: &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"app": "custom"}},
 		}
 		outcome := executeSource(t, ctx, resolver, executor, ownerNamespace, source)
-		if outcome.Err != nil || len(outcome.Resources) != 1 || outcome.Resources[0].Provenance.APIVersion != "selection.kubeseer.io/v1" || outcome.Resources[0].Provenance.Kind != "Widget" {
+		if outcome.Err != nil || len(outcome.Resources) != 1 || outcome.Resources[0].Provenance.APIVersion != "selection.kubefacet.steeltanuki.it/v1" || outcome.Resources[0].Provenance.Kind != "Widget" {
 			t.Fatalf("CRD-backed outcome = %#v", outcome)
 		}
 	})
 
 	t.Run("unsupported field selector is source scoped and sanitized", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:       "unsupported-field-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "ConfigMap"},
 			Selector: &v1alpha1.ResourceSelector{FieldSelector: "spec.unsupported=value"},
@@ -206,7 +206,7 @@ func TestEnvtestSelection(t *testing.T) {
 	t.Log("API_CONTRACT=resource-selection-pagination STATUS=passed")
 }
 
-func executeSource(t *testing.T, ctx context.Context, resolver *discovery.Resolver, executor *selection.Executor, ownerNamespace string, source v1alpha1.KubeseerSource) selection.SelectionOutcome {
+func executeSource(t *testing.T, ctx context.Context, resolver *discovery.Resolver, executor *selection.Executor, ownerNamespace string, source v1alpha1.FacetSource) selection.SelectionOutcome {
 	t.Helper()
 	planner := selection.NewPlanner(resolver)
 	plan, err := planner.Plan(ctx, ownerNamespace, source)
@@ -232,11 +232,11 @@ func executeSource(t *testing.T, ctx context.Context, resolver *discovery.Resolv
 
 func selectionFixtureSnapshot(t *testing.T) accesspolicy.Snapshot {
 	t.Helper()
-	policy := &v1alpha1.KubeseerAccessPolicy{
+	policy := &v1alpha1.FacetAccessPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName, UID: types.UID("selection-policy-uid"), Generation: 1},
-		Spec: v1alpha1.KubeseerAccessPolicySpec{
+		Spec: v1alpha1.FacetAccessPolicySpec{
 			Namespaces:         v1alpha1.NamespacePolicy{Mode: v1alpha1.NamespaceModeAllNonSystem},
-			Resources:          []v1alpha1.ResourceRule{{APIGroups: []string{"", "selection.kubeseer.io"}, Kinds: []string{"ConfigMap", "Node", "Widget"}}},
+			Resources:          []v1alpha1.ResourceRule{{APIGroups: []string{"", "selection.kubefacet.steeltanuki.it"}, Kinds: []string{"ConfigMap", "Node", "Widget"}}},
 			AllowClusterScoped: true,
 		},
 	}
@@ -270,7 +270,7 @@ func createConfigMaps(t *testing.T, ctx context.Context, clients harness.Clients
 func createNode(t *testing.T, ctx context.Context, clients harness.Clients, prefix string) {
 	t.Helper()
 	name := "selection-node-" + prefix
-	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"role": "worker", "kubeseer.io/selection-fixture": "true"}}}
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"role": "worker", "kubefacet.steeltanuki.it/selection-fixture": "true"}}}
 	if _, err := clients.Core.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("create cluster-scoped Node: %v", err)
 	}
@@ -278,7 +278,7 @@ func createNode(t *testing.T, ctx context.Context, clients harness.Clients, pref
 
 func createWidgetCRD(t *testing.T, ctx context.Context, environment *harness.Harness, clients harness.Clients) (*apiextensionsv1.CustomResourceDefinition, schema.GroupVersionResource) {
 	t.Helper()
-	group, version, plural := "selection.kubeseer.io", "v1", "widgets-"+strings.TrimPrefix(environment.Scope().Prefix, "kubeseer-")
+	group, version, plural := "selection.kubefacet.steeltanuki.it", "v1", "widgets-"+strings.TrimPrefix(environment.Scope().Prefix, "kubefacet-")
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{Name: plural + "." + group},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{

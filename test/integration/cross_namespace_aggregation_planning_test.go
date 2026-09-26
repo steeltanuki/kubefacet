@@ -19,16 +19,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertCrossNamespaceAggregationPlanningScenarios(t *testing.T) {
 	t.Helper()
-	fields := []v1alpha1.KubeseerField{
+	fields := []v1alpha1.FacetField{
 		{Name: "team", Path: "{.data.team}", Type: v1alpha1.ValueTypeString},
 		{Name: "replicas", Path: "{.data.replicas}", Type: v1alpha1.ValueTypeInteger},
 		{Name: "ratio", Path: "{.data.ratio}", Type: v1alpha1.ValueTypeNumber},
@@ -39,10 +39,10 @@ func assertCrossNamespaceAggregationPlanningScenarios(t *testing.T) {
 		{Name: "payload", Path: "{.data.payload}", Type: v1alpha1.ValueTypeObject},
 		{Name: "items", Path: "{.data.items}", Type: v1alpha1.ValueTypeList},
 	}
-	valid := v1alpha1.KubeseerSource{
+	valid := v1alpha1.FacetSource{
 		ID:     "aggregation-source",
 		Fields: fields,
-		Aggregations: []v1alpha1.KubeseerAggregation{
+		Aggregations: []v1alpha1.FacetAggregation{
 			{Name: "sum-replicas", Function: v1alpha1.AggregationSum, Field: "replicas", GroupBy: []string{"team"}},
 			{Name: "average-ratio", Function: v1alpha1.AggregationAverage, Field: "ratio"},
 			{Name: "count-payload", Function: v1alpha1.AggregationCount, Field: "payload"},
@@ -96,7 +96,7 @@ func assertCrossNamespaceAggregationPlanningScenarios(t *testing.T) {
 	explicit.Aggregations[1].Precision = &precision
 	explicit.Aggregations[1].RoundingMode = v1alpha1.RoundingAwayFromZero
 	reordered := explicit
-	reordered.Aggregations = append([]v1alpha1.KubeseerAggregation(nil), explicit.Aggregations...)
+	reordered.Aggregations = append([]v1alpha1.FacetAggregation(nil), explicit.Aggregations...)
 	for left, right := 0, len(reordered.Aggregations)-1; left < right; left, right = left+1, right-1 {
 		reordered.Aggregations[left], reordered.Aggregations[right] = reordered.Aggregations[right], reordered.Aggregations[left]
 	}
@@ -123,14 +123,14 @@ func assertCrossNamespaceAggregationPlanningScenarios(t *testing.T) {
 
 	t.Run("independent invalid declarations retain valid siblings", func(t *testing.T) {
 		invalid := valid
-		invalid.Aggregations = []v1alpha1.KubeseerAggregation{
+		invalid.Aggregations = []v1alpha1.FacetAggregation{
 			{Name: "good", Function: v1alpha1.AggregationCount, Field: "payload"},
 			{Name: "bad-target", Function: v1alpha1.AggregationCount, Field: "missing"},
 			{Name: "bad-group", Function: v1alpha1.AggregationCount, Field: "payload", GroupBy: []string{"payload"}},
 			{Name: "bad-duplicate-group", Function: v1alpha1.AggregationCount, Field: "payload", GroupBy: []string{"team", "team"}},
 			{Name: "bad-compatibility", Function: v1alpha1.AggregationSum, Field: "team"},
 			{Name: "bad-options", Function: v1alpha1.AggregationCount, Field: "payload", Precision: ptrInt32(2)},
-			{Name: "bad-function", Function: v1alpha1.KubeseerAggregationFunction("unknown"), Field: "payload"},
+			{Name: "bad-function", Function: v1alpha1.FacetAggregationFunction("unknown"), Field: "payload"},
 		}
 		outcome := aggregation.PlanSource(invalid, aggregation.Limits{})
 		if len(outcome.Plans()) != 1 || outcome.Plans()[0].Name() != "good" || len(outcome.Failures()) != 6 || outcome.Valid() {
@@ -154,7 +154,7 @@ func assertCrossNamespaceAggregationPlanningScenarios(t *testing.T) {
 	t.Run("canonical keys reuse typed normalization", func(t *testing.T) {
 		cases := []struct {
 			name     string
-			typeName v1alpha1.KubeseerValueType
+			typeName v1alpha1.FacetValueType
 			left     any
 			right    any
 			equal    bool

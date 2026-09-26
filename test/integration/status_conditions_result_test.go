@@ -22,8 +22,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 )
 
 func assertStatusAndConditionsResultScenarios(t *testing.T) {
@@ -31,25 +31,25 @@ func assertStatusAndConditionsResultScenarios(t *testing.T) {
 
 	t.Run("summary and degradation come from the structural result", func(t *testing.T) {
 		value := "observed-value"
-		result := &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{
+		result := &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{
 			{
 				ID:    "successful-source",
 				State: v1alpha1.SourceStateValues,
-				FieldErrors: []v1alpha1.KubeseerFieldError{{
+				FieldErrors: []v1alpha1.FacetFieldError{{
 					Name:   "declared-field",
 					Reason: "InvalidExpression",
 				}},
-				Resources: []v1alpha1.KubeseerResourceResult{
+				Resources: []v1alpha1.FacetResourceResult{
 					{
 						APIVersion: "v1",
 						Kind:       "Pod",
 						Name:       "pod-a",
 						UID:        "pod-a-uid",
-						Fields: []v1alpha1.KubeseerFieldResult{{
+						Fields: []v1alpha1.FacetFieldResult{{
 							Name:  "value",
 							Type:  v1alpha1.ValueTypeString,
 							State: v1alpha1.FieldStateValues,
-							Matches: []v1alpha1.KubeseerTypedMatch{{
+							Matches: []v1alpha1.FacetTypedMatch{{
 								State:       v1alpha1.MatchStateValue,
 								StringValue: &value,
 							}},
@@ -66,7 +66,7 @@ func assertStatusAndConditionsResultScenarios(t *testing.T) {
 			{
 				ID:    "failed-source",
 				State: v1alpha1.SourceStateError,
-				Error: &v1alpha1.KubeseerResultError{Reason: "ReadUnavailable", Message: "source unavailable"},
+				Error: &v1alpha1.FacetResultError{Reason: "ReadUnavailable", Message: "source unavailable"},
 			},
 		}}
 
@@ -74,7 +74,7 @@ func assertStatusAndConditionsResultScenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("derive result: %v", err)
 		}
-		wantSummary := &v1alpha1.KubeseerSummary{SuccessfulSources: 1, FailedSources: 1, MatchedResources: 2}
+		wantSummary := &v1alpha1.FacetSummary{SuccessfulSources: 1, FailedSources: 1, MatchedResources: 2}
 		if !reflect.DeepEqual(derived.Summary, wantSummary) {
 			t.Fatalf("summary = %#v, want %#v", derived.Summary, wantSummary)
 		}
@@ -101,15 +101,15 @@ func assertStatusAndConditionsResultScenarios(t *testing.T) {
 	})
 
 	t.Run("nil and empty collections are one semantic result", func(t *testing.T) {
-		nilCollections := &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{
+		nilCollections := &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{
 			ID:    "source",
 			State: v1alpha1.SourceStateValues,
-			Resources: []v1alpha1.KubeseerResourceResult{{
+			Resources: []v1alpha1.FacetResourceResult{{
 				APIVersion: "v1",
 				Kind:       "Pod",
 				Name:       "pod",
 				UID:        "pod-uid",
-				Fields: []v1alpha1.KubeseerFieldResult{{
+				Fields: []v1alpha1.FacetFieldResult{{
 					Name:    "field",
 					State:   v1alpha1.FieldStateValues,
 					Matches: nil,
@@ -117,14 +117,14 @@ func assertStatusAndConditionsResultScenarios(t *testing.T) {
 			}},
 		}}}
 		emptyCollections := nilCollections.DeepCopy()
-		emptyCollections.Sources = append([]v1alpha1.KubeseerSourceResult(nil), emptyCollections.Sources...)
-		emptyCollections.Sources[0].FieldErrors = []v1alpha1.KubeseerFieldError{}
-		emptyCollections.Sources[0].Resources = append([]v1alpha1.KubeseerResourceResult(nil), emptyCollections.Sources[0].Resources...)
-		emptyCollections.Sources[0].Resources[0].Fields = []v1alpha1.KubeseerFieldResult{}
-		emptyCollections.Sources[0].Resources[0].Fields = append(emptyCollections.Sources[0].Resources[0].Fields, v1alpha1.KubeseerFieldResult{
+		emptyCollections.Sources = append([]v1alpha1.FacetSourceResult(nil), emptyCollections.Sources...)
+		emptyCollections.Sources[0].FieldErrors = []v1alpha1.FacetFieldError{}
+		emptyCollections.Sources[0].Resources = append([]v1alpha1.FacetResourceResult(nil), emptyCollections.Sources[0].Resources...)
+		emptyCollections.Sources[0].Resources[0].Fields = []v1alpha1.FacetFieldResult{}
+		emptyCollections.Sources[0].Resources[0].Fields = append(emptyCollections.Sources[0].Resources[0].Fields, v1alpha1.FacetFieldResult{
 			Name:    "field",
 			State:   v1alpha1.FieldStateValues,
-			Matches: []v1alpha1.KubeseerTypedMatch{},
+			Matches: []v1alpha1.FacetTypedMatch{},
 		})
 
 		if !statuscontract.SemanticResultEqual(nilCollections, emptyCollections) {
@@ -142,15 +142,15 @@ func assertStatusAndConditionsResultScenarios(t *testing.T) {
 			t.Fatalf("nil/empty derivations differ: left=%#v right=%#v", left, right)
 		}
 
-		emptyResult := &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{}}
-		nilResult := &v1alpha1.KubeseerResult{}
+		emptyResult := &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{}}
+		nilResult := &v1alpha1.FacetResult{}
 		if !statuscontract.SemanticResultEqual(emptyResult, nilResult) {
 			t.Fatalf("nil and empty top-level source collections are not equivalent")
 		}
 	})
 
 	t.Run("result order is significant and status metadata is excluded", func(t *testing.T) {
-		first := &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{
+		first := &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{
 			{ID: "first", State: v1alpha1.SourceStateValues},
 			{ID: "second", State: v1alpha1.SourceStateError},
 		}}

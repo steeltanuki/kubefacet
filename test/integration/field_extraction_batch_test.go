@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 func assertFieldExtractionBatchScenarios(t *testing.T) {
@@ -33,9 +33,9 @@ func assertFieldExtractionBatchScenarios(t *testing.T) {
 	t.Run("omitted and explicit empty fields produce successful empty outcomes", func(t *testing.T) {
 		resource := selectedExtractionResource()
 		inputs := []extraction.SourceInput{
-			{Source: v1alpha1.KubeseerSource{ID: "omitted-fields"}, Selection: selection.SelectionOutcome{SourceID: "omitted-fields", Resources: []selection.SelectedResource{resource}}},
-			{Source: v1alpha1.KubeseerSource{ID: "empty-fields", Fields: []v1alpha1.KubeseerField{}}, Selection: selection.SelectionOutcome{SourceID: "empty-fields", Resources: []selection.SelectedResource{resource}}},
-			{Source: v1alpha1.KubeseerSource{ID: "empty-selection", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}}, Selection: selection.SelectionOutcome{SourceID: "empty-selection"}},
+			{Source: v1alpha1.FacetSource{ID: "omitted-fields"}, Selection: selection.SelectionOutcome{SourceID: "omitted-fields", Resources: []selection.SelectedResource{resource}}},
+			{Source: v1alpha1.FacetSource{ID: "empty-fields", Fields: []v1alpha1.FacetField{}}, Selection: selection.SelectionOutcome{SourceID: "empty-fields", Resources: []selection.SelectedResource{resource}}},
+			{Source: v1alpha1.FacetSource{ID: "empty-selection", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}}, Selection: selection.SelectionOutcome{SourceID: "empty-selection"}},
 		}
 		outcomes := extraction.ExtractBatch(context.Background(), inputs)
 		for index, outcome := range outcomes {
@@ -48,7 +48,7 @@ func assertFieldExtractionBatchScenarios(t *testing.T) {
 	t.Run("selection failures pass through without field evaluation", func(t *testing.T) {
 		selectionErr := selection.NewSelectionError("selection-failed", selection.ReasonReadUnavailable, "resource read unavailable")
 		input := extraction.SourceInput{
-			Source: v1alpha1.KubeseerSource{ID: "selection-failed", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}},
+			Source: v1alpha1.FacetSource{ID: "selection-failed", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}},
 			Selection: selection.SelectionOutcome{
 				SourceID:  "selection-failed",
 				Resources: []selection.SelectedResource{{}},
@@ -62,14 +62,14 @@ func assertFieldExtractionBatchScenarios(t *testing.T) {
 	})
 
 	t.Run("planning and evaluation failures are source atomic", func(t *testing.T) {
-		first := v1alpha1.KubeseerSource{
+		first := v1alpha1.FacetSource{
 			ID: "atomic-failure",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "alpha", Path: "{.data.scalar}"},
 				{Name: "zeta", Path: "{.data.scalar.name}"},
 			},
 		}
-		second := v1alpha1.KubeseerSource{ID: "independent-success", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}}
+		second := v1alpha1.FacetSource{ID: "independent-success", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}}
 		outcomes := extraction.ExtractBatch(context.Background(), []extraction.SourceInput{
 			{Source: first, Selection: selection.SelectionOutcome{SourceID: first.ID, Resources: []selection.SelectedResource{selectedExtractionResource()}}},
 			{Source: second, Selection: selection.SelectionOutcome{SourceID: second.ID, Resources: []selection.SelectedResource{selectedExtractionResource()}}},
@@ -81,8 +81,8 @@ func assertFieldExtractionBatchScenarios(t *testing.T) {
 			t.Fatalf("independent source was not preserved: %#v", outcomes[1])
 		}
 
-		invalid := v1alpha1.KubeseerSource{ID: "invalid-plan", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data[?(@.name)]}"}}}
-		valid := v1alpha1.KubeseerSource{ID: "valid-after-invalid", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}}
+		invalid := v1alpha1.FacetSource{ID: "invalid-plan", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data[?(@.name)]}"}}}
+		valid := v1alpha1.FacetSource{ID: "valid-after-invalid", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}}
 		invalidResource := selectedExtractionResourceWithObject(map[string]any{"bad": complex(1, 2)})
 		outcomes = extraction.ExtractBatch(context.Background(), []extraction.SourceInput{
 			{Source: invalid, Selection: selection.SelectionOutcome{SourceID: invalid.ID, Resources: []selection.SelectedResource{invalidResource}}},
@@ -97,8 +97,8 @@ func assertFieldExtractionBatchScenarios(t *testing.T) {
 	})
 
 	t.Run("source identity and source order remain stable", func(t *testing.T) {
-		first := v1alpha1.KubeseerSource{ID: "first", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.metadata.name}"}}}
-		second := v1alpha1.KubeseerSource{ID: "second", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.metadata.namespace}"}}}
+		first := v1alpha1.FacetSource{ID: "first", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.metadata.name}"}}}
+		second := v1alpha1.FacetSource{ID: "second", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.metadata.namespace}"}}}
 		outcomes := extraction.ExtractBatch(context.Background(), []extraction.SourceInput{
 			{Source: first, Selection: selection.SelectionOutcome{SourceID: first.ID, Resources: []selection.SelectedResource{selectedExtractionResource()}}},
 			{Source: second, Selection: selection.SelectionOutcome{SourceID: second.ID, Resources: []selection.SelectedResource{selectedExtractionResource()}}},
@@ -117,9 +117,9 @@ func assertFieldExtractionBatchScenarios(t *testing.T) {
 	})
 
 	t.Run("completed outcomes survive cancellation and later sources interrupt", func(t *testing.T) {
-		first := v1alpha1.KubeseerSource{ID: "completed", Fields: []v1alpha1.KubeseerField{{Name: "root", Path: "{.}"}}}
-		second := v1alpha1.KubeseerSource{ID: "unstarted", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}}
-		third := v1alpha1.KubeseerSource{ID: "also-unstarted", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}}
+		first := v1alpha1.FacetSource{ID: "completed", Fields: []v1alpha1.FacetField{{Name: "root", Path: "{.}"}}}
+		second := v1alpha1.FacetSource{ID: "unstarted", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}}
+		third := v1alpha1.FacetSource{ID: "also-unstarted", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}}
 		ctx := &cancelAfterContext{cancelAfter: 7}
 		outcomes := extraction.ExtractBatch(ctx, []extraction.SourceInput{
 			{Source: first, Selection: selection.SelectionOutcome{SourceID: first.ID, Resources: []selection.SelectedResource{selectedExtractionResource()}}},

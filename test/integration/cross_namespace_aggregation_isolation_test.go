@@ -20,12 +20,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
@@ -39,7 +39,7 @@ func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
 		cases := []struct {
 			name     string
 			limits   aggregation.Limits
-			function v1alpha1.KubeseerAggregationFunction
+			function v1alpha1.FacetAggregationFunction
 			field    string
 		}{
 			{name: "groups", limits: isolationLimits(func(l *aggregation.Limits) { l.MaxGroups = 1 }), function: v1alpha1.AggregationSum, field: "value"},
@@ -50,13 +50,13 @@ func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
 		}
 		for _, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
-				source := v1alpha1.KubeseerSource{
+				source := v1alpha1.FacetSource{
 					ID: "limit-" + test.name,
-					Fields: []v1alpha1.KubeseerField{
+					Fields: []v1alpha1.FacetField{
 						{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger},
 						{Name: "missing", Path: "{.data.missing}", Type: v1alpha1.ValueTypeInteger},
 					},
-					Aggregations: []v1alpha1.KubeseerAggregation{
+					Aggregations: []v1alpha1.FacetAggregation{
 						{Name: "limited", Function: test.function, Field: test.field, IncludeProvenance: test.name == "provenance", GroupBy: groupByForLimit(test.name)},
 						{Name: "sibling", Function: v1alpha1.AggregationCount, Field: "missing"},
 					},
@@ -75,7 +75,7 @@ func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
 	})
 
 	t.Run("upstream source and resource failures retain the narrowest boundary", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{ID: "upstream-source", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}, Aggregations: []v1alpha1.KubeseerAggregation{{Name: "sum", Function: v1alpha1.AggregationSum, Field: "value"}}}
+		source := v1alpha1.FacetSource{ID: "upstream-source", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}, Aggregations: []v1alpha1.FacetAggregation{{Name: "sum", Function: v1alpha1.AggregationSum, Field: "value"}}}
 		upstream := selection.NewSelectionError(source.ID, selection.ReasonReadUnavailable, "resource read unavailable")
 		operatorFailure := operatorSourceFailure(t, source, upstream)
 		plan := aggregation.PlanSource(source, aggregation.Limits{})
@@ -86,7 +86,7 @@ func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
 
 		resourceSource := source
 		resourceSource.ID = "resource-failure-source"
-		resourceSource.Fields[0].Operators = []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: integerOperand(1)}}
+		resourceSource.Fields[0].Operators = []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: integerOperand(1)}}
 		resourceOutcome := evaluateAggregationSource(t, resourceSource, []selection.SelectedResource{
 			aggregationSelectedResource("team-a", "bad", "resource-bad", map[string]any{"value": "not-an-integer"}),
 			aggregationSelectedResource("team-a", "good", "resource-good", map[string]any{"value": int64(1)}),
@@ -101,8 +101,8 @@ func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
 	})
 
 	t.Run("source identity and cancellation failures are sanitized and partitioned", func(t *testing.T) {
-		first := v1alpha1.KubeseerSource{ID: "cancel-first", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}, Aggregations: []v1alpha1.KubeseerAggregation{{Name: "sum", Function: v1alpha1.AggregationSum, Field: "value"}}}
-		second := v1alpha1.KubeseerSource{ID: "cancel-second", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}, Aggregations: []v1alpha1.KubeseerAggregation{{Name: "sum", Function: v1alpha1.AggregationSum, Field: "value"}}}
+		first := v1alpha1.FacetSource{ID: "cancel-first", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}, Aggregations: []v1alpha1.FacetAggregation{{Name: "sum", Function: v1alpha1.AggregationSum, Field: "value"}}}
+		second := v1alpha1.FacetSource{ID: "cancel-second", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}, Aggregations: []v1alpha1.FacetAggregation{{Name: "sum", Function: v1alpha1.AggregationSum, Field: "value"}}}
 		firstOperator, _ := evaluateOperatorSource(t, first, []selection.SelectedResource{aggregationSelectedResource("team-a", "first", "cancel-first-uid", map[string]any{"value": int64(1)})})
 		secondOperator, _ := evaluateOperatorSource(t, second, []selection.SelectedResource{aggregationSelectedResource("team-a", "second", "cancel-second-uid", map[string]any{"value": int64(2)})})
 		inputs := []aggregation.SourceInput{
@@ -118,7 +118,7 @@ func assertCrossNamespaceAggregationIsolationScenarios(t *testing.T) {
 			t.Fatalf("active cancellation partition = %#v", active)
 		}
 		completedThenCanceled := aggregation.EvaluateBatch(&cancelAfterContext{cancelAfter: 1}, []aggregation.SourceInput{
-			{Plan: aggregation.PlanSource(v1alpha1.KubeseerSource{ID: "empty-before-cancel"}, aggregation.Limits{}), Operators: mustEmptyOperatorOutcome(t, "empty-before-cancel")},
+			{Plan: aggregation.PlanSource(v1alpha1.FacetSource{ID: "empty-before-cancel"}, aggregation.Limits{}), Operators: mustEmptyOperatorOutcome(t, "empty-before-cancel")},
 			inputs[1],
 		})
 		if len(completedThenCanceled) != 2 || completedThenCanceled[0].Err() != nil || !aggregation.HasReason(completedThenCanceled[1].Err(), aggregation.ReasonAggregationInterrupted) {
@@ -156,7 +156,7 @@ func findAggregate(outcome aggregation.SourceOutcome, name string) aggregation.A
 	return aggregation.AggregateOutcome{}
 }
 
-func evaluateAggregationSourceWithID(t *testing.T, source v1alpha1.KubeseerSource, resources []selection.SelectedResource, limits aggregation.Limits) aggregation.SourceOutcome {
+func evaluateAggregationSourceWithID(t *testing.T, source v1alpha1.FacetSource, resources []selection.SelectedResource, limits aggregation.Limits) aggregation.SourceOutcome {
 	t.Helper()
 	operatorOutcome, _ := evaluateOperatorSource(t, source, resources)
 	plan := aggregation.PlanSource(source, limits)
@@ -166,7 +166,7 @@ func evaluateAggregationSourceWithID(t *testing.T, source v1alpha1.KubeseerSourc
 	return aggregation.EvaluateBatch(context.Background(), []aggregation.SourceInput{{Plan: plan, Operators: operatorOutcome}})[0]
 }
 
-func operatorSourceFailure(t *testing.T, source v1alpha1.KubeseerSource, upstream error) operators.SourceOutcome {
+func operatorSourceFailure(t *testing.T, source v1alpha1.FacetSource, upstream error) operators.SourceOutcome {
 	t.Helper()
 	typed := typedoutput.ConvertBatch(context.Background(), []typedoutput.SourceInput{{Source: source, Extraction: extraction.SourceOutcome{SourceID: source.ID, Err: upstream}}})[0]
 	plan := operators.CompileSource(source)
@@ -175,11 +175,11 @@ func operatorSourceFailure(t *testing.T, source v1alpha1.KubeseerSource, upstrea
 
 func mustEmptyOperatorOutcome(t *testing.T, sourceID string) operators.SourceOutcome {
 	t.Helper()
-	source := v1alpha1.KubeseerSource{ID: sourceID}
+	source := v1alpha1.FacetSource{ID: sourceID}
 	return operatorSourceFailureOrEmpty(t, source)
 }
 
-func operatorSourceFailureOrEmpty(t *testing.T, source v1alpha1.KubeseerSource) operators.SourceOutcome {
+func operatorSourceFailureOrEmpty(t *testing.T, source v1alpha1.FacetSource) operators.SourceOutcome {
 	t.Helper()
 	typed := typedoutput.ConvertBatch(context.Background(), []typedoutput.SourceInput{{Source: source, Extraction: extraction.SourceOutcome{SourceID: source.ID}}})[0]
 	plan := operators.CompileSource(source)

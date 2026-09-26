@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	extensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,7 +110,7 @@ func ReportRetainedState(ctx context.Context, restConfig *rest.Config) ([]Retain
 		return nil, fmt.Errorf("create retained-state policy client: %w", err)
 	}
 	results := make([]RetainedResource, 0, 3)
-	for _, name := range []string{KubeseerCRDName, AccessPolicyCRDName} {
+	for _, name := range []string{FacetCRDName, AccessPolicyCRDName} {
 		_, getErr := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 		outcome := "retained"
 		if apierrors.IsNotFound(getErr) {
@@ -120,7 +120,7 @@ func ReportRetainedState(ctx context.Context, restConfig *rest.Config) ([]Retain
 		}
 		results = append(results, RetainedResource{Target: name, Outcome: outcome})
 	}
-	var policy v1alpha1.KubeseerAccessPolicy
+	var policy v1alpha1.FacetAccessPolicy
 	getErr := policyClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, &policy)
 	outcome := "retained"
 	if apierrors.IsNotFound(getErr) {

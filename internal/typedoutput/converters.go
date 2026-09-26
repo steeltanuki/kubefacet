@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -87,7 +87,7 @@ func conversionMessage(reason ConversionErrorReason) string {
 	}
 }
 
-func convertNonNull(typeName v1alpha1.KubeseerValueType, native any) (value, ConversionErrorReason, error) {
+func convertNonNull(typeName v1alpha1.FacetValueType, native any) (value, ConversionErrorReason, error) {
 	switch typeName {
 	case v1alpha1.ValueTypeString:
 		text, ok := native.(string)
@@ -150,7 +150,7 @@ func convertNonNull(typeName v1alpha1.KubeseerValueType, native any) (value, Con
 	}
 }
 
-func convertInteger(typeName v1alpha1.KubeseerValueType, native any) (value, ConversionErrorReason, error) {
+func convertInteger(typeName v1alpha1.FacetValueType, native any) (value, ConversionErrorReason, error) {
 	switch typed := native.(type) {
 	case int64:
 		return value{typeName: typeName, kind: valueKindInteger, integerValue: typed}, "", nil
@@ -202,7 +202,7 @@ func convertInteger(typeName v1alpha1.KubeseerValueType, native any) (value, Con
 	}
 }
 
-func convertNumber(typeName v1alpha1.KubeseerValueType, native any) (value, ConversionErrorReason, error) {
+func convertNumber(typeName v1alpha1.FacetValueType, native any) (value, ConversionErrorReason, error) {
 	var text string
 	switch typed := native.(type) {
 	case int64:
@@ -296,7 +296,7 @@ func canonicalDecimal(text string) (string, error) {
 	return sign + canonical, nil
 }
 
-func convertDuration(typeName v1alpha1.KubeseerValueType, native any) (value, ConversionErrorReason, error) {
+func convertDuration(typeName v1alpha1.FacetValueType, native any) (value, ConversionErrorReason, error) {
 	text, ok := native.(string)
 	if !ok {
 		return value{}, ReasonConversionTypeMismatch, nil
@@ -399,7 +399,7 @@ func durationUnit(remaining string) (string, int64, bool) {
 	return "", 0, false
 }
 
-func convertQuantity(typeName v1alpha1.KubeseerValueType, native any) (value, ConversionErrorReason, error) {
+func convertQuantity(typeName v1alpha1.FacetValueType, native any) (value, ConversionErrorReason, error) {
 	text, ok := native.(string)
 	if !ok {
 		return value{}, ReasonConversionTypeMismatch, nil

@@ -64,11 +64,11 @@ package-apply-crds:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubeseer ./cmd/kubeseer
+	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubefacet ./cmd/kubefacet
 
 build-purge:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubeseer-purge ./cmd/kubeseer-purge
+	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubefacet-purge ./cmd/kubefacet-purge
 
 test:
 	@set -eu; \

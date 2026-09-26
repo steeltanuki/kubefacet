@@ -81,7 +81,7 @@ check_header "$PERFORMANCE_TEST"
 
 check_absent 'public limit or performance fields' 'Max(PageSize|MatchedResources|SelectedInputBytes|ProducedValueBytes|StatusBytes|ConcurrentReconciles|ActiveWatches|PendingTriggers)|DiscoveryCache|EvaluationTimeout|[Pp]erformance|[Ll]imits' "$API_DIR" "$CONFIG_DIR"
 check_absent 'mutable global profile state' '^[[:space:]]*var[[:space:]].*[Pp]rofile' "$LIMITS_DIR"
-check_absent 'payload, result, or value cache' '[Cc]ache[^[:alnum:]]*(body|result|value)| (body|result|value)[^[:alnum:]]*[Cc]ache|map\[[^]]+\][[:space:]]*(\*?unstructured|v1alpha1\.KubeseerResult)' "$LIMITS_DIR" "$RECONCILIATION_DIR" "$OBS_DIR"
+check_absent 'payload, result, or value cache' '[Cc]ache[^[:alnum:]]*(body|result|value)| (body|result|value)[^[:alnum:]]*[Cc]ache|map\[[^]]+\][[:space:]]*(\*?unstructured|v1alpha1\.FacetResult)' "$LIMITS_DIR" "$RECONCILIATION_DIR" "$OBS_DIR"
 check_absent 'custom worker queue' 'New(Delaying|RateLimiting|Named).*Queue|RateLimitingQueue|DelayingQueue' "$RECONCILIATION_DIR"
 check_absent 'unbounded limit metric labels' 'WithLabelValues\([^)]*(dimension|ceiling|source|namespace|name|uid|selector|path|value|message|body)' "$OBS_DIR"
 check_absent 'forbidden diagnostic fields' '^[[:space:]]*(Body|Selector|FieldPath|ExtractedValue|TypedValue|AggregateValue|Secret|Cause|ObservedObject|ObservedUID)[[:space:]]' "$OBS_DIR"

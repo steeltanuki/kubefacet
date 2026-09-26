@@ -20,12 +20,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,13 +41,13 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 	key := types.NamespacedName{Namespace: "team-a", Name: "status-pipeline-owner"}
 
 	t.Run("success carries complete terminal assessments and result", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:         "pipeline-success",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
-			Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.good}", Type: v1alpha1.ValueTypeString}},
+			Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.data.good}", Type: v1alpha1.ValueTypeString}},
 		}
-		object := runtimePipelineKubeseer(key, "status-pipeline-success-uid", 7, source)
+		object := runtimePipelineFacet(key, "status-pipeline-success-uid", 7, source)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, unstructuredListForPipeline(runtimePipelineResource("success-resource", "success-resource-uid", "success", "1")))
 		publisher := &runtimePipelinePublisher{}
@@ -72,17 +72,17 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 
 	t.Run("partial result retains siblings and separates denial from read availability", func(t *testing.T) {
 		values := runtimePipelineValuesSource("pipeline-partial-values")
-		denied := v1alpha1.KubeseerSource{
+		denied := v1alpha1.FacetSource{
 			ID:         "pipeline-partial-denied",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-b"}},
 		}
-		readUnavailable := v1alpha1.KubeseerSource{
+		readUnavailable := v1alpha1.FacetSource{
 			ID:         "pipeline-partial-read",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
 		}
-		object := runtimePipelineKubeseer(key, "status-pipeline-partial-uid", 1, values, denied, readUnavailable)
+		object := runtimePipelineFacet(key, "status-pipeline-partial-uid", 1, values, denied, readUnavailable)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(values.ID, unstructuredListForPipeline(runtimePipelineResource("partial-resource", "partial-resource-uid", "kept-sibling", "1")))
 		lister.SetResponse(readUnavailable.ID, nil, apierrors.NewServiceUnavailable("observed body must stay private"))
@@ -115,17 +115,17 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 	})
 
 	t.Run("deterministic configuration and resolution failures preserve first-source precedence", func(t *testing.T) {
-		invalid := v1alpha1.KubeseerSource{
+		invalid := v1alpha1.FacetSource{
 			ID:         "pipeline-invalid",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
 			Selector:   &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("},
 		}
-		unknown := v1alpha1.KubeseerSource{
+		unknown := v1alpha1.FacetSource{
 			ID:       "pipeline-unknown",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "NoSuchKind"},
 		}
-		object := runtimePipelineKubeseer(key, "status-pipeline-invalid-uid", 1, invalid, unknown)
+		object := runtimePipelineFacet(key, "status-pipeline-invalid-uid", 1, invalid, unknown)
 		publisher := &runtimePipelinePublisher{}
 		runtime := mustRuntimePipeline(t, resolver, newRuntimePipelineReader(object), newRuntimePipelineLister(), policy, &runtimePipelineRoutes{}, publisher, reconciliation.NewFreshnessTracker())
 		if _, err := runtime.Reconcile(ctx, reconcileRequest(key)); err != nil {
@@ -147,7 +147,7 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 	})
 
 	t.Run("policy-wide missing invalid and unavailable states take authorization precedence", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{ID: "pipeline-policy-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		source := v1alpha1.FacetSource{ID: "pipeline-policy-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		cases := []struct {
 			name          string
 			policy        accesspolicy.PolicySource
@@ -156,13 +156,13 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 			wantCondition metav1.ConditionStatus
 			wantRetry     bool
 		}{
-			{name: "missing", policy: &runtimePipelinePolicySource{err: apierrors.NewNotFound(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseeraccesspolicies"}, v1alpha1.InstallationAccessCeilingName)}, wantOutcome: statuscontract.AuthorizationPolicyMissingOutcome, wantReason: statuscontract.ReasonPolicyMissing, wantCondition: metav1.ConditionFalse},
-			{name: "invalid", policy: &runtimePipelinePolicySource{policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) { policy.Spec.Namespaces.Mode = "invalid" })}, wantOutcome: statuscontract.AuthorizationPolicyInvalidOutcome, wantReason: statuscontract.ReasonPolicyInvalid, wantCondition: metav1.ConditionFalse},
+			{name: "missing", policy: &runtimePipelinePolicySource{err: apierrors.NewNotFound(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facetaccesspolicies"}, v1alpha1.InstallationAccessCeilingName)}, wantOutcome: statuscontract.AuthorizationPolicyMissingOutcome, wantReason: statuscontract.ReasonPolicyMissing, wantCondition: metav1.ConditionFalse},
+			{name: "invalid", policy: &runtimePipelinePolicySource{policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) { policy.Spec.Namespaces.Mode = "invalid" })}, wantOutcome: statuscontract.AuthorizationPolicyInvalidOutcome, wantReason: statuscontract.ReasonPolicyInvalid, wantCondition: metav1.ConditionFalse},
 			{name: "unavailable", policy: &runtimePipelinePolicySource{err: errors.New("policy payload must stay private")}, wantOutcome: statuscontract.AuthorizationUnavailableOutcome, wantReason: statuscontract.ReasonAuthorizationUnavailable, wantCondition: metav1.ConditionUnknown, wantRetry: true},
 		}
 		for _, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
-				object := runtimePipelineKubeseer(key, types.UID("status-pipeline-policy-"+test.name), 1, source)
+				object := runtimePipelineFacet(key, types.UID("status-pipeline-policy-"+test.name), 1, source)
 				publisher := &runtimePipelinePublisher{}
 				runtime := mustRuntimePipelineWithPolicy(t, resolver, newRuntimePipelineReader(object), newRuntimePipelineLister(), test.policy, &runtimePipelineRoutes{}, publisher, reconciliation.NewFreshnessTracker())
 				_, err := runtime.Reconcile(ctx, reconcileRequest(key))
@@ -183,8 +183,8 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 	})
 
 	t.Run("forbidden reads replace allowed authorization and do not retry", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{ID: "pipeline-forbidden", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
-		object := runtimePipelineKubeseer(key, "status-pipeline-forbidden-uid", 1, source)
+		source := v1alpha1.FacetSource{ID: "pipeline-forbidden", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		object := runtimePipelineFacet(key, "status-pipeline-forbidden-uid", 1, source)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, nil, apierrors.NewForbidden(schema.GroupResource{Group: "", Resource: "pods"}, "forbidden", errors.New("RBAC body must stay private")))
 		publisher := &runtimePipelinePublisher{}
@@ -200,9 +200,9 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 	})
 
 	t.Run("zero sources publish a present empty result without policy", func(t *testing.T) {
-		object := runtimePipelineKubeseer(key, "status-pipeline-empty-uid", 1)
+		object := runtimePipelineFacet(key, "status-pipeline-empty-uid", 1)
 		publisher := &runtimePipelinePublisher{}
-		policySource := &runtimePipelinePolicySource{err: apierrors.NewNotFound(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseeraccesspolicies"}, v1alpha1.InstallationAccessCeilingName)}
+		policySource := &runtimePipelinePolicySource{err: apierrors.NewNotFound(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facetaccesspolicies"}, v1alpha1.InstallationAccessCeilingName)}
 		runtime := mustRuntimePipelineWithPolicy(t, resolver, newRuntimePipelineReader(object), newRuntimePipelineLister(), policySource, &runtimePipelineRoutes{}, publisher, reconciliation.NewFreshnessTracker())
 		if _, err := runtime.Reconcile(ctx, reconcileRequest(key)); err != nil {
 			t.Fatalf("zero-source pipeline returned error: %v", err)
@@ -221,8 +221,8 @@ func assertStatusAndConditionsPipelineScenarios(t *testing.T, ctx context.Contex
 
 	t.Run("discovery unavailability is retained as unknown and retryable", func(t *testing.T) {
 		failureResolver := discovery.NewResolver(&selectionDiscoveryFailureClient{delegate: newPolicyDiscoveryClient(), cause: errors.New("discovery payload must stay private")})
-		source := v1alpha1.KubeseerSource{ID: "pipeline-discovery-unavailable", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}}
-		object := runtimePipelineKubeseer(key, "status-pipeline-discovery-uid", 1, source)
+		source := v1alpha1.FacetSource{ID: "pipeline-discovery-unavailable", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}}
+		object := runtimePipelineFacet(key, "status-pipeline-discovery-uid", 1, source)
 		publisher := &runtimePipelinePublisher{}
 		runtime := mustRuntimePipeline(t, failureResolver, newRuntimePipelineReader(object), newRuntimePipelineLister(), policy, &runtimePipelineRoutes{}, publisher, reconciliation.NewFreshnessTracker())
 		_, err := runtime.Reconcile(ctx, reconcileRequest(key))
@@ -247,7 +247,7 @@ func assertPipelineAssessment(t *testing.T, got statuscontract.SourceAssessment,
 	}
 }
 
-func assertPipelineCondition(t *testing.T, candidate v1alpha1.KubeseerStatus, conditionType string, conditionStatus metav1.ConditionStatus, reason string) {
+func assertPipelineCondition(t *testing.T, candidate v1alpha1.FacetStatus, conditionType string, conditionStatus metav1.ConditionStatus, reason string) {
 	t.Helper()
 	for _, condition := range candidate.Conditions {
 		if condition.Type == conditionType {

@@ -19,23 +19,23 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func assertCrossNamespaceAggregationGroupingScenarios(t *testing.T) {
 	t.Helper()
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID: "grouping-source",
-		Fields: []v1alpha1.KubeseerField{
-			{Name: "keep", Path: "{.data.keep}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand("yes")}}},
+		Fields: []v1alpha1.FacetField{
+			{Name: "keep", Path: "{.data.keep}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand("yes")}}},
 			{Name: "team", Path: "{.data.team}", Type: v1alpha1.ValueTypeString},
 			{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger},
 			{Name: "values", Path: "{.data.values[*]}", Type: v1alpha1.ValueTypeInteger},
 		},
-		Aggregations: []v1alpha1.KubeseerAggregation{
+		Aggregations: []v1alpha1.FacetAggregation{
 			{Name: "sum-by-team", Function: v1alpha1.AggregationSum, Field: "value", GroupBy: []string{"team"}, IncludeProvenance: true},
 			{Name: "collect-values", Function: v1alpha1.AggregationCollect, Field: "values", IncludeProvenance: true},
 			{Name: "count-values", Function: v1alpha1.AggregationCount, Field: "values"},
@@ -116,15 +116,15 @@ func assertCrossNamespaceAggregationGroupingScenarios(t *testing.T) {
 	}
 
 	t.Run("key cardinality and target failures remain aggregate-local", func(t *testing.T) {
-		failureSource := v1alpha1.KubeseerSource{
+		failureSource := v1alpha1.FacetSource{
 			ID: "group-failure-source",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "missingKey", Path: "{.data.missingKey}", Type: v1alpha1.ValueTypeString},
 				{Name: "nullKey", Path: "{.data.nullKey}", Type: v1alpha1.ValueTypeString},
 				{Name: "manyKeys", Path: "{.data.manyKeys[*]}", Type: v1alpha1.ValueTypeString},
 				{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "missing", Function: v1alpha1.AggregationSum, Field: "value", GroupBy: []string{"missingKey"}},
 				{Name: "null", Function: v1alpha1.AggregationSum, Field: "value", GroupBy: []string{"nullKey"}},
 				{Name: "many", Function: v1alpha1.AggregationSum, Field: "value", GroupBy: []string{"manyKeys"}},

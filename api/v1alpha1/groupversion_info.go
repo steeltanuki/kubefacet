@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	GroupVersion = schema.GroupVersion{Group: "kubeseer.io", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1"}
 
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 	AddToScheme   = SchemeBuilder.AddToScheme
@@ -28,9 +28,9 @@ var (
 
 func init() {
 	SchemeBuilder.Register(
-		&Kubeseer{},
-		&KubeseerList{},
-		&KubeseerAccessPolicy{},
-		&KubeseerAccessPolicyList{},
+		&Facet{},
+		&FacetList{},
+		&FacetAccessPolicy{},
+		&FacetAccessPolicyList{},
 	)
 }

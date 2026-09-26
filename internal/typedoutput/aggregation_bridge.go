@@ -24,13 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 )
 
 // CanonicalKey returns a type-tagged, length-delimited key for one non-null
 // normalized match. The representation is suitable for equality maps and
 // cannot collide when a payload contains separator bytes.
-func CanonicalKey(valueType v1alpha1.KubeseerValueType, match Match) ([]byte, error) {
+func CanonicalKey(valueType v1alpha1.FacetValueType, match Match) ([]byte, error) {
 	if match.IsNull() || match.Type() != valueType || !IsSupportedType(valueType) {
 		return nil, errors.New("typed key requires one supported non-null match")
 	}
@@ -87,7 +87,7 @@ func canonicalMatchPayload(match Match) (string, error) {
 // ExactRational returns the exact numeric magnitude of an integer, number,
 // duration, or quantity match. It deliberately rejects non-numeric logical
 // types and never converts through floating point.
-func ExactRational(valueType v1alpha1.KubeseerValueType, match Match) (*big.Rat, error) {
+func ExactRational(valueType v1alpha1.FacetValueType, match Match) (*big.Rat, error) {
 	if match.IsNull() || match.Type() != valueType {
 		return nil, errors.New("exact rational requires one non-null match of the declared type")
 	}
@@ -115,7 +115,7 @@ func ExactRational(valueType v1alpha1.KubeseerValueType, match Match) (*big.Rat,
 
 // MatchFromExactNumber rounds an exact rational once to the requested number
 // of fractional decimal places and returns a normalized number match.
-func MatchFromExactNumber(value *big.Rat, scale int32, mode v1alpha1.KubeseerRoundingMode) (Match, error) {
+func MatchFromExactNumber(value *big.Rat, scale int32, mode v1alpha1.FacetRoundingMode) (Match, error) {
 	if value == nil {
 		return Match{}, errors.New("exact number is nil")
 	}
@@ -129,7 +129,7 @@ func MatchFromExactNumber(value *big.Rat, scale int32, mode v1alpha1.KubeseerRou
 // MatchFromExact converts an exact rational to a supported numeric output
 // type without changing its magnitude. Number values must have a terminating
 // decimal representation, as required by the structural typed-output model.
-func MatchFromExact(valueType v1alpha1.KubeseerValueType, value *big.Rat) (Match, error) {
+func MatchFromExact(valueType v1alpha1.FacetValueType, value *big.Rat) (Match, error) {
 	if value == nil {
 		return Match{}, errors.New("exact value is nil")
 	}
@@ -157,11 +157,11 @@ func MatchFromExact(valueType v1alpha1.KubeseerValueType, value *big.Rat) (Match
 
 // ProjectMatch serializes one immutable normalized match through the existing
 // structural typed-output contract.
-func ProjectMatch(match Match) (v1alpha1.KubeseerTypedMatch, error) {
+func ProjectMatch(match Match) (v1alpha1.FacetTypedMatch, error) {
 	return buildMatch(match, match.Type())
 }
 
-func roundRationalDecimal(value *big.Rat, scale int32, mode v1alpha1.KubeseerRoundingMode) (string, error) {
+func roundRationalDecimal(value *big.Rat, scale int32, mode v1alpha1.FacetRoundingMode) (string, error) {
 	if scale < 0 || scale > 18 {
 		return "", errors.New("decimal precision is outside the supported range")
 	}
@@ -186,7 +186,7 @@ func roundRationalDecimal(value *big.Rat, scale int32, mode v1alpha1.KubeseerRou
 	return formatScaledInteger(quotient, scale), nil
 }
 
-func shouldRoundUp(quotient, remainder, denominator *big.Int, mode v1alpha1.KubeseerRoundingMode) bool {
+func shouldRoundUp(quotient, remainder, denominator *big.Int, mode v1alpha1.FacetRoundingMode) bool {
 	if remainder.Sign() == 0 {
 		return false
 	}
@@ -228,7 +228,7 @@ func formatScaledInteger(value *big.Int, scale int32) string {
 	return text
 }
 
-func supportedRoundingMode(mode v1alpha1.KubeseerRoundingMode) bool {
+func supportedRoundingMode(mode v1alpha1.FacetRoundingMode) bool {
 	switch mode {
 	case v1alpha1.RoundingHalfEven, v1alpha1.RoundingHalfAwayFromZero,
 		v1alpha1.RoundingTowardZero, v1alpha1.RoundingAwayFromZero:

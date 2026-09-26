@@ -1,4 +1,4 @@
-module github.com/steeltanuki/kubeseer
+module github.com/steeltanuki/kubefacet
 
 go 1.26.0
 

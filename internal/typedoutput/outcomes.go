@@ -19,10 +19,10 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // SourceState identifies whether a typed source has values or a source-level
@@ -48,7 +48,7 @@ const (
 // and an error field has no matches.
 type FieldOutcome struct {
 	name     string
-	typeName v1alpha1.KubeseerValueType
+	typeName v1alpha1.FacetValueType
 	state    FieldState
 	matches  []Match
 	err      *ConversionError
@@ -58,7 +58,7 @@ type FieldOutcome struct {
 func (o FieldOutcome) Name() string { return o.name }
 
 // Type returns the declared logical type. It is retained on null matches.
-func (o FieldOutcome) Type() v1alpha1.KubeseerValueType { return o.typeName }
+func (o FieldOutcome) Type() v1alpha1.FacetValueType { return o.typeName }
 
 // State returns the field cardinality or error branch.
 func (o FieldOutcome) State() FieldState { return o.state }
@@ -319,11 +319,11 @@ func interruptedConversionError(sourceID, fieldName string, provenance *selectio
 	return conversionErrorWithCause(sourceID, fieldName, provenance, ReasonConversionInterrupted, "conversion interrupted", cause)
 }
 
-func newAbsentFieldOutcome(name string, typeName v1alpha1.KubeseerValueType) FieldOutcome {
+func newAbsentFieldOutcome(name string, typeName v1alpha1.FacetValueType) FieldOutcome {
 	return FieldOutcome{name: name, typeName: typeName, state: FieldStateAbsent}
 }
 
-func newValuesFieldOutcome(name string, typeName v1alpha1.KubeseerValueType, matches []Match) FieldOutcome {
+func newValuesFieldOutcome(name string, typeName v1alpha1.FacetValueType, matches []Match) FieldOutcome {
 	cloned := make([]Match, len(matches))
 	for index, match := range matches {
 		cloned[index] = match.clone()
@@ -331,7 +331,7 @@ func newValuesFieldOutcome(name string, typeName v1alpha1.KubeseerValueType, mat
 	return FieldOutcome{name: name, typeName: typeName, state: FieldStateValues, matches: cloned}
 }
 
-func newFieldErrorOutcome(name string, typeName v1alpha1.KubeseerValueType, err *ConversionError) FieldOutcome {
+func newFieldErrorOutcome(name string, typeName v1alpha1.FacetValueType, err *ConversionError) FieldOutcome {
 	return FieldOutcome{name: name, typeName: typeName, state: FieldStateError, err: cloneErrors([]*ConversionError{err})[0]}
 }
 
