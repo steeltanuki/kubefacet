@@ -2,7 +2,7 @@
 walden_schema_version: v1alpha1
 status: approved
 approved_at: 2026-09-26T12:03:32Z
-last_modified: 2026-09-26T20:42:47Z
+last_modified: 2026-09-26T22:07:37Z
 approved_fingerprint: sha256:a33b0f23bbdc1596f46ab185b22593430af89fbb51a6b0012ff0480f510ece84
 source_design_approved_at: 2026-09-26T11:43:39Z
 source_design_fingerprint: sha256:920f58501881f319cd87010fcb2e02028ef4e00e513dc4c2bc833cfa4e88c31d
@@ -219,7 +219,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R11.AC4", "R11.AC5", "R11.AC6", "R12.AC2", "NFR5"]
 
-  - [ ] 4.2 Pass the final canonical repository, integration, API, and render compatibility checks
+  - [x] 4.2 Pass the final canonical repository, integration, API, and render compatibility checks
     - Scope: Run the canonical source/generated/boundary/package/local gates and default real module suite against the finished implementation. Run the complete supported envtest matrix, including generated API/schema, discovery/selection, reconciliation/authorization/status Events, and admission. Run both-version/both-TLS-mode package render checks. Preserve original behavioral assertions, use noncached execution, run renamed manager/helper builds into temporary roots, and assert read-only module consistency. This is the aggregate semantic checkpoint; focused earlier identity tests do not replace it.
     - Requirements: `R1.AC1`, `R1.AC2`, `R1.AC3`, `R1.AC4`, `R1.AC5`, `R1.AC6`, `R2.AC1`, `R2.AC2`, `R2.AC3`, `R2.AC5`, `R2.AC6`, `R2.AC7`, `R3.AC1`, `R3.AC2`, `R3.AC3`, `R4.AC1`, `R4.AC2`, `R4.AC3`, `R4.AC4`, `R6.AC1`, `R6.AC2`, `R6.AC3`, `R7.AC4`, `R7.AC7`, `R7.AC8`, `R11.AC6`, `R12.AC2`, `R12.AC3`, `NFR1`, `NFR2`, `C2`, `C3`, `C4`
     - Design: Verification Plan; Architecture / Generated Schema And Semantic Baselines; Architecture / API, Admission, And Runtime Coupling
@@ -248,7 +248,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R3.AC1", "NFR2"]
 
-  - [ ] 4.3 Prove genuine local development, examples, diagnostics, and owned-node resume
+  - [x] 4.3 Prove genuine local development, examples, diagnostics, and owned-node resume
     - Scope: With working rootless Podman, execute the genuine persistent local workflow using dedicated new-identity state/cache roots and the seven current examples. Require the genuine EndpointSlice marker, sanitized diagnostics, retained source/worktree state, and bounded owned cleanup. Execute genuine exited-node resume on its run-unique owned fixture, retaining container/workload identity and the existing ownership/read-only rejection behavior. A deterministic/fake-tool fallback may still supplement the suite but cannot complete this task.
     - Requirements: `R1.AC6`, `R4.AC1`, `R4.AC2`, `R4.AC4`, `R4.AC5`, `R5.AC3`, `R9.AC1`, `R9.AC2`, `R9.AC3`, `R9.AC4`, `R9.AC5`, `R12.AC3`, `NFR1`, `NFR4`, `C5`
     - Design: Architecture / Local Development And Examples; Verification Plan; Failure Modes And Tradeoffs
@@ -266,7 +266,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 60m
         covers: ["R1.AC6", "R9.AC1", "R9.AC2", "R9.AC3", "R12.AC3", "NFR4", "C5"]
 
-  - [ ] 4.4 Certify genuine package lifecycle compatibility on the supported Podman matrix
+  - [x] 4.4 Certify genuine package lifecycle compatibility on the supported Podman matrix
     - Scope: Use hack/test-project-identity-package.sh as an owned disposable-cluster wrapper around the existing package compatibility/smoke procedure. Create run-unique kind-on-Podman clusters for 1.35.6 and 1.36.2 using the declared images, build/load the current manager once as appropriate, prepare both existing certificate modes (including external Secret rotation fixtures), and pass only explicit absolute kubeconfigs/contexts and new-prefix package settings. Invoke make test-package-compatibility with genuine cluster execution enabled. Require all four version/mode smoke profile pass records and preservation of unrelated resources, author RBAC separation, policy/bootstrap/admission, upgrade/rollback/uninstall/confirmed-purge, owned cleanup, and unchanged source snapshots. Never attach to ambient or historical installations.
     - Requirements: `R1.AC3`, `R1.AC6`, `R2.AC1`, `R2.AC2`, `R2.AC3`, `R2.AC5`, `R4.AC1`, `R4.AC2`, `R4.AC4`, `R7.AC4`, `R7.AC5`, `R7.AC6`, `R9.AC2`, `R9.AC3`, `R12.AC2`, `R12.AC3`, `NFR1`, `NFR2`, `NFR4`, `C4`, `C5`
     - Design: Architecture / Packaging, Generation, And Distribution; Architecture / Local Development And Examples; Verification Plan
@@ -276,7 +276,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 90m
         covers: ["R1.AC3", "R1.AC6", "R2.AC1", "R2.AC2", "R2.AC3", "R2.AC5", "R4.AC1", "R4.AC2", "R4.AC4", "R7.AC4", "R7.AC5", "R7.AC6", "R9.AC2", "R9.AC3", "R12.AC2", "R12.AC3", "NFR1", "NFR2", "NFR4", "C4", "C5"]
 
-  - [ ] 4.5 Run every E2E certification scenario on both supported Kubernetes versions
+  - [x] 4.5 Run every E2E certification scenario on both supported Kubernetes versions
     - Scope: Run the canonical E2E harness acceptance and all 15 existing product scenarios for each supported version. Preserve all 20 minimum-scenario mappings, public product boundaries, real authorization/admission/status/metric assertions, ownership, lifecycle, explicit kubeconfig/context, diagnostics, and cleanup. Use the existing Podman harness and pinned version/image inputs; require both completed named suites and the version-specific certification output. No skipped scenario or external-cluster fallback is acceptable.
     - Requirements: `R1.AC1`, `R1.AC2`, `R1.AC3`, `R1.AC4`, `R1.AC5`, `R1.AC6`, `R2.AC1`, `R2.AC2`, `R2.AC3`, `R2.AC5`, `R4.AC1`, `R4.AC2`, `R4.AC3`, `R4.AC4`, `R4.AC5`, `R5.AC1`, `R5.AC2`, `R5.AC3`, `R6.AC1`, `R6.AC2`, `R6.AC3`, `R7.AC4`, `R9.AC1`, `R9.AC2`, `R9.AC3`, `R9.AC5`, `R12.AC2`, `R12.AC3`, `NFR1`, `NFR2`, `NFR4`, `C4`, `C5`
     - Design: Verification Plan; Architecture / API, Admission, And Runtime Coupling; Architecture / Local Development And Examples
@@ -294,7 +294,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 60m
         covers: ["R1.AC1", "R1.AC2", "R1.AC3", "R1.AC4", "R1.AC5", "R1.AC6", "R2.AC1", "R2.AC2", "R2.AC3", "R2.AC5", "R4.AC1", "R4.AC2", "R4.AC3", "R4.AC4", "R4.AC5", "R5.AC1", "R5.AC2", "R5.AC3", "R6.AC1", "R6.AC2", "R6.AC3", "R7.AC4", "R9.AC1", "R9.AC2", "R9.AC3", "R9.AC5", "R12.AC2", "R12.AC3", "NFR1", "NFR2", "NFR4", "C4", "C5"]
 
-  - [ ] 4.6 Pass every release-distribution scenario against disposable local endpoints
+  - [x] 4.6 Pass every release-distribution scenario against disposable local endpoints
     - Scope: Run all five canonical scenarios after current release/install/contributor documentation is complete. Require candidate build/staging, actual local Podman image and Helm OCI chart transactions, anonymous pull/render, immutable conflicts, partial-publication recovery/retry behavior, tag/source policies, workflows, and consumer documentation to pass. Keep the pre-existing local-endpoint restrictions and ownership cleanup; do not run the publisher against GHCR/GitHub production. Record the new 0.2.x fixture identities and all five scenario pass records.
     - Requirements: `R8.AC1`, `R8.AC2`, `R8.AC3`, `R8.AC4`, `R8.AC5`, `R5.AC1`, `R5.AC2`, `R5.AC3`, `R7.AC1`, `R7.AC5`, `R7.AC6`, `R10.AC1`, `R12.AC2`, `R12.AC3`, `NFR2`, `NFR3`, `NFR4`, `C1`, `C4`, `C7`
     - Design: Architecture / Packaging, Generation, And Distribution; Verification Plan; Failure Modes And Tradeoffs

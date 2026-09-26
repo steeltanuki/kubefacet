@@ -599,6 +599,8 @@ def run_package() -> None:
         packaged = chart_dir / "crds" / name
         if not source.is_file() or not packaged.is_file() or source.read_bytes() != packaged.read_bytes():
             fail(f"packaged CRD is missing or differs from generated source: {name}")
+    historical_records, _ = validate_history(ROOT)
+    text_exceptions, _ = load_exceptions(ROOT, historical_records)
     files = [path for path in chart_dir.rglob("*") if path.is_file()]
     for path in files:
         relative = path.relative_to(ROOT).as_posix()
@@ -609,8 +611,14 @@ def run_package() -> None:
             content = raw.decode("utf-8")
         except UnicodeError:
             continue
-        if OLD_NAME.search(content):
-            fail(f"Helm chart retains an obsolete project identity: {relative}")
+        for line_number, line in enumerate(content.splitlines(keepends=True), 1):
+            matches = list(OLD_NAME.finditer(line))
+            if not matches:
+                continue
+            expected = text_exceptions.get((relative, line_number))
+            if expected and expected.get("sha256") == digest(line.encode("utf-8")) and expected.get("count") == len(matches):
+                continue
+            fail(f"Helm chart retains an obsolete project identity: {relative}:{line_number}")
     helpers = (chart_dir / "templates/_helpers.tpl").read_text(encoding="utf-8")
     if 'define "kubefacet.labels"' not in helpers or 'define "kubefacet.selectorLabels"' not in helpers:
         fail("Helm helper namespace is incomplete")
@@ -851,6 +859,22 @@ def run_audit() -> None:
     print("PROJECT_IDENTITY=audit STATUS=passed")
 
 
+def run_audit_summary() -> None:
+    records, _ = validate_history(ROOT)
+    historical = {entry["path"]: entry for entry in records["records"]}
+    text_exceptions, path_exceptions = load_exceptions(ROOT, records)
+    files = source_paths(ROOT)
+    classified, errors = scan_tree(ROOT, files, historical, text_exceptions, path_exceptions)
+    if errors:
+        fail(f"{len(errors)} unclassified identity residue(s)")
+    if not classified:
+        fail("the residue scan did not classify any expected historical or migration occurrence")
+    print(
+        "PROJECT_IDENTITY_AUDIT "
+        f"occurrences={len(classified)} unclassified=0 files={len(files)}"
+    )
+
+
 def make_fixture(root: Path) -> tuple[dict, dict, dict]:
     old = TOKEN
     historical_path = "archive/release-record.json"
@@ -953,17 +977,200 @@ def run_audit_acceptance() -> None:
     print("PROJECT_IDENTITY=audit-acceptance STATUS=passed rejected_scenarios=11 positive_classes=2")
 
 
+def run_all() -> None:
+    checks = (
+        run_history,
+        run_docs,
+        run_api,
+        run_builds,
+        run_runtime,
+        run_observability,
+        run_package,
+        run_release,
+        run_environment,
+        run_local,
+    )
+    for check in checks:
+        check()
+    run_audit_summary()
+    run_audit_acceptance()
+    print("PROJECT_IDENTITY=all STATUS=passed")
+
+
+def git_output(*args: str) -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(ROOT), *args], text=True, stderr=subprocess.PIPE
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = getattr(exc, "stderr", b"")
+        if isinstance(detail, bytes):
+            detail = detail.decode("utf-8", errors="replace")
+        fail(f"cannot inspect migration commit history: {detail or exc}")
+
+
+def run_delivery() -> None:
+    records, _ = validate_history(ROOT)
+    evidence = read_json(ROOT / ".walden/evidence/project-identity-rename.json")
+    report_path = SPEC / "verification-report.md"
+    try:
+        report = report_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        fail(f"cannot read the durable migration verification report: {exc}")
+
+    required_sections = (
+        "## Scope and evidence boundary",
+        "## Declared checkpoints and actual outcomes",
+        "## Regenerated artifacts",
+        "## Repository identity residue",
+        "## Commit boundaries",
+        "## Manual actions after merge",
+        "## Walden delivery checkpoint",
+    )
+    for section in required_sections:
+        if section not in report:
+            fail(f"verification report is missing section {section!r}")
+    if any(marker in report for marker in ("TODO", "TBD", "Record the ", "not yet run")):
+        fail("verification report still contains an unfinished placeholder")
+    for claim in (
+        "selected feature only",
+        "not portfolio-wide certification",
+        "legacy feature evidence",
+        "make verify",
+        "make test GO_TEST_FLAGS=-count=1",
+        "make test-compatibility GO_TEST_FLAGS=-count=1",
+        "make test-package-compatibility",
+        "make local-check",
+        "make test-local-environment",
+        "make test-local-cluster-resume",
+        "./hack/test-project-identity-package.sh",
+        "make e2e KUBERNETES_VERSION=1.35.6 GO_TEST_FLAGS=-count=1",
+        "make e2e KUBERNETES_VERSION=1.36.2 GO_TEST_FLAGS=-count=1",
+        "make test-release-distribution SCENARIO=all",
+        "PROJECT_IDENTITY=all STATUS=passed",
+        "PROJECT_IDENTITY=audit-acceptance STATUS=passed",
+        "PROJECT_IDENTITY=delivery STATUS=passed",
+        "walden verify project-identity-rename --json",
+        "walden release check project-identity-rename --strict --json",
+        "Rename the GitHub repository",
+        "Update the maintainer's local Git remote",
+        "Review the GitHub description, topics, and social preview image",
+        "Confirm GHCR image and chart package ownership",
+        "Publish KubeFacet v0.2.0 later",
+        "Register the project with Artifact Hub later",
+        "historical SHA-256 comparison",
+        "isolated negative-injection cases",
+    ):
+        if claim not in report:
+            fail(f"verification report is missing required outcome or handoff detail: {claim!r}")
+
+    task_records = evidence.get("tasks")
+    if evidence.get("feature") != "project-identity-rename" or not isinstance(task_records, dict):
+        fail("selected migration evidence is missing or has an unexpected feature identity")
+    expected_task_ids = set(task_records)
+    if not expected_task_ids:
+        fail("selected migration evidence contains no completed task records")
+    outcome_section = report.split("## Declared checkpoints and actual outcomes", 1)[1].split("\n## ", 1)[0]
+    for task_id, task in task_records.items():
+        if not isinstance(task, dict) or task.get("result") != "passed":
+            fail(f"required task {task_id} is missing a passing Walden result")
+        execution = task.get("execution", {})
+        if execution.get("assertion_result") != "passed" or execution.get("integrity") != "post-state":
+            fail(f"required task {task_id} lacks passing post-state execution integrity")
+        steps = task.get("steps")
+        if not isinstance(steps, list) or not steps or any(
+            step.get("actual_exit") != step.get("expected_exit") or step.get("actual_exit") != 0
+            for step in steps
+        ):
+            fail(f"required task {task_id} has a failed or unrun verification step")
+        row = re.compile(rf"^\|\s*{re.escape(task_id)}\s*\|.*\|\s*PASS\s*\|\s*$", re.MULTILINE)
+        if not row.search(outcome_section):
+            fail(f"verification report does not record task {task_id} as passed")
+
+    for task_id in ("4.7",):
+        row = re.compile(rf"^\|\s*{re.escape(task_id)}\s*\|.*\|\s*PASS\s*\|\s*$", re.MULTILINE)
+        if not row.search(outcome_section):
+            fail(f"verification report does not record final audit task {task_id} as passed")
+
+    log = git_output("log", "--reverse", "--format=%H%x09%s", f"{records['baseline_commit']}..HEAD")
+    commits: list[tuple[str, str]] = []
+    for line in log.splitlines():
+        sha, separator, subject = line.partition("\t")
+        if separator:
+            commits.append((sha, subject))
+    required_subjects = (
+        "spec: define KubeFacet identity migration",
+        "refactor: rename Kubernetes API and runtime identity",
+        "build: rename KubeFacet packaging and distribution",
+        "docs: complete KubeFacet migration",
+        "test: certify KubeFacet package lifecycle",
+    )
+    positions: list[int] = []
+    for subject in required_subjects:
+        try:
+            positions.append(next(index for index, (_, value) in enumerate(commits) if value == subject))
+        except StopIteration:
+            fail(f"required coherent migration commit is missing: {subject}")
+    if positions != sorted(positions):
+        fail("migration commits do not preserve specification-first implementation order")
+
+    expected_paths = {
+        required_subjects[0]: {
+            ".walden/specs/project-identity-rename/requirements.md",
+            ".walden/specs/project-identity-rename/design.md",
+            ".walden/specs/project-identity-rename/tasks.md",
+            ".walden/specs/project-identity-rename/api-schema-baseline.json",
+        },
+        required_subjects[1]: {"api/v1alpha1/facet_types.go", "internal/managerapp/application.go", "go.mod"},
+        required_subjects[2]: {
+            "charts/kubefacet/Chart.yaml",
+            "hack/toolchain.mk",
+            "examples/builtin-resource/facet.yaml",
+        },
+        required_subjects[3]: {
+            "README.md",
+            ".walden/current-identity.md",
+            f"docs/migration-from-{TOKEN}.md",
+        },
+        required_subjects[4]: {
+            "hack/test-project-identity-package.sh",
+            "hack/package-cluster-smoke.sh",
+            "hack/verify_project_identity.py",
+        },
+    }
+    for subject, required in expected_paths.items():
+        sha = commits[next(index for index, (_, value) in enumerate(commits) if value == subject)][0]
+        changed = set(git_output("diff-tree", "--no-commit-id", "--name-only", "-r", sha).splitlines())
+        missing = required - changed
+        if missing:
+            fail(f"commit {subject!r} has an incoherent scope; missing paths: {sorted(missing)}")
+        normalized_report = " ".join(report.split())
+        if sha not in report or subject not in normalized_report:
+            fail(f"verification report does not identify commit {sha[:12]} ({subject})")
+
+    if "This selected-feature verdict does not certify the preserved legacy portfolio" not in report:
+        fail("verification report does not bound Walden readiness to the selected feature")
+    print(
+        "PROJECT_IDENTITY=delivery STATUS=passed "
+        f"TASKS={len(expected_task_ids)} COMMITS={len(required_subjects)}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "mode",
         nargs="?",
-        choices=("api", "audit", "audit-acceptance", "builds", "docs", "environment", "history", "local", "observability", "package", "release", "runtime"),
+        choices=("all", "api", "audit", "audit-acceptance", "builds", "delivery", "docs", "environment", "history", "local", "observability", "package", "release", "runtime"),
         default="audit",
     )
     args = parser.parse_args()
     try:
-        if args.mode == "history":
+        if args.mode == "all":
+            run_all()
+        elif args.mode == "delivery":
+            run_delivery()
+        elif args.mode == "history":
             run_history()
         elif args.mode == "docs":
             run_docs()

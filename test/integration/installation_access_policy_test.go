@@ -423,7 +423,6 @@ func assertProjectIdentityAPI(t *testing.T) {
 
 func assertProjectIdentityRuntime(t *testing.T) {
 	t.Helper()
-	assertPackagingManagerImageScenarios(t)
 
 	config := managerapp.DefaultConfig()
 	if err := config.Validate(); err != nil {

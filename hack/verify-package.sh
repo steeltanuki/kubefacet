@@ -105,7 +105,7 @@ fi
 
 for required_script in \
 	verify-package.sh package-sync-crds.sh check-crd-compatibility.sh apply-compatible-crds.sh \
-	uninstall-kubefacet.sh test-package-compatibility.sh package-cluster-smoke.sh; do
+	uninstall-kubefacet.sh test-package-compatibility.sh package-cluster-smoke.sh test-project-identity-package.sh; do
 	[[ -x "$ROOT_DIR/hack/$required_script" ]] || fail "package script is missing or not executable: ${required_script}"
 done
 for required_dockerfile in \

@@ -52,7 +52,15 @@ done
 ((profile_count == 4)) || fail "compatibility matrix did not execute all profiles"
 
 if [[ "${KUBEFACET_PACKAGE_RUN_CLUSTER:-0}" == 1 ]]; then
-	for version in "${VERSIONS[@]}"; do
+	[[ "${KUBEFACET_PACKAGE_CONFIRM_DISPOSABLE:-}" == purge-kubefacet-crds ]] || fail 'cluster smoke requires the exact confirmation token for its disposable-cluster purge assertion'
+	cluster_version="${KUBEFACET_PACKAGE_CLUSTER_VERSION:-}"
+	if [[ -n "$cluster_version" ]]; then
+		[[ "$cluster_version" == 1.35.6 || "$cluster_version" == 1.36.2 ]] || fail "unsupported KUBEFACET_PACKAGE_CLUSTER_VERSION: $cluster_version"
+		cluster_versions=("$cluster_version")
+	else
+		cluster_versions=("${VERSIONS[@]}")
+	fi
+	for version in "${cluster_versions[@]}"; do
 		config_var="KUBEFACET_PACKAGE_KUBECONFIG_${version//./_}"
 		context_var="KUBEFACET_PACKAGE_CONTEXT_${version//./_}"
 		kubeconfig="${!config_var-}"
