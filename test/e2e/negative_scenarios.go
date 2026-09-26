@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -45,12 +45,12 @@ func scenarioMissingTypeDegradation(ctx context.Context, t *testing.T, session *
 	if _, err := fixtures.CreateWidget(ctx, fixtures.scopedName("missing"), namespace, map[string]interface{}{"name": "temporary"}, nil); err != nil {
 		t.Fatalf("E2E-007 temporary Widget: %v", err)
 	}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{
 		sourceSpec("sibling", "v1", "Pod", []string{namespace}, nil, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil),
 		sourceSpec("missing-type", fixtureAPIGroup+"/"+fixtureAPIVersion, fixtureKind, []string{namespace}, nil, nil, []map[string]interface{}{{"name": "name", "path": "{.spec.name}", "type": "string"}}, nil),
 	}})
 	if err != nil {
-		t.Fatalf("E2E-007 Kubeseer: %v", err)
+		t.Fatalf("E2E-007 Facet: %v", err)
 	}
 	if err := session.APIExtensions.ApiextensionsV1().CustomResourceDefinitions().Delete(ctx, "widgets."+fixtureAPIGroup, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("E2E-007 remove served type: %v", err)
@@ -83,9 +83,9 @@ func scenarioAuthorizationPolicyDrift(ctx context.Context, t *testing.T, session
 	if err != nil {
 		t.Fatalf("E2E-008 protected Pod: %v", err)
 	}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("protected", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("protected", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-008 Kubeseer: %v", err)
+		t.Fatalf("E2E-008 Facet: %v", err)
 	}
 	_ = mustReadySnapshot(t, session, ctx, object, "E2E-008")
 	setPolicy(t, session, ctx, []string{"kube-system"}, []resourceRule{{APIGroups: []string{""}, Kinds: []string{"Pod"}}})
@@ -96,11 +96,11 @@ func scenarioAuthorizationPolicyDrift(ctx context.Context, t *testing.T, session
 		t.Fatal("E2E-008 authorization remained allowed after policy narrowing")
 	}
 	forbidden := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "kubeseer.io/v1alpha1", "kind": "Kubeseer",
+		"apiVersion": "kubefacet.steeltanuki.it/v1alpha1", "kind": "Facet",
 		"metadata": map[string]interface{}{"name": fixtures.scopedName("forbidden"), "namespace": namespace},
 		"spec":     map[string]interface{}{"sources": []interface{}{sourceSpec("forbidden", "v1", "Pod", []string{namespace}, nil, nil, nil, nil)}},
 	}}
-	_, err = session.Dynamic.Resource(KubeseerResource).Namespace(namespace).Create(ctx, forbidden, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+	_, err = session.Dynamic.Resource(FacetResource).Namespace(namespace).Create(ctx, forbidden, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 	if !apierrors.IsForbidden(err) {
 		t.Fatalf("E2E-008 forbidden dry-run error = %v", err)
 	}
@@ -121,9 +121,9 @@ func scenarioResourceStatusLimits(ctx context.Context, t *testing.T, session *Cl
 			t.Fatalf("E2E-009 matched resource %d: %v", index, err)
 		}
 	}
-	matched, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("matched-owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("matched", "v1", "Pod", []string{namespace}, nil, map[string]interface{}{"matchLabels": map[string]interface{}{"limit": "matched"}}, nil, nil)}})
+	matched, err := fixtures.CreateFacet(ctx, fixtures.scopedName("matched-owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("matched", "v1", "Pod", []string{namespace}, nil, map[string]interface{}{"matchLabels": map[string]interface{}{"limit": "matched"}}, nil, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-009 matched-limit Kubeseer: %v", err)
+		t.Fatalf("E2E-009 matched-limit Facet: %v", err)
 	}
 	matchedSnapshot := mustObservedSnapshot(t, session, ctx, matched, "E2E-009", func(snapshot StatusSnapshot) bool {
 		if snapshot.Result == nil || len(snapshot.Result.Sources) != 1 || snapshot.Result.Sources[0].Error == nil {
@@ -138,9 +138,9 @@ func scenarioResourceStatusLimits(ctx context.Context, t *testing.T, session *Cl
 	if _, err := fixtures.CreatePod(ctx, fixtures.scopedName("oversized"), namespace, map[string]string{"limit": "status"}, map[string]interface{}{"value": largeValue}); err != nil {
 		t.Fatalf("E2E-009 oversized fixture: %v", err)
 	}
-	oversized, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("status-owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("oversized", "v1", "Pod", []string{namespace}, nil, map[string]interface{}{"matchLabels": map[string]interface{}{"limit": "status"}}, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	oversized, err := fixtures.CreateFacet(ctx, fixtures.scopedName("status-owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("oversized", "v1", "Pod", []string{namespace}, nil, map[string]interface{}{"matchLabels": map[string]interface{}{"limit": "status"}}, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-009 status-limit Kubeseer: %v", err)
+		t.Fatalf("E2E-009 status-limit Facet: %v", err)
 	}
 	snapshot := mustObservedSnapshot(t, session, ctx, oversized, "E2E-009", func(snapshot StatusSnapshot) bool {
 		return conditionReason(snapshot.Conditions, "Ready", "ResultLimitExceeded")

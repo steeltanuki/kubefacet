@@ -70,6 +70,6 @@ check_one() {
 	printf 'CRD %s has a compatible scope/storage/conversion identity\n' "$name"
 }
 
-check_one "$source_dir/kubeseer.io_kubeseers.yaml" kubeseers.kubeseer.io
-check_one "$source_dir/kubeseer.io_kubeseeraccesspolicies.yaml" kubeseeraccesspolicies.kubeseer.io
+check_one "$source_dir/kubefacet.steeltanuki.it_facets.yaml" facets.kubefacet.steeltanuki.it
+check_one "$source_dir/kubefacet.steeltanuki.it_facetaccesspolicies.yaml" facetaccesspolicies.kubefacet.steeltanuki.it
 printf 'PACKAGE_CRD_COMPATIBILITY=passed\n'

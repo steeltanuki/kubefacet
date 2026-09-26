@@ -49,15 +49,15 @@ done
 
 readonly kubectl_args=(--kubeconfig "$kubeconfig" --context "$kube_context")
 readonly helm_args=(--kubeconfig "$kubeconfig" --kube-context "$kube_context")
-readonly namespace="${KUBESEER_PACKAGE_NAMESPACE:-kubeseer-system}"
-readonly image_repository="${KUBESEER_PACKAGE_IMAGE_REPOSITORY:-}"
-readonly image_tag="${KUBESEER_PACKAGE_IMAGE_TAG:-}"
-readonly external_secret_name="${KUBESEER_PACKAGE_EXTERNAL_SECRET_NAME:-administrator-webhook-tls}"
-readonly external_ca_bundle="${KUBESEER_PACKAGE_EXTERNAL_CA_BUNDLE:-}"
-readonly rotated_secret_manifest="${KUBESEER_PACKAGE_EXTERNAL_ROTATED_SECRET:-}"
+readonly namespace="${KUBEFACET_PACKAGE_NAMESPACE:-kubefacet-system}"
+readonly image_repository="${KUBEFACET_PACKAGE_IMAGE_REPOSITORY:-}"
+readonly image_tag="${KUBEFACET_PACKAGE_IMAGE_TAG:-}"
+readonly external_secret_name="${KUBEFACET_PACKAGE_EXTERNAL_SECRET_NAME:-administrator-webhook-tls}"
+readonly external_ca_bundle="${KUBEFACET_PACKAGE_EXTERNAL_CA_BUNDLE:-}"
+readonly rotated_secret_manifest="${KUBEFACET_PACKAGE_EXTERNAL_ROTATED_SECRET:-}"
 
 [[ -n "$image_repository" && -n "$image_tag" && "$image_tag" != latest ]] || {
-	printf '%s\n' 'live smoke requires KUBESEER_PACKAGE_IMAGE_REPOSITORY and a non-latest KUBESEER_PACKAGE_IMAGE_TAG' >&2
+	printf '%s\n' 'live smoke requires KUBEFACET_PACKAGE_IMAGE_REPOSITORY and a non-latest KUBEFACET_PACKAGE_IMAGE_TAG' >&2
 	exit 64
 }
 
@@ -87,7 +87,7 @@ run_profile() {
 	local values=(--set "image.repository=${image_repository}" --set "image.tag=${image_tag}")
 	if [[ "$mode" == externalSecret ]]; then
 		[[ -n "$external_ca_bundle" && "$external_ca_bundle" == /* && -f "$external_ca_bundle" ]] || {
-			printf '%s\n' 'externalSecret smoke requires an existing absolute KUBESEER_PACKAGE_EXTERNAL_CA_BUNDLE' >&2
+			printf '%s\n' 'externalSecret smoke requires an existing absolute KUBEFACET_PACKAGE_EXTERNAL_CA_BUNDLE' >&2
 			return 64
 		}
 		values+=(--set certificate.mode=externalSecret)
@@ -96,50 +96,50 @@ run_profile() {
 	fi
 
 	apply_crds
-	helm_release upgrade --install kubeseer "$ROOT_DIR/charts/kubeseer" \
+	helm_release upgrade --install kubefacet "$ROOT_DIR/charts/kubefacet" \
 		--namespace "$namespace" --create-namespace \
 		--wait --timeout 10m "${values[@]}"
 	kubectl_get wait --for=condition=Established --timeout=120s \
-		crd/kubeseers.kubeseer.io crd/kubeseeraccesspolicies.kubeseer.io
-	kubectl_get -n "$namespace" wait --for=condition=Available deployment/kubeseer --timeout=5m
-	kubectl_get get validatingwebhookconfiguration kubeseer-validating-webhook -o json \
+		crd/facets.kubefacet.steeltanuki.it crd/facetaccesspolicies.kubefacet.steeltanuki.it
+	kubectl_get -n "$namespace" wait --for=condition=Available deployment/kubefacet --timeout=5m
+	kubectl_get get validatingwebhookconfiguration kubefacet-validating-webhook -o json \
 		| jq -e '(.webhooks | length == 2) and all(.[]; .failurePolicy == "Fail" and (.clientConfig.caBundle | length > 0))' >/dev/null
 
 	if [[ "$mode" == externalSecret && -n "$rotated_secret_manifest" ]]; then
 		[[ "$rotated_secret_manifest" == /* && -f "$rotated_secret_manifest" ]] || {
-			printf '%s\n' 'KUBESEER_PACKAGE_EXTERNAL_ROTATED_SECRET must be an existing absolute manifest path' >&2
+			printf '%s\n' 'KUBEFACET_PACKAGE_EXTERNAL_ROTATED_SECRET must be an existing absolute manifest path' >&2
 			return 64
 		}
-		before_generation="$(kubectl_get -n "$namespace" get deployment kubeseer -o jsonpath='{.metadata.generation}')"
-		kubectl_get apply --server-side --field-manager=kubeseer-external-secret-smoke -f "$rotated_secret_manifest"
-		kubectl_get -n "$namespace" wait --for=condition=Available deployment/kubeseer --timeout=5m
-		after_generation="$(kubectl_get -n "$namespace" get deployment kubeseer -o jsonpath='{.metadata.generation}')"
+		before_generation="$(kubectl_get -n "$namespace" get deployment kubefacet -o jsonpath='{.metadata.generation}')"
+		kubectl_get apply --server-side --field-manager=kubefacet-external-secret-smoke -f "$rotated_secret_manifest"
+		kubectl_get -n "$namespace" wait --for=condition=Available deployment/kubefacet --timeout=5m
+		after_generation="$(kubectl_get -n "$namespace" get deployment kubefacet -o jsonpath='{.metadata.generation}')"
 		[[ "$before_generation" == "$after_generation" ]] || {
 			printf '%s\n' 'external Secret rotation unexpectedly edited the manager Deployment' >&2
 			return 1
 		}
 	fi
 
-	helm_release uninstall kubeseer --namespace "$namespace" --ignore-not-found --wait --timeout 10m
-	helm_release uninstall kubeseer --namespace "$namespace" --ignore-not-found --wait --timeout 10m
-	kubectl_get get crd kubeseers.kubeseer.io kubeseeraccesspolicies.kubeseer.io >/dev/null
-	kubectl_get get kubeseeraccesspolicy installation-access-ceiling >/dev/null
+	helm_release uninstall kubefacet --namespace "$namespace" --ignore-not-found --wait --timeout 10m
+	helm_release uninstall kubefacet --namespace "$namespace" --ignore-not-found --wait --timeout 10m
+	kubectl_get get crd facets.kubefacet.steeltanuki.it facetaccesspolicies.kubefacet.steeltanuki.it >/dev/null
+	kubectl_get get facetaccesspolicy installation-access-ceiling >/dev/null
 	if [[ "$mode" == externalSecret ]]; then
 		kubectl_get -n "$namespace" get secret "$external_secret_name" >/dev/null
 	fi
 
 	set +e
-	GOCACHE="${GOCACHE:-/tmp/kubeseer-packaging-go-build}" \
-	GOMODCACHE="${GOMODCACHE:-/tmp/kubeseer-packaging-go-mod}" \
-		env -u KUBECONFIG go run ./cmd/kubeseer-purge \
+	GOCACHE="${GOCACHE:-/tmp/kubefacet-packaging-go-build}" \
+	GOMODCACHE="${GOMODCACHE:-/tmp/kubefacet-packaging-go-mod}" \
+		env -u KUBECONFIG go run ./cmd/kubefacet-purge \
 			--kubeconfig "$kubeconfig" --context "$kube_context" \
 			--confirm-context "$kube_context" --confirm-server "$cluster_server" \
 			>/dev/null 2>&1
 	purge_status=$?
 	set -e
 	((purge_status != 0)) || { printf '%s\n' 'purge without the exact token unexpectedly succeeded' >&2; return 1; }
-	kubectl_get get crd kubeseers.kubeseer.io kubeseeraccesspolicies.kubeseer.io >/dev/null
-	kubectl_get get kubeseeraccesspolicy installation-access-ceiling >/dev/null
+	kubectl_get get crd facets.kubefacet.steeltanuki.it facetaccesspolicies.kubefacet.steeltanuki.it >/dev/null
+	kubectl_get get facetaccesspolicy installation-access-ceiling >/dev/null
 	printf 'PACKAGE_CLUSTER_PROFILE version=%s mode=%s STATUS=passed\n' "$version" "$mode"
 }
 

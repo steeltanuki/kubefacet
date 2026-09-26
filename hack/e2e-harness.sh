@@ -25,11 +25,11 @@ readonly TEST_LAYER_RUNNER="$ROOT_DIR/hack/test-layer-runner.sh"
 readonly PACKAGE_PATTERN="$1"
 readonly TEST_REGEX="$2"
 readonly KIND_PROVIDER="podman"
-readonly E2E_NAMESPACE="${KUBESEER_E2E_NAMESPACE:-kubeseer-system}"
-readonly E2E_RELEASE="${KUBESEER_E2E_RELEASE:-kubeseer}"
+readonly E2E_NAMESPACE="${KUBEFACET_E2E_NAMESPACE:-kubefacet-system}"
+readonly E2E_RELEASE="${KUBEFACET_E2E_RELEASE:-kubefacet}"
 readonly KUBERNETES_VERSION="${KUBERNETES_VERSION:-1.35.6}"
 readonly CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.18.2}"
-readonly E2E_LIMIT_PROFILE="${KUBESEER_E2E_LIMIT_PROFILE:-$ROOT_DIR/test/e2e/values.yaml}"
+readonly E2E_LIMIT_PROFILE="${KUBEFACET_E2E_LIMIT_PROFILE:-$ROOT_DIR/test/e2e/values.yaml}"
 
 # Keep E2E's run-unique state machine independent while sharing only the
 # stateless, credential-sanitizing kind/Podman process primitives.
@@ -199,8 +199,8 @@ record_metadata() {
 
 write_admission_fixtures() {
 	cat >"$owned_dir/admission-valid.yaml" <<EOF
-apiVersion: kubeseer.io/v1alpha1
-kind: Kubeseer
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
 metadata:
   name: e2e-admission-probe
   namespace: $E2E_NAMESPACE
@@ -208,8 +208,8 @@ spec:
   sources: []
 EOF
 	cat >"$owned_dir/admission-invalid.yaml" <<EOF
-apiVersion: kubeseer.io/v1alpha1
-kind: Kubeseer
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
 metadata:
   name: e2e-admission-invalid
   namespace: $E2E_NAMESPACE
@@ -224,9 +224,9 @@ build_and_load_image() {
 	diagnostic_phase='image-build'
 	local revision image_tag image_ref image_id nodes node archive node_archive
 	revision="$(<"$owned_dir/worktree.before/revision")"
-	image_tag="${revision:0:12}-${cluster_name#kubeseer-e2e-}"
+	image_tag="${revision:0:12}-${cluster_name#kubefacet-e2e-}"
 	image_tag="$(printf '%s' "$image_tag" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')"
-	image_ref="localhost/kubeseer-e2e:$image_tag"
+	image_ref="localhost/kubefacet-e2e:$image_tag"
 	run_podman build --file "$ROOT_DIR/Dockerfile" \
 		--tag "$image_ref" \
 		--build-arg "VERSION=$revision" \
@@ -241,7 +241,7 @@ build_and_load_image() {
 	# the rootless Podman store and its archive path can reject newer
 	# containerd config versions. Import the exact OCI archive directly into
 	# each node's k8s.io containerd namespace instead.
-	archive="$owned_dir/kubeseer-image.oci.tar"
+	archive="$owned_dir/kubefacet-image.oci.tar"
 	run_podman save --format oci-archive --output "$archive" "$image_ref" || return 1
 	[[ -s "$archive" ]] || { printf '%s\n' 'Podman produced an empty image archive' >&2; return 1; }
 
@@ -252,7 +252,7 @@ build_and_load_image() {
 	[[ -n "$nodes" ]] || { printf 'kind returned no nodes for %s\n' "$cluster_name" >&2; return 1; }
 	while IFS= read -r node; do
 		[[ -n "$node" ]] || continue
-		node_archive="/tmp/kubeseer-e2e-${cluster_name}.oci.tar"
+		node_archive="/tmp/kubefacet-e2e-${cluster_name}.oci.tar"
 		run_podman cp "$archive" "$node:$node_archive" || return 1
 		run_podman exec "$node" ctr --namespace k8s.io images import "$node_archive" || return 1
 		run_podman exec "$node" rm -f "$node_archive" || return 1
@@ -269,13 +269,13 @@ install_cert_manager_and_chart() {
 
 	run_curl --fail --silent --show-error --location --retry 3 --output "$cert_manifest" "$cert_url" || return 1
 	[[ -s "$cert_manifest" ]] || { printf '%s\n' 'cert-manager manifest is empty' >&2; return 1; }
-	run_kubectl apply --server-side --field-manager=kubeseer-e2e-cert-manager -f "$cert_manifest" || return 1
+	run_kubectl apply --server-side --field-manager=kubefacet-e2e-cert-manager -f "$cert_manifest" || return 1
 	run_kubectl wait --for=condition=Established --timeout=5m \
 		crd/certificates.cert-manager.io crd/issuers.cert-manager.io crd/clusterissuers.cert-manager.io || return 1
 	run_kubectl --namespace cert-manager wait --for=condition=Available --timeout=10m deployment --all || return 1
 
 	[[ -f "$E2E_LIMIT_PROFILE" ]] || { printf 'E2E limit profile is missing: %s\n' "$E2E_LIMIT_PROFILE" >&2; return 1; }
-	run_helm upgrade --install "$E2E_RELEASE" "$ROOT_DIR/charts/kubeseer" \
+	run_helm upgrade --install "$E2E_RELEASE" "$ROOT_DIR/charts/kubefacet" \
 		--namespace "$E2E_NAMESPACE" --create-namespace \
 		--values "$E2E_LIMIT_PROFILE" \
 		--set "image.repository=${image_ref%:*}" \
@@ -338,14 +338,14 @@ wait_for_http() {
 package_readiness() {
 	diagnostic_phase='readiness'
 	run_kubectl wait --for=condition=Established --timeout=5m \
-		crd/kubeseers.kubeseer.io crd/kubeseeraccesspolicies.kubeseer.io || return 1
+		crd/facets.kubefacet.steeltanuki.it crd/facetaccesspolicies.kubefacet.steeltanuki.it || return 1
 	run_kubectl --namespace "$E2E_NAMESPACE" wait --for=condition=Available \
 		"deployment/$E2E_RELEASE" --timeout=10m || return 1
 	run_kubectl wait --for=condition=Ready --timeout=10m \
 		--namespace "$E2E_NAMESPACE" "certificate/${E2E_RELEASE}-webhook-serving" || return 1
 
 	local ca_bundles
-	ca_bundles="$(run_kubectl get validatingwebhookconfiguration kubeseer-validating-webhook \
+	ca_bundles="$(run_kubectl get validatingwebhookconfiguration kubefacet-validating-webhook \
 		-o jsonpath='{range .webhooks[*]}{.clientConfig.caBundle}{"\n"}{end}')" || return 1
 	if [[ -z "$ca_bundles" ]]; then
 		printf '%s\n' 'validating webhook CA bundle is empty' >&2
@@ -374,7 +374,7 @@ package_readiness() {
 		printf '%s\n' 'webhook Service has no ready EndpointSlice endpoints' >&2
 		return 1
 	fi
-	run_kubectl get kubeseeraccesspolicy installation-access-ceiling -o name >/dev/null || return 1
+	run_kubectl get facetaccesspolicy installation-access-ceiling -o name >/dev/null || return 1
 	write_admission_fixtures
 	run_kubectl apply --dry-run=server -f "$owned_dir/admission-valid.yaml" >/dev/null || return 1
 	if run_kubectl apply --dry-run=server -f "$owned_dir/admission-invalid.yaml" >/dev/null 2>&1; then
@@ -383,7 +383,7 @@ package_readiness() {
 	fi
 	wait_for_http "deployment/$E2E_RELEASE" 18081 8081 /readyz 'ok' || return 1
 	# The endpoint must be reachable before any reconciliation has emitted
-	# Kubeseer-labelled counters; assert the Prometheus exposition header rather
+	# Facet-labelled counters; assert the Prometheus exposition header rather
 	# than a product metric that is legitimately absent on a fresh install.
 	wait_for_http "service/${E2E_RELEASE}-metrics" 18080 8080 /metrics '# HELP' reconnect || return 1
 }
@@ -468,13 +468,13 @@ cleanup() {
 trap cleanup EXIT
 
 before_parent="${TMPDIR:-/tmp}"
-owned_dir="$(mktemp -d "$before_parent/kubeseer-e2e.XXXXXXXX")"
+owned_dir="$(mktemp -d "$before_parent/kubefacet-e2e.XXXXXXXX")"
 mkdir -p -- "$owned_dir"/{worktree.before,diagnostics,helm/{config,cache,data},go-cache,go-mod-cache,go-path}
 capture_worktree_snapshot "$owned_dir/worktree.before"
 prepare_go_environment
 
 run_identity="$(date -u +%Y%m%d%H%M%S)-$$"
-cluster_name="kubeseer-e2e-${run_identity}"
+cluster_name="kubefacet-e2e-${run_identity}"
 cluster_name="${cluster_name:0:63}"
 cluster_name="${cluster_name%-}"
 kube_context="kind-${cluster_name}"
@@ -513,18 +513,18 @@ package_readiness || fail_setup 'package readiness gate failed'
 diagnostic_phase='scenario-run'
 sanitized_env \
 	KUBECONFIG="$kubeconfig_path" \
-	KUBESEER_E2E_KUBECONFIG="$kubeconfig_path" \
-	KUBESEER_E2E_CLUSTER_NAME="$cluster_name" \
-	KUBESEER_E2E_CONTEXT="$kube_context" \
-	KUBESEER_E2E_KUBERNETES_VERSION="$KUBERNETES_VERSION" \
-	KUBESEER_E2E_CERT_MANAGER_VERSION="$CERT_MANAGER_VERSION" \
-	KUBESEER_E2E_NAMESPACE="$E2E_NAMESPACE" \
-	KUBESEER_E2E_RELEASE="$E2E_RELEASE" \
-	KUBESEER_E2E_METRICS_URL="http://127.0.0.1:18080" \
-	KUBESEER_E2E_IMAGE_REF="$(sed -n 's/^image_ref=//p' "$owned_dir/run-metadata")" \
-	KUBESEER_E2E_SOURCE_REVISION="$(<"$owned_dir/worktree.before/revision")" \
-	KUBESEER_E2E_SOURCE_IDENTITY="$(<"$owned_dir/worktree.before/identity")" \
-	KUBESEER_E2E_DIAGNOSTICS="$owned_dir/diagnostics" \
+	KUBEFACET_E2E_KUBECONFIG="$kubeconfig_path" \
+	KUBEFACET_E2E_CLUSTER_NAME="$cluster_name" \
+	KUBEFACET_E2E_CONTEXT="$kube_context" \
+	KUBEFACET_E2E_KUBERNETES_VERSION="$KUBERNETES_VERSION" \
+	KUBEFACET_E2E_CERT_MANAGER_VERSION="$CERT_MANAGER_VERSION" \
+	KUBEFACET_E2E_NAMESPACE="$E2E_NAMESPACE" \
+	KUBEFACET_E2E_RELEASE="$E2E_RELEASE" \
+	KUBEFACET_E2E_METRICS_URL="http://127.0.0.1:18080" \
+	KUBEFACET_E2E_IMAGE_REF="$(sed -n 's/^image_ref=//p' "$owned_dir/run-metadata")" \
+	KUBEFACET_E2E_SOURCE_REVISION="$(<"$owned_dir/worktree.before/revision")" \
+	KUBEFACET_E2E_SOURCE_IDENTITY="$(<"$owned_dir/worktree.before/identity")" \
+	KUBEFACET_E2E_DIAGNOSTICS="$owned_dir/diagnostics" \
 	GOCACHE="$owned_dir/go-cache" GOMODCACHE="$owned_dir/go-mod-cache" GOPATH="$owned_dir/go-path" \
 	GOPROXY="$e2e_go_proxy" \
 	GO_TEST_FLAGS="${GO_TEST_FLAGS:-}" \

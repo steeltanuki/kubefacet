@@ -15,9 +15,9 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: widgets.fixtures.kubeseer.io
+  name: widgets.fixtures.kubefacet.steeltanuki.it
 spec:
-  group: fixtures.kubeseer.io
+  group: fixtures.kubefacet.steeltanuki.it
   scope: Namespaced
   names:
     plural: widgets

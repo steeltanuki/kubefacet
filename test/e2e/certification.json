@@ -1,6 +1,6 @@
 {
   "features": [
-    {"name": "kubeseer-api-foundation", "scenarios": ["E2E-001"], "prerequisites": ["api-compatibility"]},
+    {"name": "kubefacet-api-foundation", "scenarios": ["E2E-001"], "prerequisites": ["api-compatibility"]},
     {"name": "integration-testing-foundation", "scenarios": ["E2E-001"], "prerequisites": ["harness-acceptance"]},
     {"name": "resource-discovery", "scenarios": ["E2E-002", "E2E-003", "E2E-004", "E2E-007"]},
     {"name": "installation-access-policy", "scenarios": ["E2E-001", "E2E-008", "E2E-011"]},
@@ -18,7 +18,7 @@
     {"name": "packaging-and-installation", "scenarios": ["E2E-001"], "prerequisites": ["package-compatibility"]}
   ],
   "minimumScenarios": [
-    {"key": "deployment-in-kubeseer-namespace", "scenarios": ["E2E-002"]},
+    {"key": "deployment-in-kubefacet-namespace", "scenarios": ["E2E-002"]},
     {"key": "pods-across-multiple-namespaces", "scenarios": ["E2E-003"]},
     {"key": "custom-resource", "scenarios": ["E2E-004"]},
     {"key": "label-selection", "scenarios": ["E2E-004"]},
@@ -36,7 +36,7 @@
     {"key": "policy-restriction", "scenarios": ["E2E-011"]},
     {"key": "operator-restart", "scenarios": ["E2E-012"]},
     {"key": "oversized-output", "scenarios": ["E2E-009"]},
-    {"key": "kubeseer-deletion", "scenarios": ["E2E-013"]},
+    {"key": "kubefacet-deletion", "scenarios": ["E2E-013"]},
     {"key": "overlapping-instances", "scenarios": ["E2E-014"]}
   ],
   "prerequisites": [
@@ -60,7 +60,7 @@
     {"id": "E2E-010", "name": "Source update and semantic no-op", "registryKey": "source-update-noop"},
     {"id": "E2E-011", "name": "Source deletion and policy restriction", "registryKey": "source-deletion-policy"},
     {"id": "E2E-012", "name": "Manager restart", "registryKey": "manager-restart"},
-    {"id": "E2E-013", "name": "Kubeseer deletion", "registryKey": "kubeseer-deletion"},
+    {"id": "E2E-013", "name": "Facet deletion", "registryKey": "kubefacet-deletion"},
     {"id": "E2E-014", "name": "Overlapping instances", "registryKey": "overlapping-instances"},
     {"id": "E2E-015", "name": "Status and observability correlation", "registryKey": "status-observability"}
   ]

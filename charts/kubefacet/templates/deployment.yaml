@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubefacet.fullname" . }}
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "kubefacet.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kubefacet.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubefacet.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false
+      terminationGracePeriodSeconds: {{ .Values.manager.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: manager
+          image: {{ include "kubefacet.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/kubefacet"]
+          args:
+            - manager
+            - --metrics-bind-address={{ .Values.manager.metricsBindAddress }}
+            - --health-probe-bind-address={{ .Values.manager.healthProbeBindAddress }}
+            - --webhook-port={{ .Values.manager.webhookPort }}
+            - --webhook-cert-dir={{ .Values.manager.webhookCertDir }}
+            - --webhook-cert-name={{ .Values.manager.webhookCertName }}
+            - --webhook-key-name={{ .Values.manager.webhookKeyName }}
+            - --webhook-ca-file={{ .Values.manager.webhookCAFile }}
+            - --webhook-dns-names={{ include "kubefacet.webhookDNSNames" . }}
+            - --leader-election={{ .Values.manager.leaderElection }}
+            - --leader-election-namespace={{ include "kubefacet.namespace" . }}
+            - --leader-election-id={{ include "kubefacet.fullname" . }}
+            - --leader-election-resource-lock=leases
+            - --safety-interval={{ .Values.manager.safetyInterval }}
+            - --graceful-shutdown-timeout={{ .Values.manager.gracefulShutdownTimeout }}
+            - --max-matched-resources={{ .Values.limits.maxMatchedResources }}
+            - --max-status-bytes={{ .Values.limits.maxStatusBytes }}
+          ports:
+            - name: webhook
+              containerPort: {{ .Values.manager.webhookPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: KUBEFACET_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            {{- if .Values.tracing.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: webhook-tls
+              mountPath: {{ .Values.manager.webhookCertDir }}
+              readOnly: true
+            - name: webhook-ca
+              mountPath: {{ dir .Values.manager.webhookCAFile }}
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: health
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 2
+            timeoutSeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 5
+            timeoutSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 1
+      volumes:
+        - name: webhook-tls
+          secret:
+            secretName: {{ include "kubefacet.webhookSecretName" . | quote }}
+            optional: false
+        - name: webhook-ca
+          {{- if eq .Values.certificate.mode "externalSecret" }}
+          configMap:
+            name: {{ include "kubefacet.fullname" . }}-webhook-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+          {{- else }}
+          secret:
+            secretName: {{ include "kubefacet.webhookSecretName" . | quote }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+          {{- end }}

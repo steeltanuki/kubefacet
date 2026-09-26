@@ -19,12 +19,12 @@ readonly EXAMPLES_DIR="$ROOT_DIR/examples"
 readonly CATALOG="$EXAMPLES_DIR/catalog.txt"
 readonly COMMAND="$1"
 readonly REQUESTED="${2:-}"
-readonly STATE_DIR="${KUBESEER_LOCAL_STATE_DIR:-${XDG_STATE_HOME:-${HOME:?HOME is required}/.local/state}/kubeseer/local}"
+readonly STATE_DIR="${KUBEFACET_LOCAL_STATE_DIR:-${XDG_STATE_HOME:-${HOME:?HOME is required}/.local/state}/kubefacet/local}"
 readonly KUBECONFIG_PATH="$STATE_DIR/kubeconfig"
-readonly CLUSTER_NAME="${LOCAL_CLUSTER_NAME:-kubeseer-local}"
-readonly KUBE_CONTEXT="${LOCAL_KUBE_CONTEXT:-kind-kubeseer-local}"
-readonly FIELD_MANAGER="kubeseer-local-examples"
-readonly NAMESPACE_LABEL="kubeseer.io/example"
+readonly CLUSTER_NAME="${KUBEFACET_LOCAL_CLUSTER_NAME:-kubefacet-local}"
+readonly KUBE_CONTEXT="${KUBEFACET_LOCAL_KUBE_CONTEXT:-kind-kubefacet-local}"
+readonly FIELD_MANAGER="kubefacet-local-examples"
+readonly NAMESPACE_LABEL="kubefacet.steeltanuki.it/example"
 
 # shellcheck source=hack/kind-podman-common.sh
 source "$ROOT_DIR/hack/kind-podman-common.sh"
@@ -42,8 +42,8 @@ for name in "${CATALOG_ENTRIES[@]}"; do
 	[[ -z "${seen[$name]+set}" ]] || fail "duplicate catalog entry: $name"
 	seen[$name]=1
 	[[ -d "$EXAMPLES_DIR/$name" ]] || fail "catalog entry has no directory: $name"
-	[[ -f "$EXAMPLES_DIR/$name/README.md" && -f "$EXAMPLES_DIR/$name/kubeseer.yaml" && -f "$EXAMPLES_DIR/$name/workload.yaml" ]] || fail "example is incomplete: $name"
-	namespace_lines="$(rg -o 'kubeseer-example-[a-z0-9-]+' "$EXAMPLES_DIR/$name" | sort -u || true)"
+	[[ -f "$EXAMPLES_DIR/$name/README.md" && -f "$EXAMPLES_DIR/$name/facet.yaml" && -f "$EXAMPLES_DIR/$name/workload.yaml" ]] || fail "example is incomplete: $name"
+	namespace_lines="$(rg -o 'kubefacet-example-[a-z0-9-]+' "$EXAMPLES_DIR/$name" | sort -u || true)"
 	[[ -n "$namespace_lines" ]] || fail "example has no stable namespace: $name"
 done
 
@@ -62,13 +62,13 @@ kubectl_local() {
 namespace_for() {
 	local name="$1"
 	case "$name" in
-		builtin-resource) printf '%s\n' kubeseer-example-builtin ;;
-		typed-extraction) printf '%s\n' kubeseer-example-typed ;;
-		value-operator) printf '%s\n' kubeseer-example-operator ;;
-		cross-namespace-aggregation) printf '%s\n' kubeseer-example-aggregation-a ;;
-		custom-resource) printf '%s\n' kubeseer-example-custom ;;
-		authorization-denial) printf '%s\n' kubeseer-example-denial ;;
-		partial-degradation) printf '%s\n' kubeseer-example-degraded ;;
+		builtin-resource) printf '%s\n' kubefacet-example-builtin ;;
+		typed-extraction) printf '%s\n' kubefacet-example-typed ;;
+		value-operator) printf '%s\n' kubefacet-example-operator ;;
+		cross-namespace-aggregation) printf '%s\n' kubefacet-example-aggregation-a ;;
+		custom-resource) printf '%s\n' kubefacet-example-custom ;;
+		authorization-denial) printf '%s\n' kubefacet-example-denial ;;
+		partial-degradation) printf '%s\n' kubefacet-example-degraded ;;
 		*) return 1 ;;
 	esac
 }
@@ -80,7 +80,7 @@ namespaces_for() {
 	local name="$1"
 	case "$name" in
 		cross-namespace-aggregation)
-			printf '%s\n' kubeseer-example-aggregation-a kubeseer-example-aggregation-b
+			printf '%s\n' kubefacet-example-aggregation-a kubefacet-example-aggregation-b
 			;;
 		*) namespace_for "$name" ;;
 	esac
@@ -88,8 +88,8 @@ namespaces_for() {
 
 fixture_crd_for() {
 	case "$1" in
-		custom-resource) printf '%s\n' widgets.fixtures.kubeseer.io ;;
-		partial-degradation) printf '%s\n' degradedwidgets.fixtures.kubeseer.io ;;
+		custom-resource) printf '%s\n' widgets.fixtures.kubefacet.steeltanuki.it ;;
+		partial-degradation) printf '%s\n' degradedwidgets.fixtures.kubefacet.steeltanuki.it ;;
 		*) return 1 ;;
 	esac
 }
@@ -123,7 +123,7 @@ apply_one() {
 		kubectl_local wait --for=condition=Established --timeout=2m "crd/$(fixture_crd_for "$name")"
 	fi
 	kubectl_local apply --server-side --field-manager="$FIELD_MANAGER" -f "$EXAMPLES_DIR/$name/workload.yaml"
-	kubectl_local apply --server-side --field-manager="$FIELD_MANAGER" -f "$EXAMPLES_DIR/$name/kubeseer.yaml"
+	kubectl_local apply --server-side --field-manager="$FIELD_MANAGER" -f "$EXAMPLES_DIR/$name/facet.yaml"
 	printf 'EXAMPLE=%s STATUS=applied\n' "$name"
 }
 
@@ -132,30 +132,30 @@ apply_one() {
 # local verification run can remove Service from the active policy and restore
 # the exact managed profile afterward.
 narrow_authorization_denial_policy() {
-	kubectl_local patch kubeseeraccesspolicy installation-access-ceiling --type=merge \
-		-p='{"spec":{"resources":[{"apiGroups":[""],"kinds":["Pod"]},{"apiGroups":["apps"],"kinds":["Deployment"]},{"apiGroups":["fixtures.kubeseer.io"],"kinds":["Widget","DegradedWidget"]}]}}'
+	kubectl_local patch facetaccesspolicy installation-access-ceiling --type=merge \
+		-p='{"spec":{"resources":[{"apiGroups":[""],"kinds":["Pod"]},{"apiGroups":["apps"],"kinds":["Deployment"]},{"apiGroups":["fixtures.kubefacet.steeltanuki.it"],"kinds":["Widget","DegradedWidget"]}]}}'
 }
 
 restore_authorization_denial_policy() {
-	kubectl_local patch kubeseeraccesspolicy installation-access-ceiling --type=merge \
-		-p='{"spec":{"resources":[{"apiGroups":[""],"kinds":["Pod"]},{"apiGroups":["apps"],"kinds":["Deployment"]},{"apiGroups":[""],"kinds":["Service"]},{"apiGroups":["fixtures.kubeseer.io"],"kinds":["Widget","DegradedWidget"]}]}}'
+	kubectl_local patch facetaccesspolicy installation-access-ceiling --type=merge \
+		-p='{"spec":{"resources":[{"apiGroups":[""],"kinds":["Pod"]},{"apiGroups":["apps"],"kinds":["Deployment"]},{"apiGroups":[""],"kinds":["Service"]},{"apiGroups":["fixtures.kubefacet.steeltanuki.it"],"kinds":["Widget","DegradedWidget"]}]}}'
 }
 
 inspect_one() {
 	local name="$1" namespace
 	namespace="$(namespace_for "$name")"
-	kubectl_local --namespace "$namespace" get kubeseer -l "$NAMESPACE_LABEL=$name" -o json
+	kubectl_local --namespace "$namespace" get facet -l "$NAMESPACE_LABEL=$name" -o json
 }
 
 verify_one() {
-	local name="$1" command=(go run ./cmd/kubeseer-local) namespace
+	local name="$1" command=(go run ./cmd/kubefacet-local) namespace
 	namespace="$(namespace_for "$name")"
-	if [[ -n "${KUBESEER_LOCAL_PROBE_BIN:-}" ]]; then command=("$KUBESEER_LOCAL_PROBE_BIN"); fi
+	if [[ -n "${KUBEFACET_LOCAL_PROBE_BIN:-}" ]]; then command=("$KUBEFACET_LOCAL_PROBE_BIN"); fi
 	if [[ "$name" == partial-degradation ]]; then
 		# First let the initial successful reconciliation publish Ready.  This
 		# prevents the fixture removal from racing the first evaluation when the
 		# complete catalog was just (re)applied.
-		kubectl_local --namespace "$namespace" wait --for=condition=Ready --timeout="${KUBESEER_LOCAL_TIMEOUT:-2m}" kubeseer/degraded
+		kubectl_local --namespace "$namespace" wait --for=condition=Ready --timeout="${KUBEFACET_LOCAL_TIMEOUT:-2m}" facet/degraded
 		# Leave the successful Deployment in place, then remove only the
 		# degradable DegradedWidget and its fixture type before observing status.
 		kubectl_local --namespace "$namespace" delete degradedwidget degraded-widget --ignore-not-found=true >/dev/null || true
@@ -167,7 +167,7 @@ verify_one() {
 		# AuthorizationDenied path required by this example.
 		local verify_status
 		narrow_authorization_denial_policy
-		if "${command[@]}" verify --state-dir "$STATE_DIR" --metadata "$STATE_DIR/metadata.v1" --kubeconfig "$KUBECONFIG_PATH" --cluster-name "$CLUSTER_NAME" --context "$KUBE_CONTEXT" --timeout "${KUBESEER_LOCAL_TIMEOUT:-2m}" --example "$name" --namespace "$namespace"; then
+		if "${command[@]}" verify --state-dir "$STATE_DIR" --metadata "$STATE_DIR/metadata.v1" --kubeconfig "$KUBECONFIG_PATH" --cluster-name "$CLUSTER_NAME" --context "$KUBE_CONTEXT" --timeout "${KUBEFACET_LOCAL_TIMEOUT:-2m}" --example "$name" --namespace "$namespace"; then
 			verify_status=0
 		else
 			verify_status=$?
@@ -178,7 +178,7 @@ verify_one() {
 		fi
 		((verify_status == 0)) || return "$verify_status"
 	else
-		"${command[@]}" verify --state-dir "$STATE_DIR" --metadata "$STATE_DIR/metadata.v1" --kubeconfig "$KUBECONFIG_PATH" --cluster-name "$CLUSTER_NAME" --context "$KUBE_CONTEXT" --timeout "${KUBESEER_LOCAL_TIMEOUT:-2m}" --example "$name" --namespace "$namespace"
+		"${command[@]}" verify --state-dir "$STATE_DIR" --metadata "$STATE_DIR/metadata.v1" --kubeconfig "$KUBECONFIG_PATH" --cluster-name "$CLUSTER_NAME" --context "$KUBE_CONTEXT" --timeout "${KUBEFACET_LOCAL_TIMEOUT:-2m}" --example "$name" --namespace "$namespace"
 	fi
 	printf 'EXAMPLE=%s STATUS=passed\n' "$name"
 }
@@ -186,7 +186,7 @@ verify_one() {
 down_one() {
 	local name="$1" namespace
 	namespace="$(namespace_for "$name")"
-	kubectl_local --namespace "$namespace" delete -f "$EXAMPLES_DIR/$name/kubeseer.yaml" --ignore-not-found=true >/dev/null
+	kubectl_local --namespace "$namespace" delete -f "$EXAMPLES_DIR/$name/facet.yaml" --ignore-not-found=true >/dev/null
 	if [[ "$name" == partial-degradation ]]; then
 		kubectl_local --namespace "$namespace" delete deployment degraded --ignore-not-found=true >/dev/null || true
 		if kubectl_local get crd "$(fixture_crd_for "$name")" >/dev/null 2>&1; then

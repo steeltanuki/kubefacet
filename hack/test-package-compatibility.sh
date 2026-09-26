@@ -10,8 +10,8 @@
 set -euo pipefail
 
 readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly CHART_DIR="$ROOT_DIR/charts/kubeseer"
-readonly TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-package-compatibility.XXXXXX")"
+readonly CHART_DIR="$ROOT_DIR/charts/kubefacet"
+readonly TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-package-compatibility.XXXXXX")"
 readonly VERSIONS=(1.35.6 1.36.2)
 readonly MODES=(certManager externalSecret)
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
@@ -28,7 +28,7 @@ for version in "${VERSIONS[@]}"; do
 	for mode in "${MODES[@]}"; do
 		profile_count=$((profile_count + 1))
 		output="$TEMP_DIR/${version//./-}-${mode}.yaml"
-		args=(template kubeseer "$CHART_DIR" --namespace kubeseer-system --kube-version "$version" --include-crds)
+		args=(template kubefacet "$CHART_DIR" --namespace kubefacet-system --kube-version "$version" --include-crds)
 		if [[ "$mode" == externalSecret ]]; then
 			args+=(--set certificate.mode=externalSecret)
 			args+=(--set certificate.externalSecret.secretName=administrator-webhook-tls)
@@ -51,10 +51,10 @@ for version in "${VERSIONS[@]}"; do
 done
 ((profile_count == 4)) || fail "compatibility matrix did not execute all profiles"
 
-if [[ "${KUBESEER_PACKAGE_RUN_CLUSTER:-0}" == 1 ]]; then
+if [[ "${KUBEFACET_PACKAGE_RUN_CLUSTER:-0}" == 1 ]]; then
 	for version in "${VERSIONS[@]}"; do
-		config_var="KUBESEER_PACKAGE_KUBECONFIG_${version//./_}"
-		context_var="KUBESEER_PACKAGE_CONTEXT_${version//./_}"
+		config_var="KUBEFACET_PACKAGE_KUBECONFIG_${version//./_}"
+		context_var="KUBEFACET_PACKAGE_CONTEXT_${version//./_}"
 		kubeconfig="${!config_var-}"
 		kube_context="${!context_var-}"
 		[[ "$kubeconfig" == /* && -f "$kubeconfig" ]] || fail "${config_var} must be an existing absolute path"
@@ -64,8 +64,8 @@ if [[ "${KUBESEER_PACKAGE_RUN_CLUSTER:-0}" == 1 ]]; then
 			--kubeconfig "$kubeconfig" \
 			--context "$kube_context"
 	done
-elif [[ "${KUBESEER_PACKAGE_RUN_CLUSTER:-0}" != 0 ]]; then
-	fail 'KUBESEER_PACKAGE_RUN_CLUSTER must be 0 or 1'
+elif [[ "${KUBEFACET_PACKAGE_RUN_CLUSTER:-0}" != 0 ]]; then
+	fail 'KUBEFACET_PACKAGE_RUN_CLUSTER must be 0 or 1'
 fi
 
 printf 'PACKAGE_COMPATIBILITY=complete STATUS=passed\n'

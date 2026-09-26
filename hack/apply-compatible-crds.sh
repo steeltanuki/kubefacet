@@ -25,6 +25,6 @@ while (($# > 0)); do
 done
 
 readonly kubectl_args=(--kubeconfig "$kubeconfig" --context "$kube_context")
-kubectl "${kubectl_args[@]}" apply --server-side --field-manager=kubeseer-crd-upgrade -f config/crd/bases
-kubectl "${kubectl_args[@]}" wait --for=condition=Established --timeout=120s crd/kubeseers.kubeseer.io crd/kubeseeraccesspolicies.kubeseer.io
+kubectl "${kubectl_args[@]}" apply --server-side --field-manager=kubefacet-crd-upgrade -f config/crd/bases
+kubectl "${kubectl_args[@]}" wait --for=condition=Established --timeout=120s crd/facets.kubefacet.steeltanuki.it crd/facetaccesspolicies.kubefacet.steeltanuki.it
 printf 'PACKAGE_CRD_APPLY=passed\n'

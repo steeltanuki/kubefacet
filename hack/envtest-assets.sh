@@ -34,7 +34,7 @@ case "${version}:${goos}/${goarch}" in
 	;;
 esac
 
-cache_root="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/kubeseer/envtest"
+cache_root="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/kubefacet/envtest"
 assets_dir="${cache_root}/${version}/${goos}-${goarch}"
 
 if [[ -x "${assets_dir}/etcd" && -x "${assets_dir}/kube-apiserver" && -x "${assets_dir}/kubectl" ]]; then
@@ -42,7 +42,7 @@ if [[ -x "${assets_dir}/etcd" && -x "${assets_dir}/kube-apiserver" && -x "${asse
 	exit 0
 fi
 
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-envtest.XXXXXXXX")"
+work_dir="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-envtest.XXXXXXXX")"
 trap 'rm -rf "${work_dir}"' EXIT
 
 curl --fail --location --retry 3 --silent --show-error \

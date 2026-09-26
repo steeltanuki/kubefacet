@@ -37,7 +37,7 @@ verify:
 	@true
 EOF
 
-cat > "$FIXTURE_DIR/api/v1alpha1/kubeseer_envtest_test.go" <<'EOF'
+cat > "$FIXTURE_DIR/api/v1alpha1/facet_envtest_test.go" <<'EOF'
 package v1alpha1
 
 import "testing"
@@ -78,7 +78,7 @@ run_with_status() {
 	printf '%s' "$output"
 }
 
-baseline_output="$(env KUBESEER_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
+baseline_output="$(env KUBEFACET_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
 assert_contains "$baseline_output" 'Test layer policy passed'
 
 cat > "$FIXTURE_DIR/api/v1alpha1/unit_test.go" <<'EOF'
@@ -88,7 +88,7 @@ import "testing"
 
 func TestUnit(t *testing.T) {}
 EOF
-forbidden_output="$(run_with_status 1 env KUBESEER_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
+forbidden_output="$(run_with_status 1 env KUBEFACET_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
 assert_contains "$forbidden_output" 'api/v1alpha1/unit_test.go is a package-local test file outside the approved envtest suites'
 rm -f -- "$FIXTURE_DIR/api/v1alpha1/unit_test.go"
 
@@ -97,7 +97,7 @@ cat >> "$FIXTURE_DIR/Makefile" <<'EOF'
 test-unit:
 	@true
 EOF
-target_output="$(run_with_status 1 env KUBESEER_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
+target_output="$(run_with_status 1 env KUBEFACET_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
 assert_contains "$target_output" 'dedicated test-unit target is forbidden'
 rm -f -- "$FIXTURE_DIR/Makefile"
 
@@ -107,7 +107,7 @@ cat > "$FIXTURE_DIR/Makefile" <<'EOF'
 verify:
 	@true
 EOF
-cat > "$FIXTURE_DIR/api/v1alpha1/kubeseer_envtest_test.go" <<'EOF'
+cat > "$FIXTURE_DIR/api/v1alpha1/facet_envtest_test.go" <<'EOF'
 package v1alpha1
 
 import "testing"
@@ -115,7 +115,7 @@ import "testing"
 func TestAPIContract(t *testing.T) {}
 func TestUnexpected(t *testing.T) {}
 EOF
-suite_output="$(run_with_status 1 env KUBESEER_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
-assert_contains "$suite_output" 'api/v1alpha1/kubeseer_envtest_test.go must contain only the named envtest suite TestAPIContract'
+suite_output="$(run_with_status 1 env KUBEFACET_VERIFY_ROOT="$FIXTURE_DIR" "$VERIFIER")"
+assert_contains "$suite_output" 'api/v1alpha1/facet_envtest_test.go must contain only the named envtest suite TestAPIContract'
 
 printf '%s\n' 'Test-layer policy acceptance passed'

@@ -4,15 +4,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: operator
-  namespace: kubeseer-example-operator
+  namespace: kubefacet-example-operator
   labels:
-    kubeseer.io/example: value-operator
-    app.kubernetes.io/name: kubeseer-example-operator
+    kubefacet.steeltanuki.it/example: value-operator
+    app.kubernetes.io/name: kubefacet-example-operator
 spec:
   replicas: 3
-  selector: {matchLabels: {app.kubernetes.io/name: kubeseer-example-operator}}
+  selector: {matchLabels: {app.kubernetes.io/name: kubefacet-example-operator}}
   template:
     metadata:
-      labels: {app.kubernetes.io/name: kubeseer-example-operator, kubeseer.io/example: value-operator}
+      labels: {app.kubernetes.io/name: kubefacet-example-operator, kubefacet.steeltanuki.it/example: value-operator}
     spec:
       containers: [{name: fixture, image: registry.k8s.io/pause:3.10, imagePullPolicy: IfNotPresent}]

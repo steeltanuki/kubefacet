@@ -5,7 +5,7 @@
 ## Typed extraction
 
 The example extracts a Deployment's `metadata.creationTimestamp`. Kubernetes
-exposes that value as an RFC 3339 string; Kubeseer parses it and publishes a
+exposes that value as an RFC 3339 string; Facet parses it and publishes a
 typed timestamp. This distinguishes it from `builtin-resource`, which extracts
 an integer replica count. Use the constrained interface:
 

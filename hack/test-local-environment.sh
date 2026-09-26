@@ -10,7 +10,7 @@
 set -euo pipefail
 
 readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-local-genuine.XXXXXX")"
+readonly RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-local-genuine.XXXXXX")"
 readonly STATE_DIR="$RUN_DIR/state"
 readonly CACHE_DIR="$RUN_DIR/cache"
 readonly BEFORE="$RUN_DIR/worktree.before"
@@ -25,7 +25,7 @@ cleanup() {
 	# A failed run gets one exact retry; local-down itself retains state if the
 	# provider cannot delete the owned cluster.
 	if [[ -f "$STATE_DIR/metadata.v1" ]]; then
-		KUBESEER_LOCAL_STATE_DIR="$STATE_DIR" KUBESEER_LOCAL_CACHE_DIR="$CACHE_DIR" \
+		KUBEFACET_LOCAL_STATE_DIR="$STATE_DIR" KUBEFACET_LOCAL_CACHE_DIR="$CACHE_DIR" \
 			make --no-print-directory local-down >/dev/null 2>&1 || true
 	fi
 	if [[ -d "$RUN_DIR" ]]; then chmod -R u+w -- "$RUN_DIR" 2>/dev/null || true; fi
@@ -87,7 +87,7 @@ fi
 
 run_make() {
 	local action="$1" output status
-	if output="$(KUBESEER_LOCAL_STATE_DIR="$STATE_DIR" KUBESEER_LOCAL_CACHE_DIR="$CACHE_DIR" \
+	if output="$(KUBEFACET_LOCAL_STATE_DIR="$STATE_DIR" KUBEFACET_LOCAL_CACHE_DIR="$CACHE_DIR" \
 		make --no-print-directory "$@" 2>&1)"; then
 		status=0
 	else

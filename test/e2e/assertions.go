@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,21 +38,21 @@ func AssertConditions(t testing.TB, got []metav1.Condition, expected []metav1.Co
 	}
 }
 
-func AssertSummary(t testing.TB, got *v1alpha1.KubeseerSummary, expected v1alpha1.KubeseerSummary) {
+func AssertSummary(t testing.TB, got *v1alpha1.FacetSummary, expected v1alpha1.FacetSummary) {
 	t.Helper()
 	if got == nil || *got != expected {
 		t.Fatalf("summary differs: got %#v, want %#v", got, expected)
 	}
 }
 
-func AssertResultHash(t testing.TB, status v1alpha1.KubeseerStatus, expected string) {
+func AssertResultHash(t testing.TB, status v1alpha1.FacetStatus, expected string) {
 	t.Helper()
 	if status.ResultHash != expected || !strings.HasPrefix(status.ResultHash, "sha256:") {
 		t.Fatalf("result hash: got %q, want %q", status.ResultHash, expected)
 	}
 }
 
-func AssertSourceOrder(t testing.TB, result *v1alpha1.KubeseerResult, expectedIDs []string) {
+func AssertSourceOrder(t testing.TB, result *v1alpha1.FacetResult, expectedIDs []string) {
 	t.Helper()
 	if result == nil {
 		t.Fatal("result is nil")
@@ -67,7 +67,7 @@ func AssertSourceOrder(t testing.TB, result *v1alpha1.KubeseerResult, expectedID
 	}
 }
 
-func AssertProvenance(t testing.TB, got []v1alpha1.KubeseerResourceProvenance, expected []v1alpha1.KubeseerResourceProvenance) {
+func AssertProvenance(t testing.TB, got []v1alpha1.FacetResourceProvenance, expected []v1alpha1.FacetResourceProvenance) {
 	t.Helper()
 	if len(got) != len(expected) {
 		t.Fatalf("provenance length: got %d, want %d", len(got), len(expected))
@@ -81,7 +81,7 @@ func AssertProvenance(t testing.TB, got []v1alpha1.KubeseerResourceProvenance, e
 
 // AssertPublicStatus verifies only API-visible semantic fields. It is safe to
 // use in diagnostics because the result body is never formatted there.
-func AssertPublicStatus(t testing.TB, status v1alpha1.KubeseerStatus, expectedSummary *v1alpha1.KubeseerSummary, expectedHash string) {
+func AssertPublicStatus(t testing.TB, status v1alpha1.FacetStatus, expectedSummary *v1alpha1.FacetSummary, expectedHash string) {
 	t.Helper()
 	if expectedSummary != nil {
 		AssertSummary(t, status.Summary, *expectedSummary)
@@ -117,22 +117,22 @@ func SanitizeError(err error) string {
 // extracted values, Secret payloads, kubeconfig bytes, tokens, and arbitrary
 // log fields have no representation in this type.
 type DiagnosticProjection struct {
-	Phase             string                    `json:"phase"`
-	Scenario          string                    `json:"scenario,omitempty"`
-	Awaited           string                    `json:"awaited,omitempty"`
-	SourceRevision    string                    `json:"sourceRevision"`
-	KubernetesVersion string                    `json:"kubernetesVersion"`
-	ClusterName       string                    `json:"clusterName"`
-	Namespace         string                    `json:"namespace"`
-	Release           string                    `json:"release"`
-	Generation        int64                     `json:"generation,omitempty"`
-	Conditions        []metav1.Condition        `json:"conditions,omitempty"`
-	Summary           *v1alpha1.KubeseerSummary `json:"summary,omitempty"`
-	ResultHash        string                    `json:"resultHash,omitempty"`
-	StableError       string                    `json:"error,omitempty"`
-	MetricFamilies    []MetricSample            `json:"metrics,omitempty"`
-	RecordCodes       []string                  `json:"records,omitempty"`
-	EventIdentities   []string                  `json:"events,omitempty"`
+	Phase             string                 `json:"phase"`
+	Scenario          string                 `json:"scenario,omitempty"`
+	Awaited           string                 `json:"awaited,omitempty"`
+	SourceRevision    string                 `json:"sourceRevision"`
+	KubernetesVersion string                 `json:"kubernetesVersion"`
+	ClusterName       string                 `json:"clusterName"`
+	Namespace         string                 `json:"namespace"`
+	Release           string                 `json:"release"`
+	Generation        int64                  `json:"generation,omitempty"`
+	Conditions        []metav1.Condition     `json:"conditions,omitempty"`
+	Summary           *v1alpha1.FacetSummary `json:"summary,omitempty"`
+	ResultHash        string                 `json:"resultHash,omitempty"`
+	StableError       string                 `json:"error,omitempty"`
+	MetricFamilies    []MetricSample         `json:"metrics,omitempty"`
+	RecordCodes       []string               `json:"records,omitempty"`
+	EventIdentities   []string               `json:"events,omitempty"`
 }
 
 func (p DiagnosticProjection) Validate() error {

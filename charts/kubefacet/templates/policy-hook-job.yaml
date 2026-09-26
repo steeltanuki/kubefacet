@@ -1,0 +1,62 @@
+{{- if eq .Values.accessPolicy.mode "managed" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kubefacet.fullname" . }}-policy
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+    helm.sh/hook: pre-install,pre-upgrade,pre-rollback
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        {{- include "kubefacet.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubefacet.fullname" . }}-policy-hook
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: policy
+          image: {{ include "kubefacet.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/kubefacet"]
+          args:
+            - package
+            - policy
+            - --policy-file=/etc/kubefacet/policy/policy.json
+            - --release-name={{ .Release.Name }}
+            - --release-namespace={{ .Release.Namespace }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: policy
+              mountPath: /etc/kubefacet/policy
+              readOnly: true
+      volumes:
+        - name: policy
+          configMap:
+            name: {{ include "kubefacet.fullname" . }}-policy-bootstrap
+            items:
+              - key: policy.json
+                path: policy.json
+{{- end }}
