@@ -2,7 +2,7 @@
 walden_schema_version: v1alpha1
 status: approved
 approved_at: 2026-09-26T12:03:32Z
-last_modified: 2026-09-26T22:07:37Z
+last_modified: 2026-09-26T22:27:17Z
 approved_fingerprint: sha256:a33b0f23bbdc1596f46ab185b22593430af89fbb51a6b0012ff0480f510ece84
 source_design_approved_at: 2026-09-26T11:43:39Z
 source_design_fingerprint: sha256:920f58501881f319cd87010fcb2e02028ef4e00e513dc4c2bc833cfa4e88c31d
@@ -195,7 +195,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 20m
         covers: ["R9.AC2", "R9.AC3", "R4.AC4", "R12.AC2", "NFR4", "C5"]
 
-- [ ] 4. Complete current contracts and certify the final migration
+- [x] 4. Complete current contracts and certify the final migration
 
   - [x] 4.1 Complete current documentation, identity supersession, and the real repository residue gate
     - Scope: Update README, CONTRIBUTING, API/install/config/security/operations/troubleshooting/development/example/Helm documentation, SPECIFICATIONS, and constitution. Retain positioning, semantic guidance, optional contributor Walden usage, and historical feature IDs with explicit explanations. Create .walden/current-identity.md and docs/migration-from-kubeseer.md; point old lifecycle removal to immutable v0.1.6 documentation/tooling, document unsupported in-place upgrade/no conversion, and list all manual post-merge actions. Treat historical release-audit observations separately from current instructions. Review and record exact occurrence/path exceptions for migration explanations and historical links; retain all historical bytes. Integrate the audit into make verify/CI and require it to pass on the real repository. Prepare the durable verification report structure before aggregate proofs so later observations do not introduce new operational code. Commit documentation/current-contract changes as docs: complete KubeFacet migration.
@@ -304,7 +304,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 90m
         covers: ["R8.AC1", "R8.AC2", "R8.AC3", "R8.AC4", "R8.AC5", "R5.AC1", "R5.AC2", "R5.AC3", "R7.AC1", "R7.AC5", "R7.AC6", "R10.AC1", "R12.AC2", "R12.AC3", "NFR2", "NFR3", "NFR4", "C1", "C4", "C7"]
 
-  - [ ] 4.7 Close the identity audit, preserve fresh evidence, and prepare the complete maintainer handoff
+  - [x] 4.7 Close the identity audit, preserve fresh evidence, and prepare the complete maintainer handoff
     - Scope: Run the final whole-repository identity gate, positive identity checks, isolated negative cases, and historical hash comparison. Complete the durable verification report under this feature with actual commands/outcomes, regenerated artifact paths, classified residue counts/reasons, commit boundaries, selected-feature evidence scope, and manual post-merge actions. The delivery check must reject any required check recorded failed/unrun or any operational residue, and must verify coherent specification-first commits. Do not claim legacy-portfolio certification or a public release. Commit final report/evidence in one additional verification commit only if needed for honest reviewability. The CLI evidence refresh and scoped release verdict are performed after task completion as the delivery checkpoint below, never recursively inside this task proof.
     - Requirements: `R8.AC5`, `R10.AC1`, `R10.AC2`, `R10.AC3`, `R10.AC4`, `R10.AC5`, `R10.AC6`, `R11.AC1`, `R11.AC2`, `R11.AC3`, `R11.AC4`, `R11.AC5`, `R11.AC6`, `R12.AC1`, `R12.AC2`, `R12.AC3`, `R12.AC4`, `R12.AC5`, `R12.AC6`, `NFR2`, `NFR3`, `NFR4`, `NFR5`, `C6`, `C7`, `C8`, `C9`
     - Design: Architecture / Durable Identity Verification; Architecture / Current Contracts, History, And Migration Documentation; Verification Plan
