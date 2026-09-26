@@ -1,8 +1,8 @@
-# Kubeseer installation and lifecycle guide
+# KubeFacet installation and lifecycle guide
 
-This guide covers both the canonical chart in `charts/kubeseer` and its
-official Helm OCI distribution. Kubeseer supports Kubernetes `1.35.6` and
-`1.36.2`, Helm 3.12 or newer, and the `kubeseer.io/v1alpha1` API. The chart
+This guide covers both the canonical chart in `charts/kubefacet` and its
+official Helm OCI distribution. KubeFacet supports Kubernetes `1.35.6` and
+`1.36.2`, Helm 3.12 or newer, and the `kubefacet.steeltanuki.it/v1alpha1` API. The chart
 declares the Kubernetes gate `>=1.35.0-0 <1.37.0-0`; a cluster outside that
 range is rejected before resources are rendered or installed. The official
 controller image release contract currently certifies `linux/amd64` only.
@@ -10,8 +10,9 @@ controller image release contract currently certifies `linux/amd64` only.
 For policy, RBAC, certificate, limit, and process-setting decisions, read
 [Configuration](configuration.md). For runtime checks after installation, see
 [Operations](operations.md); for trust boundaries and data exposure, see
-[Security model](security.md). The [README](../README.md) is the documentation
-entry point.
+[Security model](security.md). See [migration from Kubeseer](migration-from-kubeseer.md)
+before installing into a cluster that may contain the v0.1.x operator. The
+[README](../README.md) is the documentation entry point.
 
 ## Prerequisites
 
@@ -21,7 +22,7 @@ The administrator needs:
   cluster-scoped RBAC, admission webhooks, and cert-manager resources;
 - Helm 3.12 or newer and access from the cluster to the public GHCR controller
   image (or to the registry hosting a deliberately overridden image);
-- a versioned, non-`latest` Kubeseer image;
+- a versioned, non-`latest` KubeFacet image;
 - cert-manager exposing `cert-manager.io/v1` (the package compatibility profile
   is pinned to cert-manager `v1.18.2`) for the default certificate mode, or an
   externally managed TLS Secret and public PEM CA for `externalSecret` mode.
@@ -31,6 +32,10 @@ compatibility run. Cluster commands below show the selected context explicitly.
 
 ## Installing an official release
 
+The source prepares KubeFacet v0.2.0, but this migration does not publish it.
+Use the command below only after the maintainer has created the protected
+`v0.2.0` release and its image and chart are publicly available.
+
 Official releases use the public Helm OCI artifact and the matching public
 controller image. They can be installed without cloning the source repository
 or building either artifact. The GitHub Container Registry packages must be
@@ -38,29 +43,29 @@ public so Helm and Kubernetes can pull them anonymously. A registry login is
 not needed for these public packages.
 
 Choose a stable version shown on the
-[GitHub Releases page](https://github.com/steeltanuki/kubeseer/releases). For
-example, this installs `0.1.6` (source tag `v0.1.6`):
+[GitHub Releases page](https://github.com/steeltanuki/kubefacet/releases). The
+first KubeFacet release is prepared as `0.2.0` (source tag `v0.2.0`):
 
 ```sh
-helm upgrade --install kubeseer oci://ghcr.io/steeltanuki/charts/kubeseer \
-  --version 0.1.6 \
-  --namespace kubeseer-system --create-namespace \
+helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
+  --version 0.2.0 \
+  --namespace kubefacet-system --create-namespace \
   --wait --timeout 10m
 ```
 
 `Chart.yaml` `version` and `appVersion` match the selected release. The
-default image repository is `ghcr.io/steeltanuki/kubeseer`; its empty chart
+default image repository is `ghcr.io/steeltanuki/kubefacet`; its empty chart
 `image.tag` resolves to `appVersion`, so this command installs
-`ghcr.io/steeltanuki/kubeseer:0.1.6`. The `.tgz` chart archive is a temporary
+`ghcr.io/steeltanuki/kubefacet:0.2.0`. The `.tgz` chart archive is a temporary
 release-verification input and is not attached to the GitHub Release; the OCI
 chart is the canonical distribution artifact.
 
 To inspect or render an official chart without installing it:
 
 ```sh
-helm show chart oci://ghcr.io/steeltanuki/charts/kubeseer --version 0.1.6
-helm template kubeseer oci://ghcr.io/steeltanuki/charts/kubeseer \
-  --version 0.1.6 --namespace kubeseer-system \
+helm show chart oci://ghcr.io/steeltanuki/charts/kubefacet --version 0.2.0
+helm template kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
+  --version 0.2.0 --namespace kubefacet-system \
   --kube-version 1.35.6 --include-crds
 ```
 
@@ -78,10 +83,10 @@ not become an official release artifact.
 Run these checks before installation:
 
 ```sh
-helm lint charts/kubeseer
-helm template kubeseer charts/kubeseer \
-  --namespace kubeseer-system --kube-version 1.35.6 --include-crds
-helm package charts/kubeseer --destination dist
+helm lint charts/kubefacet
+helm template kubefacet charts/kubefacet \
+  --namespace kubefacet-system --kube-version 1.35.6 --include-crds
+helm package charts/kubefacet --destination dist
 make verify-package
 ```
 
@@ -100,9 +105,9 @@ Choose the namespace with Helm; do not edit the chart's canonical files. The
 default chart mode is `certManager` and uses cert-manager:
 
 ```sh
-helm upgrade --install kubeseer charts/kubeseer \
-  --namespace kubeseer-system --create-namespace \
-  --set image.repository=ghcr.io/steeltanuki/kubeseer \
+helm upgrade --install kubefacet charts/kubefacet \
+  --namespace kubefacet-system --create-namespace \
+  --set image.repository=ghcr.io/steeltanuki/kubefacet \
   --set image.tag=0.1.6 \
   --wait --timeout 10m
 ```
@@ -124,10 +129,10 @@ pull requests continue to target `develop`; a release reaches `main` through
 the maintainer's reviewed promotion.
 
 Official releases use stable Semantic Versioning tags of the form
-`vMAJOR.MINOR.PATCH`, such as `v0.1.6`. Prerelease tags are not supported by
+`vMAJOR.MINOR.PATCH`, beginning with the prepared `v0.2.0`. Prerelease tags are not supported by
 the initial release-distribution workflow. For a release, the maintainer
 prepares the chart's `version` and `appVersion` in
-`charts/kubeseer/Chart.yaml` and substantive notes at
+`charts/kubefacet/Chart.yaml` and substantive notes at
 `docs/releases/v<version>.md`, including `Highlights` and
 `Upgrade considerations`, then promotes that commit from `develop` to
 protected `main` in a reviewed pull request. Before creating the tag, confirm
@@ -137,11 +142,11 @@ reviewed promotion commit from `origin/main`, verify its SHA, then create and
 push the annotated version tag. For example:
 
 ```sh
-TAG=v0.1.6
+TAG=v0.2.0
 git fetch origin main
 git switch --detach origin/main
 git rev-parse HEAD  # Confirm this is the reviewed promotion commit.
-git tag -a "$TAG" -m "Kubeseer $TAG"
+git tag -a "$TAG" -m "KubeFacet $TAG"
 git push origin "$TAG"
 ```
 
@@ -162,7 +167,7 @@ failed job and ensure the GHCR image and chart packages allow anonymous pulls.
 GHCR creates each new package as private. The first image or chart push can
 therefore succeed while its immediate anonymous pull check fails. In the
 maintainer's GitHub Packages settings, change the visibility of
-`steeltanuki/kubeseer` and `steeltanuki/charts/kubeseer` to public after each
+`steeltanuki/kubefacet` and `steeltanuki/charts/kubefacet` to public after each
 package first appears, then rerun the failed workflow for the same protected
 tag. A new GitHub Release is created only after both packages pass anonymous
 pull verification. An HTTP 403 from the anonymous registry token endpoint
@@ -173,7 +178,7 @@ For read-only inventory from a clean checkout of the exact tag, a maintainer
 can compare the public artifacts and their recorded digests:
 
 ```sh
-TAG=v0.1.6
+TAG=v0.2.0
 git checkout --detach "$TAG"
 SOURCE_SHA="$(git rev-parse "refs/tags/${TAG}^{commit}")"
 GITHUB_ACTOR=steeltanuki GH_TOKEN="$PACKAGE_TOKEN" \
@@ -207,10 +212,10 @@ ownership, and the storage-version contract without writing cluster state.
 Check availability and the installed version:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system \
-  wait --for=condition=Available deployment/kubeseer --timeout=5m
-kubectl --context my-cluster -n kubeseer-system \
-  get deployment kubeseer -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].env[?(@.name=="KUBESEER_VERSION")].value}{"\n"}'
+kubectl --context my-cluster -n kubefacet-system \
+  wait --for=condition=Available deployment/kubefacet --timeout=5m
+kubectl --context my-cluster -n kubefacet-system \
+  get deployment kubefacet -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].env[?(@.name=="KUBEFACET_VERSION")].value}{"\n"}'
 ```
 
 The default access policy is a deny-all `Explicit` policy named
@@ -222,7 +227,7 @@ granting observed-resource RBAC does not broaden logical authorization.
 
 ### Default: cert-manager
 
-Install the approved cert-manager release before installing Kubeseer. The chart
+Install the approved cert-manager release before installing KubeFacet. The chart
 creates a namespaced self-signed bootstrap Issuer, CA Certificate, CA Issuer,
 serving Certificate, and CA-injection annotation. The serving Secret is owned
 by the chart's cert-manager Certificate resource, is mounted read-only, and
@@ -232,10 +237,10 @@ The webhook certificate must cover these exact Service names in the selected
 namespace:
 
 ```text
-kubeseer-webhook
-kubeseer-webhook.<namespace>
-kubeseer-webhook.<namespace>.svc
-kubeseer-webhook.<namespace>.svc.cluster.local
+kubefacet-webhook
+kubefacet-webhook.<namespace>
+kubefacet-webhook.<namespace>.svc
+kubefacet-webhook.<namespace>.svc.cluster.local
 ```
 
 The manager keeps readiness false until the current key matches the serving
@@ -256,9 +261,9 @@ mounts the named Secret read-only, and renders no cert-manager object and no
 TLS Secret:
 
 ```sh
-helm upgrade --install kubeseer oci://ghcr.io/steeltanuki/charts/kubeseer \
+helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
   --version 0.1.6 \
-  --namespace kubeseer-system --create-namespace \
+  --namespace kubefacet-system --create-namespace \
   --set certificate.mode=externalSecret \
   --set certificate.externalSecret.secretName=administrator-webhook-tls \
   --set-file certificate.externalSecret.caBundle=public-ca.pem \
@@ -277,7 +282,7 @@ before its CA is present in the released bundle.
 Policy values and RBAC values are independent. A namespaced observed read is an
 explicit `rbac.observed.namespaced` entry. Cluster-scoped observed reads require
 both that entry and `accessPolicy.allowClusterScoped=true`. Author subjects get
-only namespaced Kubeseer permissions; they receive no observed-resource,
+only namespaced KubeFacet permissions; they receive no observed-resource,
 Secret, policy, webhook, Deployment, or RBAC permission from this chart.
 
 Before a CRD-bearing upgrade, run the explicit compatibility gate and apply:
@@ -287,14 +292,14 @@ export KUBECONFIG=/absolute/path/to/kubeconfig
 export KUBE_CONTEXT=my-cluster
 make package-crd-check
 make package-apply-crds
-helm upgrade kubeseer oci://ghcr.io/steeltanuki/charts/kubeseer \
+helm upgrade kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
   --version 0.1.6 \
-  --namespace kubeseer-system --reuse-values \
+  --namespace kubefacet-system --reuse-values \
   --wait --timeout 10m
 ```
 
 Use the target release's version in `--version`. If you are testing a modified
-source chart, replace the OCI reference with `charts/kubeseer` and follow the
+source chart, replace the OCI reference with `charts/kubefacet` and follow the
 source-checkout verification steps above.
 
 `--reuse-values` preserves effective policy and certificate inputs when no
@@ -309,9 +314,9 @@ Rollback is supported only after the same CRD compatibility gate accepts the
 target revision:
 
 ```sh
-helm history kubeseer --namespace kubeseer-system
+helm history kubefacet --namespace kubefacet-system
 make package-crd-check
-helm rollback kubeseer REVISION --namespace kubeseer-system \
+helm rollback kubefacet REVISION --namespace kubefacet-system \
   --wait --timeout 10m
 ```
 
@@ -321,18 +326,18 @@ custom-resource instances remain in place during compatible rollback.
 ## Safe uninstall and explicit purge
 
 Normal uninstall is reversible. The pre-delete hook removes only the owned
-`kubeseer-validating-webhook` registration before the manager endpoint is
+`kubefacet-validating-webhook` registration before the manager endpoint is
 removed. Helm then deletes the release-owned Deployment, Services, RBAC, and
 cert-manager resources. The post-delete hook reports retained state. Repeat it
 with the same command if the release is already absent:
 
 ```sh
-./hack/uninstall-kubeseer.sh kubeseer kubeseer-system
+./hack/uninstall-kubefacet.sh kubefacet kubefacet-system
 # Equivalent Helm operation (the wrapper also reports retained state):
-helm uninstall kubeseer --namespace kubeseer-system --ignore-not-found --wait
+helm uninstall kubefacet --namespace kubefacet-system --ignore-not-found --wait
 ```
 
-Normal uninstall preserves both CRDs, every `Kubeseer` instance,
+Normal uninstall preserves both CRDs, every `Facet` instance,
 `installation-access-ceiling`, and every externally managed TLS Secret. It does
 not delete unrelated namespaces, workloads, RBAC, webhooks, Secrets, or CRDs.
 
@@ -340,22 +345,22 @@ CRD deletion is a separate destructive operation. Build the separately
 versioned client and confirm the exact resolved cluster target twice:
 
 ```sh
-GOCACHE=/tmp/kubeseer-packaging-go-build \
-GOMODCACHE=/tmp/kubeseer-packaging-go-mod \
+GOCACHE=/tmp/kubefacet-packaging-go-build \
+GOMODCACHE=/tmp/kubefacet-packaging-go-mod \
   make build-purge
-./bin/kubeseer-purge \
+./bin/kubefacet-purge \
   --kubeconfig /absolute/path/to/kubeconfig \
   --context my-cluster \
   --confirm-context my-cluster \
   --confirm-server https://api.example.invalid:6443 \
-  purge-kubeseer-crds
+  purge-kubefacet-crds
 ```
 
-The final token must be exactly `purge-kubeseer-crds`. The kubeconfig path must
+The final token must be exactly `purge-kubefacet-crds`. The kubeconfig path must
 be absolute, the context must exist in that file, and `--confirm-server` must
 match its resolved API server. Any missing, mismatched, or incorrect
 confirmation performs no write. A confirmed purge lists and deletes only the
-`kubeseers.kubeseer.io` and `kubeseeraccesspolicies.kubeseer.io` collections,
+`facets.kubefacet.steeltanuki.it` and `facetaccesspolicies.kubefacet.steeltanuki.it` collections,
 waits for them to become empty, and then deletes only those two CRDs. Finalizer
 blockage stops before CRD deletion. The client never reads or deletes Secrets
 and prints only sanitized target outcomes.
@@ -373,18 +378,18 @@ For a live smoke run, provide an explicit kubeconfig and context for every
 matrix entry; ambient `KUBECONFIG` is ignored:
 
 ```sh
-KUBESEER_PACKAGE_RUN_CLUSTER=1 \
-KUBESEER_PACKAGE_KUBECONFIG_1_35_6=/absolute/kubeconfig-135 \
-KUBESEER_PACKAGE_CONTEXT_1_35_6=my-135-cluster \
-KUBESEER_PACKAGE_KUBECONFIG_1_36_2=/absolute/kubeconfig-136 \
-KUBESEER_PACKAGE_CONTEXT_1_36_2=my-136-cluster \
-KUBESEER_PACKAGE_IMAGE_REPOSITORY=ghcr.io/steeltanuki/kubeseer \
-KUBESEER_PACKAGE_IMAGE_TAG=0.1.6 \
+KUBEFACET_PACKAGE_RUN_CLUSTER=1 \
+KUBEFACET_PACKAGE_KUBECONFIG_1_35_6=/absolute/kubeconfig-135 \
+KUBEFACET_PACKAGE_CONTEXT_1_35_6=my-135-cluster \
+KUBEFACET_PACKAGE_KUBECONFIG_1_36_2=/absolute/kubeconfig-136 \
+KUBEFACET_PACKAGE_CONTEXT_1_36_2=my-136-cluster \
+KUBEFACET_PACKAGE_IMAGE_REPOSITORY=ghcr.io/steeltanuki/kubefacet \
+KUBEFACET_PACKAGE_IMAGE_TAG=0.1.6 \
   make test-package-compatibility
 ```
 
 The live profile requires cert-manager for the default mode and a pre-created
-administrator-owned TLS Secret plus `KUBESEER_PACKAGE_EXTERNAL_CA_BUNDLE` for
+administrator-owned TLS Secret plus `KUBEFACET_PACKAGE_EXTERNAL_CA_BUNDLE` for
 the fallback mode. It installs, waits, verifies, uninstalls, checks retained
 state, exercises the no-token purge path, and reports a non-zero result for any
 missing or zero-match scenario.

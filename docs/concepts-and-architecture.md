@@ -1,18 +1,18 @@
 # Concepts and architecture
 
-This guide explains how Kubeseer turns a declarative resource into a public,
+This guide explains how KubeFacet turns a declarative resource into a public,
 typed status view. Start with the [README](../README.md) for an overview and
 the [API reference](api-reference.md) for exact fields and enumerations.
 
 ## Mental model
 
-A `Kubeseer` is a namespaced query with one or more independent sources. Each
+A `KubeFacet` is a namespaced query with one or more independent sources. Each
 source identifies one Kubernetes resource type, narrows the objects of that
 type, extracts named values, optionally transforms or filters them, and may
 reduce them into aggregates.
 
 The output is a materialized view, not a proxy for arbitrary API requests. It
-is recomputed when relevant inputs change and stored in the `Kubeseer` status.
+is recomputed when relevant inputs change and stored in the `Facet` status.
 The view is deliberately:
 
 - declarative: no embedded program or executable JSONPath expression;
@@ -26,7 +26,7 @@ The view is deliberately:
 ## Evaluation pipeline
 
 ```text
-Kubeseer spec
+KubeFacet spec
   -> discovery and scope resolution
   -> fresh installation-policy authorization
   -> exact read/watch capability
@@ -40,18 +40,18 @@ Kubeseer spec
 
 ### 1. Discovery and scope resolution
 
-Kubeseer resolves the requested `apiVersion` and `kind` through Kubernetes
+KubeFacet resolves the requested `apiVersion` and `kind` through Kubernetes
 discovery. The result establishes whether the type is namespaced or
 cluster-scoped and supplies the exact resource identity used downstream.
 
 For namespaced resources, omitting `namespaces` means the namespace containing
-the `Kubeseer`. An explicit empty namespace list intentionally selects no
+the `Facet`. An explicit empty namespace list intentionally selects no
 namespace and succeeds with zero matches. Cluster-scoped resources must omit
 `namespaces`.
 
 ### 2. Authorization
 
-The controller reads a fresh `KubeseerAccessPolicy` named
+The controller reads a fresh `FacetAccessPolicy` named
 `installation-access-ceiling`. The requested resource type and every resolved
 namespace must fit that policy. A successful decision creates an internal
 capability bound to the exact subject, policy identity, generation, target,
@@ -76,7 +76,7 @@ ordered by namespace, name, then UID before evaluation.
 
 ### 4. Extraction and typing
 
-Each field expression is compiled from Kubeseer's restricted JSONPath subset.
+Each field expression is compiled from KubeFacet's restricted JSONPath subset.
 It traverses native Kubernetes JSON values, so objects, lists, booleans, and
 numbers are not flattened into strings. A missing terminal produces an absent
 field; explicit JSON `null` remains distinct from absence; an invalid
@@ -90,7 +90,7 @@ conversions are explicit and do not silently coerce data.
 
 Quantity fields use the Kubernetes parser pinned by `go.mod`, while duration
 fields use Go's `time.ParseDuration` grammar. Native parser success supplies
-canonical text but is not the complete acceptance rule: Kubeseer independently
+canonical text but is not the complete acceptance rule: KubeFacet independently
 accumulates an exact rational magnitude, rejects values outside the existing
 representation ceiling (or signed `int64` nanosecond range), and rejects any
 value that the native parser would round. No alternate Unicode normalization or
@@ -131,7 +131,7 @@ Grouping, contributors, values, and aggregate names have stable ordering.
 Provenance is included only when requested.
 
 A resource-local failure may degrade one aggregate without erasing valid
-aggregate siblings. Cardinality and output limits fail explicitly; Kubeseer
+aggregate siblings. Cardinality and output limits fail explicitly; KubeFacet
 does not truncate a result and present it as complete.
 
 ### 7. Status publication
@@ -150,7 +150,7 @@ controller uses direct API reads at those boundaries.
 
 Reconciliation can be triggered by:
 
-- changes to a `Kubeseer`;
+- changes to a `Facet`;
 - changes to the singleton installation policy;
 - metadata changes on exactly routed observed resource types;
 - a bounded periodic safety interval.
@@ -193,7 +193,7 @@ See [Operations](operations.md#diagnose-stalled-watch-startup-and-recovery) for
 safe startup/retry diagnosis and the [Security model](security.md#watch-authority-and-transport-lifetime)
 for the authority boundary.
 
-The resource has no controller finalizer. Deleting a `Kubeseer` removes its
+The resource has no controller finalizer. Deleting a `Facet` removes its
 routes through normal reconciliation and garbage-free in-memory cleanup.
 
 ## Failure isolation
@@ -235,7 +235,7 @@ The code follows explicit package boundaries:
 | `internal/limits` | Runtime limit configuration and validation |
 | `internal/managerapp` | Controller-runtime manager and dependency wiring |
 | `internal/purge` | Narrow destructive lifecycle operations for the separate client |
-| `cmd/kubeseer` | Manager process entry point |
+| `cmd/kubefacet` | Manager process entry point |
 
 The architecture keeps public schema, pure evaluation logic, network adapters,
 and runtime composition separate. Unit tests cover pure contracts; envtest

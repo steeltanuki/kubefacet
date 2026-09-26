@@ -1,9 +1,9 @@
 # Configuration
 
-Kubeseer is configured through the Helm chart in `charts/kubeseer`. The chart
+KubeFacet is configured through the Helm chart in `charts/kubefacet`. The chart
 has a finite values schema: unknown keys, wildcards in observed-resource RBAC,
 mutable `latest` images, and invalid combinations are rejected during render.
-See the [Helm values reference](../charts/kubeseer/README.md) for every value
+See the [Helm values reference](../charts/kubefacet/README.md) for every value
 and default; this guide focuses on decisions and safe combinations.
 
 ## Start with an explicit values file
@@ -12,7 +12,7 @@ Keep environment-specific settings outside the canonical chart:
 
 ```yaml
 image:
-  repository: ghcr.io/steeltanuki/kubeseer
+  repository: ghcr.io/steeltanuki/kubefacet
   tag: 0.1.4
 
 accessPolicy:
@@ -41,9 +41,9 @@ rbac:
 Install it with an explicit namespace and immutable image tag:
 
 ```sh
-helm upgrade --install kubeseer charts/kubeseer \
-  --namespace kubeseer-system --create-namespace \
-  --values kubeseer-values.yaml \
+helm upgrade --install kubefacet charts/kubefacet \
+  --namespace kubefacet-system --create-namespace \
+  --values kubefacet-values.yaml \
   --wait --timeout 10m
 ```
 
@@ -51,7 +51,7 @@ helm upgrade --install kubeseer charts/kubeseer \
 
 Two gates must allow an observed read:
 
-1. `accessPolicy` defines the logical ceiling Kubeseer authors cannot exceed;
+1. `accessPolicy` defines the logical ceiling KubeFacet authors cannot exceed;
 2. `rbac.observed` grants the manager ServiceAccount Kubernetes API verbs.
 
 Making either side broader does not broaden the other. A policy-allowed target
@@ -111,7 +111,7 @@ accepted. Wildcards and Secret resources are rejected by the chart schema.
 
 ### Author RBAC
 
-`rbac.authors` grants the named subjects namespaced permissions for Kubeseer
+`rbac.authors` grants the named subjects namespaced permissions for KubeFacet
 objects in the listed namespaces. It grants no access to observed resources,
 Secrets, the cluster policy, webhooks, Deployments, or RBAC objects.
 
@@ -197,7 +197,7 @@ controller does not silently truncate.
 
 Admission limits should normally match or be tighter than the public CRD
 budgets. The chart's complete `limits` tree is in the
-[values reference](../charts/kubeseer/README.md#public-values-and-defaults).
+[values reference](../charts/kubefacet/README.md#public-values-and-defaults).
 
 ## Process and service settings
 
@@ -222,12 +222,12 @@ evaluation limits.
 Validate before changing a cluster:
 
 ```sh
-helm lint charts/kubeseer --values kubeseer-values.yaml
-helm template kubeseer charts/kubeseer \
-  --namespace kubeseer-system \
+helm lint charts/kubefacet --values kubefacet-values.yaml
+helm template kubefacet charts/kubefacet \
+  --namespace kubefacet-system \
   --kube-version 1.35.6 \
   --include-crds \
-  --values kubeseer-values.yaml
+  --values kubefacet-values.yaml
 make verify-package
 ```
 

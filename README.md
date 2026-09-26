@@ -1,33 +1,33 @@
-# Kubeseer
+# KubeFacet
 
 **Declarative, typed views and aggregations over Kubernetes resources.**
 
-Kubeseer is a Kubernetes operator that lets you query, filter, transform, and aggregate Kubernetes resources declaratively — without writing a purpose-built controller.
+KubeFacet is a Kubernetes operator that lets you query, filter, transform, and aggregate Kubernetes resources declaratively — without writing a purpose-built controller.
 
-Define a `Kubeseer` custom resource describing what to observe and which values you need. Kubeseer continuously evaluates the selected resources and publishes a deterministic, typed view in the custom resource's `status`.
+Define a `Facet` custom resource describing what to observe and which values you need. KubeFacet continuously evaluates the selected resources and publishes a deterministic, typed view in the `Facet` resource's `status`.
 
 ```mermaid
 flowchart LR
     R["Kubernetes Resources<br/>Deployments · Pods · CRDs"]
-    K["Kubeseer"]
+    K["KubeFacet"]
     S["Select"]
     E["Extract"]
     F["Filter / Transform"]
     A["Aggregate"]
-    O["Kubeseer.status"]
+    O["KubeFacet.status"]
 
     R --> K --> S --> E --> F --> A --> O
 ```
 
-## Why Kubeseer?
+## Why KubeFacet?
 
 Kubernetes already gives you powerful ways to inspect resources using `kubectl`, JSONPath, field selectors, and external tools such as `jq`.
 
 Those approaches work well for ad-hoc queries.
 
-Kubeseer addresses a different use case: **turning a resource query or aggregation into declarative Kubernetes state that is continuously reconciled.**
+KubeFacet addresses a different use case: **turning a resource query or aggregation into declarative Kubernetes state that is continuously reconciled.**
 
-For example, instead of writing and operating a custom controller just to calculate a value from several Kubernetes objects, you can declare the view you want and let Kubeseer maintain it.
+For example, instead of writing and operating a custom controller just to calculate a value from several Kubernetes objects, you can declare the view you want and let KubeFacet maintain it.
 
 ### Example: aggregate Deployments across namespaces
 
@@ -36,8 +36,8 @@ Suppose you want the total number of declared replicas across Deployments in two
 Declare it as a Kubernetes resource:
 
 ```yaml
-apiVersion: kubeseer.io/v1alpha1
-kind: Kubeseer
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+    kind: Facet
 metadata:
   name: aggregation
   namespace: application-a
@@ -61,13 +61,13 @@ spec:
           field: replicas
 ```
 
-Kubeseer discovers the matching resources, extracts `spec.replicas` as typed integers, calculates the aggregate, and keeps the result updated in the `Kubeseer` resource status as the cluster changes.
+KubeFacet discovers the matching resources, extracts `spec.replicas` as typed integers, calculates the aggregate, and keeps the result updated in the `Facet` resource status as the cluster changes.
 
 No application-specific controller is required.
 
-## What Kubeseer can do
+## What KubeFacet can do
 
-Kubeseer can build views over both built-in Kubernetes objects and structural Custom Resources.
+KubeFacet can build views over both built-in Kubernetes objects and structural Custom Resources.
 
 It supports:
 
@@ -84,20 +84,20 @@ It supports:
 
 ## Kubernetes-native security model
 
-Kubeseer does not bypass Kubernetes authorization.
+KubeFacet does not bypass Kubernetes authorization.
 
 Every read is constrained by both:
 
-1. the Kubernetes RBAC permissions granted to the Kubeseer controller; and
+1. the Kubernetes RBAC permissions granted to the KubeFacet controller; and
 2. the administrator-controlled `installation-access-ceiling` policy.
 
-Admission validation and runtime revalidation ensure that a `Kubeseer` resource cannot expand its effective access beyond the scope authorized by the cluster administrator.
+Admission validation and runtime revalidation ensure that a `Facet` resource cannot expand its effective access beyond the scope authorized by the cluster administrator.
 
-Kubeseer fails closed when authorization cannot be established.
+KubeFacet fails closed when authorization cannot be established.
 
 ## Typical use cases
 
-Kubeseer is useful when you need a Kubernetes-native, continuously maintained view derived from existing cluster resources.
+KubeFacet is useful when you need a Kubernetes-native, continuously maintained view derived from existing cluster resources.
 
 Examples include:
 
@@ -109,23 +109,24 @@ Examples include:
 - replacing small, application-specific aggregation controllers with declarative resources;
 - maintaining deterministic inventories or summaries directly inside the Kubernetes API.
 
-For one-off interactive inspection, `kubectl`, JSONPath, or `jq` may be simpler. Kubeseer is designed for cases where the query itself should become **declarative, persistent, and continuously reconciled Kubernetes state**.
+For one-off interactive inspection, `kubectl`, JSONPath, or `jq` may be simpler. KubeFacet is designed for cases where the query itself should become **declarative, persistent, and continuously reconciled Kubernetes state**.
 
 ## Install an official release
 
-After a maintainer publishes an official stable release, install its versioned
-Helm OCI artifact and matching public controller image directly from GHCR. This
-path needs Helm and cluster access; it does not need a repository checkout or a
-local image/chart build. Replace `0.1.6` with a version listed on the
-[GitHub Releases page](https://github.com/steeltanuki/kubeseer/releases):
+After a maintainer publishes KubeFacet v0.2.0, install its versioned Helm OCI
+artifact and matching public controller image directly from GHCR. This path
+needs Helm and cluster access; it does not need a repository checkout or a
+local image/chart build. This migration prepares v0.2.0 but does not publish
+it. After publication, use the version listed on the
+[GitHub Releases page](https://github.com/steeltanuki/kubefacet/releases):
 
 ```sh
-helm upgrade --install kubeseer oci://ghcr.io/steeltanuki/charts/kubeseer \
-  --version 0.1.6 --namespace kubeseer-system --create-namespace \
+helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
+  --version 0.2.0 --namespace kubefacet-system --create-namespace \
   --wait --timeout 10m
 ```
 
-The chart defaults to `ghcr.io/steeltanuki/kubeseer:<chart appVersion>`, so
+The chart defaults to `ghcr.io/steeltanuki/kubefacet:<chart appVersion>`, so
 the selected chart and controller versions stay aligned. The image and chart
 GHCR packages for a published release are public for anonymous pulls. The
 initial release contract certifies Linux/amd64 controller images, Kubernetes
@@ -135,7 +136,7 @@ upgrades, rollback, and recovery.
 
 ## Install or build from source
 
-Contributors can clone the source to change Kubeseer, run its verification
+Contributors can clone the source to change KubeFacet, run its verification
 gates, or inspect and package the canonical chart locally. Those locally built
 images and charts are development artifacts; official versions are published
 only by the maintainer-controlled version-tag release workflow. See the
@@ -179,8 +180,8 @@ This resource reads one Deployment from its own namespace and publishes the
 declared replica count as an integer:
 
 ```yaml
-apiVersion: kubeseer.io/v1alpha1
-kind: Kubeseer
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
 metadata:
   name: deployment-view
   namespace: applications
@@ -207,9 +208,9 @@ hold exact logical authorization and Kubernetes RBAC before it performs a
 Use conditions first when reading the result:
 
 ```sh
-kubectl -n applications get kubeseer deployment-view \
+kubectl -n applications get facet deployment-view \
   -o jsonpath='{range .status.conditions[*]}{.type}={.status} ({.reason}){"\n"}{end}'
-kubectl -n applications get kubeseer deployment-view -o yaml
+kubectl -n applications get facet deployment-view -o yaml
 ```
 
 `Ready=True` means the current generation produced its intended semantic
@@ -223,7 +224,7 @@ for the complete status contract.
 | --- | --- |
 | [Contributing](CONTRIBUTING.md) | Issue reports, proposals, pull requests, review, and maintainer responsibilities |
 | [Concepts and architecture](docs/concepts-and-architecture.md) | Mental model, evaluation pipeline, reconciliation, and package boundaries |
-| [API reference](docs/api-reference.md) | `Kubeseer` and `KubeseerAccessPolicy` fields, JSONPath, types, operators, aggregations, and status |
+| [API reference](docs/api-reference.md) | `Facet` and `FacetAccessPolicy` fields, JSONPath, types, operators, aggregations, and status |
 | [Configuration](docs/configuration.md) | Helm policy, RBAC, certificates, limits, and deployment settings |
 | [Installation and lifecycle](docs/installation.md) | Production install, upgrades, rollback, uninstall, purge, and compatibility checks |
 | [Security model](docs/security.md) | Trust boundaries, authorization, data exposure, and hardening |
@@ -232,7 +233,8 @@ for the complete status contract.
 | [Development and verification](docs/development.md) | Repository layout, generation, test layers, E2E, and Walden workflow |
 | [Examples](docs/examples.md) | Runnable scenario catalog and expected outcomes |
 | [Troubleshooting](docs/troubleshooting.md) | Symptom-oriented checks and recovery procedures |
-| [Helm values reference](charts/kubeseer/README.md) | Every supported chart value and its default |
+| [Helm values reference](charts/kubefacet/README.md) | Every supported chart value and its default |
+| [Migration from Kubeseer](docs/migration-from-kubeseer.md) | Breaking v0.1.x to v0.2.0 identity change and old-installation removal |
 
 The generated CRDs under `config/crd/bases/` are the machine-readable API
 schema. [SPECIFICATIONS.md](SPECIFICATIONS.md) explains the feature portfolio;
@@ -243,7 +245,8 @@ under `.walden/`.
 
 | Component | Supported or verified value |
 | --- | --- |
-| Kubernetes API | `kubeseer.io/v1alpha1` |
+| Kubernetes API | `kubefacet.steeltanuki.it/v1alpha1` |
+| Kubernetes Kinds | `Facet`, `FacetAccessPolicy` |
 | Kubernetes | 1.35.6 and 1.36.2 |
 | Helm chart gate | `>=1.35.0-0 <1.37.0-0` |
 | Helm | 3.12 or newer |
@@ -255,12 +258,12 @@ The exact development toolchain and kind node-image pins are defined in
 
 ## Project status and delivery model
 
-The Walden portfolio tracks Kubeseer's API, controller behavior, verification,
+The Walden portfolio tracks KubeFacet's API, controller behavior, verification,
 packaging, local development, and official release distribution. Each feature
 is backed by approved requirements, design, implementation tasks, and
 verification evidence.
 
-Kubeseer is also an experiment in specification-driven delivery with
+KubeFacet is also an experiment in specification-driven delivery with
 [Walden](https://github.com/andrearaponi/walden) and AI coding agents. Features
 progress through reviewed requirements, design, task planning, implementation,
 and durable verification evidence. AI agents may assist at each stage;
@@ -277,9 +280,9 @@ in [development and verification](docs/development.md).
 
 ## Acknowledgments
 
-Kubeseer began with a conversation. We are grateful to Prof. Fulvio Risso for
+KubeFacet began with a conversation. We are grateful to Prof. Fulvio Risso for
 the exchange that first sparked the idea for this project.
 
 ## License
 
-Kubeseer is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+KubeFacet is licensed under the Apache License 2.0. See [LICENSE](LICENSE).

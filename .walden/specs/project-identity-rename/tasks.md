@@ -2,7 +2,7 @@
 walden_schema_version: v1alpha1
 status: approved
 approved_at: 2026-09-26T12:03:32Z
-last_modified: 2026-09-26T12:03:32Z
+last_modified: 2026-09-26T20:42:47Z
 approved_fingerprint: sha256:a33b0f23bbdc1596f46ab185b22593430af89fbb51a6b0012ff0480f510ece84
 source_design_approved_at: 2026-09-26T11:43:39Z
 source_design_fingerprint: sha256:920f58501881f319cd87010fcb2e02028ef4e00e513dc4c2bc833cfa4e88c31d
@@ -53,9 +53,9 @@ distribution/local/examples; current documentation/contracts. One closely
 related final evidence commit is acceptable. Intermediate focused evidence is
 scoped; complete migration claims require every aggregate checkpoint below.
 
-- [ ] 1. Preserve the reviewed contract and establish verification baselines
+- [x] 1. Preserve the reviewed contract and establish verification baselines
 
-  - [ ] 1.1 Record the reviewed specification and original generated API baseline
+  - [x] 1.1 Record the reviewed specification and original generated API baseline
     - Scope: Before any implementation edit, capture both complete baseline CRDs as self-contained migration data in api-schema-baseline.json. Its baseline_commit matches the historical inventory; resources facet and access-policy each contain source_path, sha256, and content_b64. Preserve all original fields and constraints. Commit only the complete reviewed specification, inventory, and schema baseline as spec: define KubeFacet identity migration. The baseline is historical migration data, not new execution evidence.
     - Requirements: `R12.AC1`, `R12.AC4`, `R2.AC6`, `NFR2`, `NFR3`, `NFR5`, `C2`, `C6`, `C8`, `C9`
     - Design: Architecture / Generated Schema And Semantic Baselines; Architecture / Current Contracts, History, And Migration Documentation; Verification Plan
@@ -65,7 +65,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R12.AC1", "R12.AC4", "R2.AC6", "NFR2", "NFR3", "NFR5", "C2", "C6", "C8", "C9"]
 
-  - [ ] 1.2 Implement read-only historical, schema, and identity verification interfaces
+  - [x] 1.2 Implement read-only historical, schema, and identity verification interfaces
     - Scope: Implement hack/verify-project-identity.sh and its narrowly scoped helpers. The history mode validates all 98 preserved records and baseline provenance; schema/API modes parse the archived and newly generated CRDs using the existing Go/YAML toolchain. Implement exact historical and occurrence-level exception handling, hidden/Walden/path scanning, and positive identity assertions as described in the approved design. Build audit-acceptance scenarios on isolated copies, including old imports, group/Kinds, settings, metrics, selectors, mixed case, path-only residue, new Walden contracts, and changes to an allowed mixed document. No blanket directory/document exemptions or automatic hash acceptance. At this stage history and isolated audit acceptance can pass while the real repository still requires migration; the default/final gate must continue rejecting actual operational residue.
     - Requirements: `R11.AC1`, `R11.AC4`, `R11.AC5`, `R12.AC2`, `NFR2`, `NFR3`, `NFR5`, `C3`, `C9`
     - Design: Architecture / Durable Identity Verification; Architecture / Generated Schema And Semantic Baselines; Failure Modes And Tradeoffs
@@ -79,9 +79,9 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R11.AC4", "R11.AC5", "R12.AC2", "NFR2", "NFR5", "C3"]
 
-- [ ] 2. Migrate the Go API, runtime identities, and observability
+- [x] 2. Migrate the Go API, runtime identities, and observability
 
-  - [ ] 2.1 Rename the Go module, public API, consumers, paths, and generated API artifacts
+  - [x] 2.1 Rename the Go module, public API, consumers, paths, and generated API artifacts
     - Scope: Rename the module and all internal imports, main/supporting command directories, API source/test files, public and equivalent nested/resource helper identifiers, and all typed consumers/test fixtures. Change GroupVersion, scheme registration, markers, plurals, and singulars; keep the policy singleton. Update Makefile and Dockerfile command/build/entrypoint paths with the directory moves; OCI/package branding follows in task 3.1. Preserve JSON tags, fields, constraints, and functional assertions. Regenerate deepcopy and CRDs with make generate and make manifests, remove the obsolete generated CRDs, and compare the semantic schema baseline. Add a ProjectIdentityAPI case within TestModuleIntegration that crosses API/scheme and real policy/admission or resource-store boundaries and asserts exact new identities and absence of aliases. A full repository gate is deferred until packaging/docs also migrate.
     - Requirements: `R2.AC1`, `R2.AC2`, `R2.AC3`, `R2.AC4`, `R2.AC6`, `R2.AC7`, `R3.AC1`, `R3.AC2`, `R3.AC3`, `R3.AC4`, `R7.AC7`, `R12.AC2`, `NFR1`, `NFR2`, `C1`, `C2`, `C3`, `C4`
     - Design: Architecture / Authoritative Identity Mapping; Architecture / API, Admission, And Runtime Coupling; Architecture / Generated Schema And Semantic Baselines
@@ -99,7 +99,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R3.AC1", "R3.AC2", "R3.AC3", "R3.AC4", "NFR2"]
 
-  - [ ] 2.2 Rename admission and runtime identities without changing decisions or lifecycle rules
+  - [x] 2.2 Rename admission and runtime identities without changing decisions or lifecycle rules
     - Scope: Coordinate webhook endpoints/names/rules, manager and certificate defaults/SANs, Deployment/Service/ServiceAccount/webhook names, project labels/annotations, controller/leader-election/Event/logger/field-manager names, storage-version helper/flag names, CLI output, runtime settings, and purge confirmation. Rename the uninstall helper path. Update each matching lifecycle/readiness/cleanup selector and behavioral expectation. Add ProjectIdentityRuntime to TestModuleIntegration, composing real manager configuration, webhook registration, and ownership/purge contracts. Update the active admission boundary check to enforce new API identities while retaining its original structural assertions.
     - Requirements: `R1.AC3`, `R1.AC4`, `R1.AC6`, `R2.AC5`, `R2.AC7`, `R4.AC1`, `R4.AC2`, `R4.AC3`, `R4.AC4`, `R4.AC5`, `R5.AC1`, `R5.AC2`, `R12.AC2`, `NFR1`, `NFR4`, `C1`, `C2`
     - Design: Architecture / API, Admission, And Runtime Coupling; Architecture / Environment, State, And Telemetry; Failure Modes And Tradeoffs
@@ -117,7 +117,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R1.AC3", "R2.AC5", "NFR1"]
 
-  - [ ] 2.3 Rename all telemetry identifiers while retaining their observation contracts
+  - [x] 2.3 Rename all telemetry identifiers while retaining their observation contracts
     - Scope: Rename the nine metric families, Help text, trace instrumentation/spans/attributes, and project correlation/log identifiers; update registration checks, integration expectations, and relevant probes. Preserve collector types, buckets, label sets/vocabularies, increments, Event rules, and confidentiality. Add ProjectIdentityObservability to TestModuleIntegration using real observation/registration and status or authorization collaborators; execute the existing observability cases alongside it. Commit the related verification helpers, module/API/runtime/telemetry changes, generated API artifacts, and scoped evidence as refactor: rename Kubernetes API and runtime identity.
     - Requirements: `R1.AC5`, `R6.AC1`, `R6.AC2`, `R6.AC3`, `R4.AC3`, `R4.AC5`, `R12.AC2`, `R12.AC4`, `NFR1`, `NFR2`, `NFR5`
     - Design: Architecture / Environment, State, And Telemetry; Architecture / API, Admission, And Runtime Coupling; Verification Plan
@@ -135,9 +135,9 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R1.AC5", "R6.AC1", "R6.AC2", "R6.AC3", "NFR1"]
 
-- [ ] 3. Migrate packaging, distribution, local workflows, and examples
+- [x] 3. Migrate packaging, distribution, local workflows, and examples
 
-  - [ ] 3.1 Rename the Helm package, container distribution identity, and generated metadata
+  - [x] 3.1 Rename the Helm package, container distribution identity, and generated metadata
     - Scope: Move charts/kubefacet; update all helper/include namespaces, metadata, names/selectors, schemas/values, default image/release/namespace, CRD filenames/copies, config profiles, Dockerfile executable and OCI metadata, and package test expectations. Set description/keywords and version/appVersion 0.2.0 while retaining the Kubernetes range/matrix and container/RBAC/TLS/lifecycle semantics. Extend package-sync-crds to derive both new-domain checksum annotations and run make package-sync-crds after canonical generation. Add any missing positive chart assertions to the package identity mode. Prepare the disposable genuine-package-matrix wrapper described below; it must invoke the existing smoke/compatibility procedure on owned clusters without adding a new product installation path.
     - Requirements: `R1.AC6`, `R4.AC1`, `R4.AC2`, `R4.AC4`, `R7.AC1`, `R7.AC2`, `R7.AC3`, `R7.AC4`, `R7.AC5`, `R7.AC6`, `R7.AC7`, `R7.AC8`, `R8.AC1`, `R8.AC2`, `R8.AC3`, `R12.AC2`, `NFR1`, `NFR2`, `C1`, `C3`, `C4`, `C5`
     - Design: Architecture / Packaging, Generation, And Distribution; Architecture / API, Admission, And Runtime Coupling; Verification Plan
@@ -155,7 +155,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 10m
         covers: ["R1.AC6", "R7.AC4", "R12.AC2", "NFR1", "C4"]
 
-  - [ ] 3.2 Rename release tooling and workflow handoff while preserving publication safety
+  - [x] 3.2 Rename release tooling and workflow handoff while preserving publication safety
     - Scope: Update canonical repository/image/chart/archive identities, source/OCI metadata, locks/temp roots, workflow group/output paths, project-owned endpoint/fixture/SHA-handoff settings, and synthetic 0.2.x candidate versions. Preserve protected-tag lineage, exact gated SHA, limited permissions, immutable artifacts, local-endpoint restrictions, retry/recovery/conflict behavior, and anonymous consumer checks. Add truthful docs/releases/v0.2.0.md source metadata required by existing preflight; do not tag, push, publish, rename hosting, or touch historical packages. Run focused source-policy/workflow proofs here; all candidate/transaction/docs scenarios run at the final distribution checkpoint after current docs are finished.
     - Requirements: `R8.AC1`, `R8.AC2`, `R8.AC3`, `R8.AC4`, `R8.AC5`, `R5.AC1`, `R5.AC2`, `R5.AC3`, `R12.AC2`, `NFR3`, `NFR4`, `C1`, `C4`, `C7`
     - Design: Architecture / Packaging, Generation, And Distribution; Architecture / Environment, State, And Telemetry; Failure Modes And Tradeoffs
@@ -173,7 +173,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
         timeout: 15m
         covers: ["R8.AC4", "R8.AC5", "NFR4", "C7"]
 
-  - [ ] 3.3 Rename project settings, local/E2E identities, examples, and all coupled harness consumers
+  - [x] 3.3 Rename project settings, local/E2E identities, examples, and all coupled harness consumers
     - Scope: Migrate remaining project-owned environment producers/consumers, including dynamic per-version names, unprefixed project settings, and fault injection; retain standard upstream variables and neutral Make inputs. Rename all local/E2E/default namespace/context/release/image/state/cache/temp/diagnostic/fixture/sentinel identities. Rename the seven example resource manifests to facet.yaml and coordinate custom fixture domains, object names, namespaces, selectors, and references while retaining workloads and example semantics. Update toolchain, probes, ownership/resume/cleanup checks, acceptance fixtures, and E2E certification contracts. Exercise deterministic acceptance here, with genuine tests reserved for the final checkpoint. Commit these packaging/distribution/local/example changes and scoped evidence as build: rename KubeFacet packaging and distribution.
     - Requirements: `R5.AC1`, `R5.AC2`, `R5.AC3`, `R9.AC1`, `R9.AC2`, `R9.AC3`, `R9.AC4`, `R9.AC5`, `R4.AC2`, `R4.AC4`, `R4.AC5`, `R12.AC2`, `R12.AC4`, `NFR1`, `NFR4`, `NFR5`, `C4`, `C5`
     - Design: Architecture / Environment, State, And Telemetry; Architecture / Local Development And Examples; Architecture / Packaging, Generation, And Distribution
@@ -197,7 +197,7 @@ scoped; complete migration claims require every aggregate checkpoint below.
 
 - [ ] 4. Complete current contracts and certify the final migration
 
-  - [ ] 4.1 Complete current documentation, identity supersession, and the real repository residue gate
+  - [x] 4.1 Complete current documentation, identity supersession, and the real repository residue gate
     - Scope: Update README, CONTRIBUTING, API/install/config/security/operations/troubleshooting/development/example/Helm documentation, SPECIFICATIONS, and constitution. Retain positioning, semantic guidance, optional contributor Walden usage, and historical feature IDs with explicit explanations. Create .walden/current-identity.md and docs/migration-from-kubeseer.md; point old lifecycle removal to immutable v0.1.6 documentation/tooling, document unsupported in-place upgrade/no conversion, and list all manual post-merge actions. Treat historical release-audit observations separately from current instructions. Review and record exact occurrence/path exceptions for migration explanations and historical links; retain all historical bytes. Integrate the audit into make verify/CI and require it to pass on the real repository. Prepare the durable verification report structure before aggregate proofs so later observations do not introduce new operational code. Commit documentation/current-contract changes as docs: complete KubeFacet migration.
     - Requirements: `R10.AC1`, `R10.AC2`, `R10.AC3`, `R10.AC4`, `R10.AC5`, `R10.AC6`, `R11.AC1`, `R11.AC2`, `R11.AC3`, `R11.AC4`, `R11.AC5`, `R11.AC6`, `R12.AC2`, `R12.AC4`, `NFR3`, `NFR5`, `C4`, `C6`, `C7`, `C9`
     - Design: Architecture / Current Contracts, History, And Migration Documentation; Architecture / Durable Identity Verification; Verification Plan

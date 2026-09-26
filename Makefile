@@ -26,11 +26,12 @@ manifests:
 
 verify:
 	./hack/verify-generated.sh
+	./hack/verify-project-identity.sh audit
 	./hack/verify-test-layer-policy.sh
 	./hack/verify-admission-boundaries.sh
 	./hack/verify-observability-boundaries.sh
 	./hack/verify-performance-and-limits-boundaries.sh
-	GOCACHE=$${GOCACHE:-/tmp/kubeseer-e2e-go-build} GOMODCACHE=$${GOMODCACHE:-/tmp/kubeseer-e2e-go-mod} ./hack/verify-e2e-boundaries.sh complete
+	GOCACHE=$${GOCACHE:-/tmp/kubefacet-e2e-go-build} GOMODCACHE=$${GOMODCACHE:-/tmp/kubefacet-e2e-go-mod} ./hack/verify-e2e-boundaries.sh complete
 	./hack/verify-package.sh
 	./hack/verify-local-environment.sh complete
 

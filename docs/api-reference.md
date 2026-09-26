@@ -1,20 +1,20 @@
 # API reference
 
-Kubeseer exposes two `kubeseer.io/v1alpha1` resources:
+KubeFacet exposes two `kubefacet.steeltanuki.it/v1alpha1` resources:
 
-- `Kubeseer`, a namespaced declaration whose evaluated view is published in
+- `Facet`, a namespaced declaration whose evaluated view is published in
   its status;
-- `KubeseerAccessPolicy`, a cluster-scoped singleton that places an
+- `FacetAccessPolicy`, a cluster-scoped singleton that places an
   installation-wide ceiling on observation.
 
 The generated CRDs in [`config/crd/bases`](../config/crd/bases/) are the
 canonical structural schema. This guide explains their runtime semantics.
 
-## Kubeseer
+## Facet
 
 ```yaml
-apiVersion: kubeseer.io/v1alpha1
-kind: Kubeseer
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
 metadata:
   name: workload-view
   namespace: applications
@@ -40,7 +40,7 @@ public result.
 
 Namespace rules are significant:
 
-- omitted `namespaces`: use the containing `Kubeseer` namespace for a
+- omitted `namespaces`: use the containing `Facet` namespace for a
   namespaced resource;
 - `namespaces: {names: []}`: intentionally select no namespace and succeed
   without an observed-resource read;
@@ -285,8 +285,8 @@ read observed resources to remove the old values. A synthetic status-only
 projection looks like this:
 
 ```yaml
-apiVersion: kubeseer.io/v1alpha1
-kind: Kubeseer
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
 metadata:
   generation: 8
 status:
@@ -330,18 +330,18 @@ Use the installed CRD or `kubectl explain` for the complete nested structural
 shape:
 
 ```sh
-kubectl explain kubeseer.spec.sources --recursive
-kubectl explain kubeseer.status --recursive
+kubectl explain facet.spec.sources --recursive
+kubectl explain facet.status --recursive
 ```
 
-## KubeseerAccessPolicy
+## FacetAccessPolicy
 
 Exactly one cluster-scoped policy is active and its name must be
 `installation-access-ceiling`:
 
 ```yaml
-apiVersion: kubeseer.io/v1alpha1
-kind: KubeseerAccessPolicy
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: FacetAccessPolicy
 metadata:
   name: installation-access-ceiling
 spec:
