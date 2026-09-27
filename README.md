@@ -37,7 +37,7 @@ Declare it as a Kubernetes resource:
 
 ```yaml
 apiVersion: kubefacet.steeltanuki.it/v1alpha1
-    kind: Facet
+kind: Facet
 metadata:
   name: aggregation
   namespace: application-a
