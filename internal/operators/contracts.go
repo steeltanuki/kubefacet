@@ -28,9 +28,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 // Reason is the stable category of an operator planning or evaluation
@@ -141,7 +141,7 @@ const (
 // defensive accessors; the regular expression is retained only internally.
 type OperatorPlan struct {
 	index      int
-	kind       v1alpha1.KubeseerOperatorName
+	kind       v1alpha1.FacetOperatorName
 	hasOperand bool
 	operand    typedoutput.Match
 	operands   []typedoutput.Match
@@ -152,7 +152,7 @@ type OperatorPlan struct {
 func (p OperatorPlan) Index() int { return p.index }
 
 // Name returns the normalized supported operator name.
-func (p OperatorPlan) Name() v1alpha1.KubeseerOperatorName { return p.kind }
+func (p OperatorPlan) Name() v1alpha1.FacetOperatorName { return p.kind }
 
 // Operand returns the single configured operand when the operator has one.
 func (p OperatorPlan) Operand() (typedoutput.Match, bool) {
@@ -187,7 +187,7 @@ func (p OperatorPlan) regexp() *regexp.Regexp { return p.pattern }
 type FieldPlan struct {
 	sourceID  string
 	name      string
-	typeName  v1alpha1.KubeseerValueType
+	typeName  v1alpha1.FacetValueType
 	operators []OperatorPlan
 }
 
@@ -198,7 +198,7 @@ func (p FieldPlan) SourceID() string { return p.sourceID }
 func (p FieldPlan) Name() string { return p.name }
 
 // Type returns the field's explicit logical type.
-func (p FieldPlan) Type() v1alpha1.KubeseerValueType { return p.typeName }
+func (p FieldPlan) Type() v1alpha1.FacetValueType { return p.typeName }
 
 // Operators returns the ordered operator plans with copied slices.
 func (p FieldPlan) Operators() []OperatorPlan {

@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -75,7 +75,7 @@ func (l *scriptedResourceLister) List(ctx context.Context, read selection.Author
 func assertResourceSelectionPaginationScenarios(t *testing.T, ctx context.Context, resolver *discovery.Resolver) {
 	t.Helper()
 	ownerNamespace := "team-a"
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID:         "pagination-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{ownerNamespace}},
@@ -194,7 +194,7 @@ func assertResourceSelectionPaginationScenarios(t *testing.T, ctx context.Contex
 	})
 }
 
-func planAndAuthorizeSelection(t *testing.T, ctx context.Context, resolver *discovery.Resolver, ownerNamespace string, source v1alpha1.KubeseerSource) selection.AuthorizedPlan {
+func planAndAuthorizeSelection(t *testing.T, ctx context.Context, resolver *discovery.Resolver, ownerNamespace string, source v1alpha1.FacetSource) selection.AuthorizedPlan {
 	t.Helper()
 	plan, err := selection.NewPlanner(resolver).Plan(ctx, ownerNamespace, source)
 	if err != nil {

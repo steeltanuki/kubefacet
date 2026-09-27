@@ -38,24 +38,24 @@ func scenarioStatusObservability(ctx context.Context, t *testing.T, session *Clu
 	if err != nil {
 		t.Fatalf("E2E-015 source Pod: %v", err)
 	}
-	beforeMetric := metricCounter(t, session, "kubeseer_status_updates_total")
-	owner, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("observable", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	beforeMetric := metricCounter(t, session, "kubefacet_status_updates_total")
+	owner, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("observable", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-015 Kubeseer: %v", err)
+		t.Fatalf("E2E-015 Facet: %v", err)
 	}
 	snapshot := mustReadySnapshot(t, session, ctx, owner, "E2E-015")
 	assertReadyStatus(t, snapshot, []string{"observable"})
 	if snapshot.ResultHash == "" || len(snapshot.ResultHash) != len("sha256:")+64 {
 		t.Fatalf("E2E-015 deterministic result hash = %q", snapshot.ResultHash)
 	}
-	repeated, err := session.GetKubeseer(ctx, namespace, owner.GetName())
+	repeated, err := session.GetFacet(ctx, namespace, owner.GetName())
 	if err != nil {
 		t.Fatalf("E2E-015 reread status: %v", err)
 	}
 	if repeated.Status.ResultHash != snapshot.ResultHash {
 		t.Fatalf("E2E-015 result hash changed without a generation transition")
 	}
-	afterMetric := metricCounter(t, session, "kubeseer_status_updates_total")
+	afterMetric := metricCounter(t, session, "kubefacet_status_updates_total")
 	if afterMetric < 0 || beforeMetric >= 0 && afterMetric <= beforeMetric {
 		t.Fatalf("E2E-015 status metric did not increase: before=%v after=%v", beforeMetric, afterMetric)
 	}
@@ -81,7 +81,7 @@ func scenarioStatusObservability(ctx context.Context, t *testing.T, session *Clu
 			t.Fatalf("E2E-015 canonical condition missing: %#v", expected)
 		}
 	}
-	metric := metricCounter(t, session, "kubeseer_status_updates_total")
+	metric := metricCounter(t, session, "kubefacet_status_updates_total")
 	if metric < 0 {
 		t.Fatalf("E2E-015 status metric endpoint was not reachable")
 	}
@@ -102,7 +102,7 @@ func scenarioStatusObservability(ctx context.Context, t *testing.T, session *Clu
 	if len(records) == 0 {
 		t.Fatal("E2E-015 no allowlisted reconciliation records")
 	}
-	snapshot.MetricFamilies = []MetricSample{{Family: "kubeseer_status_updates_total", Value: afterMetric}}
+	snapshot.MetricFamilies = []MetricSample{{Family: "kubefacet_status_updates_total", Value: afterMetric}}
 	snapshot.RecordCodes = make([]string, 0, len(records))
 	for _, record := range records {
 		snapshot.RecordCodes = append(snapshot.RecordCodes, record.Code())

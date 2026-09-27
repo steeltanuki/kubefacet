@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -32,7 +32,7 @@ import (
 // TriggerSource is the single custom controller-runtime source for periodic
 // safety scheduling and policy-wide enqueue intents.
 type TriggerSource struct {
-	reader  KubeseerLister
+	reader  FacetLister
 	routes  RouteManager
 	options Options
 
@@ -60,7 +60,7 @@ var _ interface {
 } = (*TriggerSource)(nil)
 
 // NewTriggerSource creates a non-started periodic trigger source.
-func NewTriggerSource(reader KubeseerLister, routes RouteManager, options Options) *TriggerSource {
+func NewTriggerSource(reader FacetLister, routes RouteManager, options Options) *TriggerSource {
 	profile := limits.DefaultProfile()
 	if options.LimitProfile != nil && options.LimitProfile.Valid() {
 		profile = *options.LimitProfile
@@ -91,7 +91,7 @@ func (s *TriggerSource) Start(ctx context.Context, queue workqueue.TypedRateLimi
 		return err
 	}
 	if s.reader == nil {
-		return errors.New("reconciliation trigger source requires a Kubeseer lister")
+		return errors.New("reconciliation trigger source requires a Facet lister")
 	}
 	if s.routes == nil {
 		return errors.New("reconciliation trigger source requires a route manager")
@@ -327,9 +327,9 @@ func (s *TriggerSource) enqueueAll(ctx context.Context, queue workqueue.TypedRat
 	if queue == nil {
 		return errors.New("reconciliation trigger queue is unavailable")
 	}
-	list := newKubeseerList()
+	list := newFacetList()
 	if err := s.reader.List(ctx, list); err != nil {
-		return transientRuntimeError("enqueue-all", "", ReasonReadUnavailable, "Kubeseer listing is unavailable", err)
+		return transientRuntimeError("enqueue-all", "", ReasonReadUnavailable, "Facet listing is unavailable", err)
 	}
 	seen := make(map[string]struct{}, len(list.Items))
 	keys := make([]types.NamespacedName, 0, len(list.Items))
@@ -357,9 +357,9 @@ func (s *TriggerSource) enqueueAll(ctx context.Context, queue workqueue.TypedRat
 	return nil
 }
 
-// newKubeseerList is kept in this file to make it clear that enqueue-all
+// newFacetList is kept in this file to make it clear that enqueue-all
 // consumes identity metadata only; the list is dropped after the loop.
-func newKubeseerList() *v1alpha1.KubeseerList { return &v1alpha1.KubeseerList{} }
+func newFacetList() *v1alpha1.FacetList { return &v1alpha1.FacetList{} }
 
 func waitFor(ctx context.Context, duration time.Duration) bool {
 	if duration <= 0 {

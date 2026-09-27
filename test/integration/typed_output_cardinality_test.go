@@ -19,18 +19,18 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertTypedOutputCardinalityScenarios(t *testing.T) {
 	t.Helper()
 
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID: "cardinality-source",
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "wildcard-failure", Path: "{.data.items[*].name}", Type: v1alpha1.ValueTypeInteger},
 			{Name: "list", Path: "{.data.list}", Type: v1alpha1.ValueTypeList},
 			{Name: "empty-object", Path: "{.data.emptyObject}", Type: v1alpha1.ValueTypeObject},

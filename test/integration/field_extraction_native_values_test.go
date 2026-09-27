@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -99,9 +99,9 @@ func assertFieldExtractionNativeValueScenarios(t *testing.T) {
 	})
 
 	t.Run("fields are sorted and provenance is complete", func(t *testing.T) {
-		plan, err := extraction.CompileSource(v1alpha1.KubeseerSource{
+		plan, err := extraction.CompileSource(v1alpha1.FacetSource{
 			ID: "source-one",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "zeta", Path: "{.data.scalar}"},
 				{Name: "alpha", Path: "{.data.object}"},
 			},
@@ -155,7 +155,7 @@ func assertFieldExtractionNativeValueScenarios(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				plan, compileErr := extraction.CompileSource(v1alpha1.KubeseerSource{ID: "sensitive-source", Fields: []v1alpha1.KubeseerField{{Name: "secret-value", Path: test.path}}})
+				plan, compileErr := extraction.CompileSource(v1alpha1.FacetSource{ID: "sensitive-source", Fields: []v1alpha1.FacetField{{Name: "secret-value", Path: test.path}}})
 				if compileErr != nil {
 					t.Fatalf("compile evaluation failure path: %v", compileErr)
 				}
@@ -169,7 +169,7 @@ func assertFieldExtractionNativeValueScenarios(t *testing.T) {
 			})
 		}
 
-		invalidPlan, compileErr := extraction.CompileSource(v1alpha1.KubeseerSource{ID: "invalid-resource-source", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.scalar}"}}})
+		invalidPlan, compileErr := extraction.CompileSource(v1alpha1.FacetSource{ID: "invalid-resource-source", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.scalar}"}}})
 		if compileErr != nil {
 			t.Fatalf("compile invalid-resource plan: %v", compileErr)
 		}
@@ -188,9 +188,9 @@ func assertFieldExtractionNativeValueScenarios(t *testing.T) {
 
 func evaluateFieldPath(t *testing.T, path string, resource selection.SelectedResource) extraction.ResourceOutcome {
 	t.Helper()
-	plan, err := extraction.CompileSource(v1alpha1.KubeseerSource{
+	plan, err := extraction.CompileSource(v1alpha1.FacetSource{
 		ID:     "source-one",
-		Fields: []v1alpha1.KubeseerField{{Name: "value", Path: path}},
+		Fields: []v1alpha1.FacetField{{Name: "value", Path: path}},
 	})
 	if err != nil {
 		t.Fatalf("compile path %q: %v", path, err)

@@ -19,9 +19,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/managerapp"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/managerapp"
 	"k8s.io/client-go/rest"
 )
 
@@ -35,18 +35,18 @@ func assertPackagingManagerImageScenarios(t *testing.T) {
 		t.Fatalf("build production manager: %v", err)
 	}
 
-	if !application.Manager.GetScheme().Recognizes(v1alpha1.GroupVersion.WithKind("Kubeseer")) {
-		t.Fatal("manager scheme does not recognize Kubeseer")
+	if !application.Manager.GetScheme().Recognizes(v1alpha1.GroupVersion.WithKind("Facet")) {
+		t.Fatal("manager scheme does not recognize Facet")
 	}
-	if !application.Manager.GetScheme().Recognizes(v1alpha1.GroupVersion.WithKind("KubeseerAccessPolicy")) {
-		t.Fatal("manager scheme does not recognize KubeseerAccessPolicy")
+	if !application.Manager.GetScheme().Recognizes(v1alpha1.GroupVersion.WithKind("FacetAccessPolicy")) {
+		t.Fatal("manager scheme does not recognize FacetAccessPolicy")
 	}
 	if application.Profile.MaxConcurrentReconciles() <= 0 {
 		t.Fatal("manager profile has no reconciliation concurrency")
 	}
 
 	webhookMux := application.Manager.GetWebhookServer().WebhookMux()
-	for _, path := range []string{admission.KubeseerWebhookPath, admission.KubeseerAccessPolicyWebhookPath} {
+	for _, path := range []string{admission.FacetWebhookPath, admission.FacetAccessPolicyWebhookPath} {
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodPost, path, nil)
 		webhookMux.ServeHTTP(recorder, request)

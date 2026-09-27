@@ -26,17 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	discoveryruntime "github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	discoveryruntime "github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -123,7 +123,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("register Kubeseer scheme: %v", err)
+		t.Fatalf("register Facet scheme: %v", err)
 	}
 	managerInstance, err := ctrlmanager.New(config, ctrlmanager.Options{
 		Scheme:  scheme,
@@ -177,19 +177,19 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	if _, err := clients.Core.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: aggregationNamespace}}, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("create aggregation peer namespace: %v", err)
 	}
-	for _, object := range []*v1alpha1.Kubeseer{
-		runtimeEnvtestKubeseer(existingKey, initialSource),
-		runtimeEnvtestKubeseer(fanoutKey, initialSource),
+	for _, object := range []*v1alpha1.Facet{
+		runtimeEnvtestFacet(existingKey, initialSource),
+		runtimeEnvtestFacet(fanoutKey, initialSource),
 	} {
 		if err := apiClient.Create(ctx, object); err != nil {
-			t.Fatalf("create pre-start Kubeseer %s/%s: %v", object.Namespace, object.Name, err)
+			t.Fatalf("create pre-start Facet %s/%s: %v", object.Namespace, object.Name, err)
 		}
 	}
 	policy := runtimeEnvtestPolicy(namespace)
 	environment.AddCleanup("delete reconciliation runtime fixtures", func(ctx context.Context) error {
 		var cleanupErr error
 		for _, key := range []types.NamespacedName{existingKey, fanoutKey, newKey, watchKey, watchPeerKey, statusKey, observabilityKey, allFailedKey, emptyKey, adapterKey, busyKey, freeKey, deterministicKey, budgetKey, operatorKey, operatorInvalidKey, operatorFailureKey, operatorSiblingKey, aggregationKey} {
-			object := &v1alpha1.Kubeseer{}
+			object := &v1alpha1.Facet{}
 			err := apiClient.Get(ctx, key, object)
 			if apierrors.IsNotFound(err) {
 				continue
@@ -241,7 +241,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 
 	waitRuntimeSourceState(t, ctx, apiClient, existingKey, v1alpha1.SourceStateError)
 	waitRuntimeSourceState(t, ctx, apiClient, fanoutKey, v1alpha1.SourceStateError)
-	missingStatus := &v1alpha1.Kubeseer{}
+	missingStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, existingKey, missingStatus); err != nil {
 		t.Fatalf("read missing-policy status: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	waitRuntimeSourceState(t, ctx, apiClient, existingKey, v1alpha1.SourceStateValues)
 	waitRuntimeSourceState(t, ctx, apiClient, fanoutKey, v1alpha1.SourceStateValues)
-	successStatus := &v1alpha1.Kubeseer{}
+	successStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, existingKey, successStatus); err != nil {
 		t.Fatalf("read successful status snapshot: %v", err)
 	}
@@ -260,23 +260,23 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	assertRuntimeCondition(t, successStatus.Status, statuscontract.ConditionReady, metav1.ConditionTrue, statuscontract.ReasonEvaluationSucceeded)
 	assertRuntimeCondition(t, successStatus.Status, statuscontract.ConditionDegraded, metav1.ConditionFalse, statuscontract.ReasonEvaluationSucceeded)
 
-	eventObject := runtimeEnvtestKubeseer(observabilityKey, runtimeEnvtestInvalidSource("observability-event-source"))
+	eventObject := runtimeEnvtestFacet(observabilityKey, runtimeEnvtestInvalidSource("observability-event-source"))
 	if err := apiClient.Create(ctx, eventObject); err != nil {
-		t.Fatalf("create observability Event Kubeseer: %v", err)
+		t.Fatalf("create observability Event Facet: %v", err)
 	}
 	waitRuntimeSourceState(t, ctx, apiClient, observabilityKey, v1alpha1.SourceStateError)
-	observabilityEvents := waitRuntimeKubeseerEvents(t, ctx, clients, observabilityKey, 1)
+	observabilityEvents := waitRuntimeFacetEvents(t, ctx, clients, observabilityKey, 1)
 	if len(observabilityEvents) != 1 || observabilityEvents[0].Type != corev1.EventTypeWarning || observabilityEvents[0].Reason != statuscontract.ReasonAuthorizationNotEvaluated || strings.Contains(observabilityEvents[0].Message, "Missing") {
 		t.Fatalf("persisted observability Event = %#v", observabilityEvents)
 	}
 	if err := WaitFor(ctx, 300*time.Millisecond, func(ctx context.Context) (bool, error) {
-		events, err := listRuntimeKubeseerEvents(ctx, clients, observabilityKey)
+		events, err := listRuntimeFacetEvents(ctx, clients, observabilityKey)
 		return len(events) == 1, err
 	}); err != nil {
 		t.Fatalf("unchanged reconcile emitted duplicate observability Event: %v", err)
 	}
 
-	aggregationPolicy := &v1alpha1.KubeseerAccessPolicy{}
+	aggregationPolicy := &v1alpha1.FacetAccessPolicy{}
 	if err := apiClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, aggregationPolicy); err != nil {
 		t.Fatalf("read policy before cross-namespace aggregation: %v", err)
 	}
@@ -297,13 +297,13 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	aggregationSource := runtimeEnvtestAggregationSource("aggregation-source", namespace, aggregationNamespace)
 	aggregationSibling := runtimeEnvtestAggregationSiblingSource("aggregation-sibling", namespace)
-	aggregationObject := runtimeEnvtestKubeseer(aggregationKey, aggregationSource)
-	aggregationObject.Spec.Sources = []v1alpha1.KubeseerSource{aggregationSource, aggregationSibling}
+	aggregationObject := runtimeEnvtestFacet(aggregationKey, aggregationSource)
+	aggregationObject.Spec.Sources = []v1alpha1.FacetSource{aggregationSource, aggregationSibling}
 	if err := apiClient.Create(ctx, aggregationObject); err != nil {
-		t.Fatalf("create cross-namespace aggregation Kubeseer: %v", err)
+		t.Fatalf("create cross-namespace aggregation Facet: %v", err)
 	}
 	waitRuntimeAggregationState(t, ctx, apiClient, aggregationKey, aggregationSource.ID, v1alpha1.SourceStateValues, 3)
-	aggregationStatus := &v1alpha1.Kubeseer{}
+	aggregationStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, aggregationKey, aggregationStatus); err != nil {
 		t.Fatalf("read cross-namespace aggregation status: %v", err)
 	}
@@ -339,7 +339,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	assertRuntimeStatusWritesStable(t, ctx, requestRecorder, aggregationKey.Name, statusWritesBeforeNoop, 250*time.Millisecond)
 
-	aggregationPolicy = &v1alpha1.KubeseerAccessPolicy{}
+	aggregationPolicy = &v1alpha1.FacetAccessPolicy{}
 	if err := apiClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, aggregationPolicy); err != nil {
 		t.Fatalf("read policy before unavailable namespace proof: %v", err)
 	}
@@ -361,12 +361,12 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 		}
 	}
 	operatorValid := runtimeEnvtestValueOperatorSource("operator-filter", "yes", v1alpha1.ValueTypeString, v1alpha1.OperatorContains, stringOperatorOperand("keep"))
-	operatorObject := runtimeEnvtestKubeseer(operatorKey, operatorValid)
+	operatorObject := runtimeEnvtestFacet(operatorKey, operatorValid)
 	if err := apiClient.Create(ctx, operatorObject); err != nil {
-		t.Fatalf("create value-operator Kubeseer: %v", err)
+		t.Fatalf("create value-operator Facet: %v", err)
 	}
 	waitRuntimeValueOperatorState(t, ctx, apiClient, operatorKey, "operator-filter", v1alpha1.SourceStateValues, 1, "keep-me")
-	operatorStatus := &v1alpha1.Kubeseer{}
+	operatorStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, operatorKey, operatorStatus); err != nil {
 		t.Fatalf("read value-operator status: %v", err)
 	}
@@ -374,12 +374,12 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	assertRuntimeCondition(t, operatorStatus.Status, statuscontract.ConditionReady, metav1.ConditionTrue, statuscontract.ReasonEvaluationSucceeded)
 
 	operatorInvalid := runtimeEnvtestValueOperatorSource("operator-invalid", "yes", v1alpha1.ValueTypeString, v1alpha1.OperatorMatches, stringOperatorOperand("["))
-	invalidObject := runtimeEnvtestKubeseer(operatorInvalidKey, operatorInvalid)
+	invalidObject := runtimeEnvtestFacet(operatorInvalidKey, operatorInvalid)
 	if err := apiClient.Create(ctx, invalidObject); err != nil {
-		t.Fatalf("create invalid value-operator Kubeseer: %v", err)
+		t.Fatalf("create invalid value-operator Facet: %v", err)
 	}
 	waitRuntimeValueOperatorState(t, ctx, apiClient, operatorInvalidKey, "operator-invalid", v1alpha1.SourceStateValues, 0, "")
-	invalidStatus := &v1alpha1.Kubeseer{}
+	invalidStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, operatorInvalidKey, invalidStatus); err != nil {
 		t.Fatalf("read invalid value-operator status: %v", err)
 	}
@@ -390,16 +390,16 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	assertRuntimeCondition(t, invalidStatus.Status, statuscontract.ConditionAccepted, metav1.ConditionFalse, statuscontract.ReasonInvalidConfiguration)
 
 	operatorFailure := runtimeEnvtestValueOperatorSource("operator-failure", "failure", v1alpha1.ValueTypeInteger, v1alpha1.OperatorEq, integerOperatorOperand(1))
-	failureObject := runtimeEnvtestKubeseer(operatorFailureKey, operatorFailure)
+	failureObject := runtimeEnvtestFacet(operatorFailureKey, operatorFailure)
 	if err := apiClient.Create(ctx, failureObject); err != nil {
-		t.Fatalf("create failing value-operator Kubeseer: %v", err)
+		t.Fatalf("create failing value-operator Facet: %v", err)
 	}
 	waitRuntimeValueOperatorState(t, ctx, apiClient, operatorFailureKey, "operator-failure", v1alpha1.SourceStateValues, 2, "")
-	failureStatus := &v1alpha1.Kubeseer{}
+	failureStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, operatorFailureKey, failureStatus); err != nil {
 		t.Fatalf("read failing value-operator status: %v", err)
 	}
-	var failureResource *v1alpha1.KubeseerResourceResult
+	var failureResource *v1alpha1.FacetResourceResult
 	for index := range failureStatus.Status.Result.Sources[0].Resources {
 		resource := &failureStatus.Status.Result.Sources[0].Resources[index]
 		if resource.Name == "runtime-operator-bad" {
@@ -413,17 +413,17 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	assertRuntimeStatusSnapshot(t, failureStatus, failureStatus.Generation, true)
 	assertRuntimeCondition(t, failureStatus.Status, statuscontract.ConditionDegraded, metav1.ConditionTrue, statuscontract.ReasonEvaluationDegraded)
 
-	siblingObject := runtimeEnvtestKubeseer(operatorSiblingKey, operatorValid)
-	siblingObject.Spec.Sources = []v1alpha1.KubeseerSource{operatorValid, runtimeEnvtestValueOperatorSource("operator-plain", "yes", v1alpha1.ValueTypeString, "", nil)}
+	siblingObject := runtimeEnvtestFacet(operatorSiblingKey, operatorValid)
+	siblingObject.Spec.Sources = []v1alpha1.FacetSource{operatorValid, runtimeEnvtestValueOperatorSource("operator-plain", "yes", v1alpha1.ValueTypeString, "", nil)}
 	if err := apiClient.Create(ctx, siblingObject); err != nil {
-		t.Fatalf("create sibling value-operator Kubeseer: %v", err)
+		t.Fatalf("create sibling value-operator Facet: %v", err)
 	}
 	waitRuntimeValueOperatorState(t, ctx, apiClient, operatorSiblingKey, "operator-filter", v1alpha1.SourceStateValues, 1, "keep-me")
 	waitRuntimeValueOperatorState(t, ctx, apiClient, operatorSiblingKey, "operator-plain", v1alpha1.SourceStateValues, 2, "")
 
-	newObject := runtimeEnvtestKubeseer(newKey, runtimeEnvtestPodSource("runtime-new-source", false))
+	newObject := runtimeEnvtestFacet(newKey, runtimeEnvtestPodSource("runtime-new-source", false))
 	if err := apiClient.Create(ctx, newObject); err != nil {
-		t.Fatalf("create post-start Kubeseer: %v", err)
+		t.Fatalf("create post-start Facet: %v", err)
 	}
 	waitRuntimeSourceState(t, ctx, apiClient, newKey, v1alpha1.SourceStateValues)
 
@@ -439,22 +439,22 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 		}
 	}
 
-	watchOwner := runtimeEnvtestKubeseer(watchKey, runtimeEnvtestObservedSource("observed-source-a"))
-	watchOwner.Spec.Sources = []v1alpha1.KubeseerSource{
+	watchOwner := runtimeEnvtestFacet(watchKey, runtimeEnvtestObservedSource("observed-source-a"))
+	watchOwner.Spec.Sources = []v1alpha1.FacetSource{
 		runtimeEnvtestObservedSource("observed-source-a"),
 		runtimeEnvtestObservedSource("observed-source-b"),
 	}
-	watchPeer := runtimeEnvtestKubeseer(watchPeerKey, runtimeEnvtestObservedSource("observed-peer-source"))
+	watchPeer := runtimeEnvtestFacet(watchPeerKey, runtimeEnvtestObservedSource("observed-peer-source"))
 	requestRecorder.Reset()
 	if err := apiClient.Create(ctx, watchOwner); err != nil {
-		t.Fatalf("create observed-resource Kubeseer: %v", err)
+		t.Fatalf("create observed-resource Facet: %v", err)
 	}
 	if err := apiClient.Create(ctx, watchPeer); err != nil {
-		t.Fatalf("create observed-resource peer Kubeseer: %v", err)
+		t.Fatalf("create observed-resource peer Facet: %v", err)
 	}
 	waitRuntimeObservedState(t, ctx, apiClient, watchKey, 2, v1alpha1.SourceStateValues, 1, "observed-initial-value")
 	waitRuntimeObservedState(t, ctx, apiClient, watchPeerKey, 1, v1alpha1.SourceStateValues, 1, "observed-initial-value")
-	watchStatus := &v1alpha1.Kubeseer{}
+	watchStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, watchKey, watchStatus); err != nil {
 		t.Fatalf("read successful observed status snapshot: %v", err)
 	}
@@ -500,7 +500,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	waitRuntimeObservedState(t, ctx, apiClient, watchKey, 2, v1alpha1.SourceStateValues, 1, "observed-updated-value")
 	waitRuntimeObservedState(t, ctx, apiClient, watchPeerKey, 1, v1alpha1.SourceStateValues, 1, "observed-updated-value")
 
-	policyCurrent := &v1alpha1.KubeseerAccessPolicy{}
+	policyCurrent := &v1alpha1.FacetAccessPolicy{}
 	if err := apiClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, policyCurrent); err != nil {
 		t.Fatalf("read policy before narrowing observed-resource access: %v", err)
 	}
@@ -524,7 +524,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	policyCurrent.Spec.Resources = []v1alpha1.ResourceRule{
 		{APIGroups: []string{""}, Kinds: []string{"Pod"}},
-		{APIGroups: []string{"runtime.kubeseer.io"}, Kinds: []string{"Observation"}},
+		{APIGroups: []string{"runtime.kubefacet.steeltanuki.it"}, Kinds: []string{"Observation"}},
 	}
 	requestRecorder.Reset()
 	if err := apiClient.Update(ctx, policyCurrent); err != nil {
@@ -540,7 +540,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	requestRecorder.SetPolicyUnavailable(true)
 	waitRuntimeObservedState(t, ctx, apiClient, watchKey, 2, v1alpha1.SourceStateError, -1, "")
 	waitRuntimeObservedState(t, ctx, apiClient, watchPeerKey, 1, v1alpha1.SourceStateError, -1, "")
-	policyUnavailableStatus := &v1alpha1.Kubeseer{}
+	policyUnavailableStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, watchKey, policyUnavailableStatus); err != nil {
 		t.Fatalf("read unavailable-policy status snapshot: %v", err)
 	}
@@ -557,7 +557,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	waitRuntimeObservedState(t, ctx, apiClient, watchKey, 2, v1alpha1.SourceStateValues, 1, "observed-updated-value")
 	waitRuntimeObservedState(t, ctx, apiClient, watchPeerKey, 1, v1alpha1.SourceStateValues, 1, "observed-updated-value")
 
-	policyCurrent = &v1alpha1.KubeseerAccessPolicy{}
+	policyCurrent = &v1alpha1.FacetAccessPolicy{}
 	if err := apiClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, policyCurrent); err != nil {
 		t.Fatalf("read policy before deletion state proof: %v", err)
 	}
@@ -567,7 +567,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	waitRuntimeObservedState(t, ctx, apiClient, watchKey, 2, v1alpha1.SourceStateError, -1, "")
 	waitRuntimeObservedState(t, ctx, apiClient, watchPeerKey, 1, v1alpha1.SourceStateError, -1, "")
-	missingObservedStatus := &v1alpha1.Kubeseer{}
+	missingObservedStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, watchKey, missingObservedStatus); err != nil {
 		t.Fatalf("read missing-policy observed status: %v", err)
 	}
@@ -636,9 +636,9 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	waitRuntimeObservedState(t, ctx, apiClient, watchKey, 2, v1alpha1.SourceStateValues, 0, "")
 	waitRuntimeObservedState(t, ctx, apiClient, watchPeerKey, 1, v1alpha1.SourceStateValues, 0, "")
 
-	watchCurrent := &v1alpha1.Kubeseer{}
+	watchCurrent := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, watchKey, watchCurrent); err != nil {
-		t.Fatalf("read watched Kubeseer before source cleanup: %v", err)
+		t.Fatalf("read watched Facet before source cleanup: %v", err)
 	}
 	watchCurrent.Spec.Sources = nil
 	if err := apiClient.Update(ctx, watchCurrent); err != nil {
@@ -646,10 +646,10 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	waitRuntimeEmptyResult(t, ctx, apiClient, watchKey)
 	if err := apiClient.Delete(ctx, watchPeer); err != nil {
-		t.Fatalf("delete watched peer Kubeseer: %v", err)
+		t.Fatalf("delete watched peer Facet: %v", err)
 	}
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		current := &v1alpha1.Kubeseer{}
+		current := &v1alpha1.Facet{}
 		err := apiClient.Get(ctx, watchPeerKey, current)
 		if apierrors.IsNotFound(err) {
 			return requestRecorder.ActiveWatches() == 0, nil
@@ -665,18 +665,18 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 		t.Fatalf("create status publication Pod: %v", err)
 	}
 	statusSource := runtimeEnvtestPodFieldSource("status-success")
-	statusKeyObject := &v1alpha1.Kubeseer{
+	statusKeyObject := &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: statusKey.Namespace, Name: statusKey.Name},
-		Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{
+		Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{
 			statusSource,
 			runtimeEnvtestInvalidSource("status-invalid"),
 		}},
 	}
 	if err := apiClient.Create(ctx, statusKeyObject); err != nil {
-		t.Fatalf("create mixed status Kubeseer: %v", err)
+		t.Fatalf("create mixed status Facet: %v", err)
 	}
 	waitRuntimeMixedStatus(t, ctx, apiClient, statusKey, statusKeyObject.Generation, 1)
-	statusBeforeCondition := &v1alpha1.Kubeseer{}
+	statusBeforeCondition := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, statusKey, statusBeforeCondition); err != nil {
 		t.Fatalf("read mixed status before condition preservation: %v", err)
 	}
@@ -684,7 +684,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	if err := apiClient.Status().Update(ctx, statusBeforeCondition); err != nil {
 		t.Fatalf("persist condition before generation-only publication: %v", err)
 	}
-	statusBeforeGeneration := &v1alpha1.Kubeseer{}
+	statusBeforeGeneration := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, statusKey, statusBeforeGeneration); err != nil {
 		t.Fatalf("read mixed status before generation-only update: %v", err)
 	}
@@ -698,7 +698,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 		t.Fatalf("change status selector without changing selected result: %v", err)
 	}
 	waitRuntimeMixedStatus(t, ctx, apiClient, statusKey, statusBeforeGeneration.Generation, 1)
-	statusAfterGeneration := &v1alpha1.Kubeseer{}
+	statusAfterGeneration := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, statusKey, statusAfterGeneration); err != nil {
 		t.Fatalf("read mixed status after generation-only publication: %v", err)
 	}
@@ -736,18 +736,18 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 	waitRuntimeMixedStatus(t, ctx, apiClient, statusKey, statusAfterGeneration.Generation, 1)
 
-	allFailedObject := &v1alpha1.Kubeseer{
+	allFailedObject := &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: allFailedKey.Namespace, Name: allFailedKey.Name},
-		Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{
+		Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{
 			runtimeEnvtestInvalidSource("all-failed-discovery"),
 			runtimeEnvtestInvalidSelectorSource("all-failed-selector"),
 		}},
 	}
 	if err := apiClient.Create(ctx, allFailedObject); err != nil {
-		t.Fatalf("create all-failed Kubeseer: %v", err)
+		t.Fatalf("create all-failed Facet: %v", err)
 	}
 	waitRuntimeSourceStates(t, ctx, apiClient, allFailedKey, 2, v1alpha1.SourceStateError, 0, "")
-	allFailedStatus := &v1alpha1.Kubeseer{}
+	allFailedStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, allFailedKey, allFailedStatus); err != nil {
 		t.Fatalf("read all-failed status snapshot: %v", err)
 	}
@@ -757,12 +757,12 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	allFailedWrites := requestRecorder.StatusWrites(allFailedKey.Name)
 	assertRuntimeStatusWritesStable(t, ctx, requestRecorder, allFailedKey.Name, allFailedWrites, 150*time.Millisecond)
 
-	emptyObject := &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: emptyKey.Namespace, Name: emptyKey.Name}}
+	emptyObject := &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: emptyKey.Namespace, Name: emptyKey.Name}}
 	if err := apiClient.Create(ctx, emptyObject); err != nil {
-		t.Fatalf("create zero-source Kubeseer: %v", err)
+		t.Fatalf("create zero-source Facet: %v", err)
 	}
 	waitRuntimeEmptyResult(t, ctx, apiClient, emptyKey)
-	emptyStatus := &v1alpha1.Kubeseer{}
+	emptyStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, emptyKey, emptyStatus); err != nil {
 		t.Fatalf("read zero-source status snapshot: %v", err)
 	}
@@ -771,23 +771,23 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 		t.Fatalf("zero-source summary = %#v", emptyStatus.Status.Summary)
 	}
 
-	updated := &v1alpha1.Kubeseer{}
+	updated := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, existingKey, updated); err != nil {
-		t.Fatalf("read existing Kubeseer before generation burst: %v", err)
+		t.Fatalf("read existing Facet before generation burst: %v", err)
 	}
-	updated.Spec.Sources = []v1alpha1.KubeseerSource{runtimeEnvtestPodSource("runtime-follow-up-a", true)}
+	updated.Spec.Sources = []v1alpha1.FacetSource{runtimeEnvtestPodSource("runtime-follow-up-a", true)}
 	if err := apiClient.Update(ctx, updated); err != nil {
 		t.Fatalf("update first generation: %v", err)
 	}
-	updated.Spec.Sources = []v1alpha1.KubeseerSource{runtimeEnvtestPodSource("runtime-follow-up-b", true)}
+	updated.Spec.Sources = []v1alpha1.FacetSource{runtimeEnvtestPodSource("runtime-follow-up-b", true)}
 	if err := apiClient.Update(ctx, updated); err != nil {
 		t.Fatalf("update second generation: %v", err)
 	}
 	waitRuntimeObservedGeneration(t, ctx, apiClient, existingKey, updated.Generation)
 
-	statusOnly := &v1alpha1.Kubeseer{}
+	statusOnly := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, existingKey, statusOnly); err != nil {
-		t.Fatalf("read existing Kubeseer before status-only update: %v", err)
+		t.Fatalf("read existing Facet before status-only update: %v", err)
 	}
 	statusOnly.Status.Conditions = append(statusOnly.Status.Conditions, metav1.Condition{Type: "External", Status: metav1.ConditionTrue, LastTransitionTime: metav1.Now(), Reason: "Fixture", Message: "status-only event"})
 	if err := apiClient.Status().Update(ctx, statusOnly); err != nil {
@@ -796,7 +796,7 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	stableVersion := statusOnly.ResourceVersion
 	observations := 0
 	if err := WaitFor(ctx, 3*time.Second, func(ctx context.Context) (bool, error) {
-		current := &v1alpha1.Kubeseer{}
+		current := &v1alpha1.Facet{}
 		if err := apiClient.Get(ctx, existingKey, current); err != nil {
 			return false, err
 		}
@@ -810,17 +810,17 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 	}
 
 	if err := apiClient.Delete(ctx, newObject); err != nil {
-		t.Fatalf("delete post-start Kubeseer: %v", err)
+		t.Fatalf("delete post-start Facet: %v", err)
 	}
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		current := &v1alpha1.Kubeseer{}
+		current := &v1alpha1.Facet{}
 		err := apiClient.Get(ctx, newKey, current)
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
 		return false, err
 	}); err != nil {
-		t.Fatalf("Kubeseer deletion handling: %v", err)
+		t.Fatalf("Facet deletion handling: %v", err)
 	}
 
 	stopAndWaitManager()
@@ -859,12 +859,12 @@ func TestEnvtestReconciliationRuntime(t *testing.T) {
 
 func runPerformanceLimitsEnvtestStatusScenario(t *testing.T, ctx context.Context, apiClient crclient.Client, namespace string, key types.NamespacedName, requestRecorder *runtimeObservedRequestRecorder) {
 	t.Helper()
-	current := &v1alpha1.Kubeseer{}
+	current := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, current); err != nil {
-		t.Fatalf("read status-limit Kubeseer: %v", err)
+		t.Fatalf("read status-limit Facet: %v", err)
 	}
 	value := strings.Repeat("status-limit-value-", 1024)
-	result := v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "status-limit-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.KubeseerResourceResult{{APIVersion: "v1", Kind: "Pod", Namespace: namespace, Name: "status-limit-resource", UID: "status-limit-resource-uid", Fields: []v1alpha1.KubeseerFieldResult{{Name: "value", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.KubeseerTypedMatch{{State: v1alpha1.MatchStateValue, StringValue: &value}}}}}}}}}
+	result := v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "status-limit-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.FacetResourceResult{{APIVersion: "v1", Kind: "Pod", Namespace: namespace, Name: "status-limit-resource", UID: "status-limit-resource-uid", Fields: []v1alpha1.FacetFieldResult{{Name: "value", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.FacetTypedMatch{{State: v1alpha1.MatchStateValue, StringValue: &value}}}}}}}}}
 	assessment := statuscontract.SourceAssessment{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}
 	evaluation := statuscontract.Evaluation{Result: &result, Sources: []statuscontract.SourceAssessment{assessment}}
 	compact, err := statuscontract.ComposeResultLimitExceeded(current.Generation, current.Status.Conditions, evaluation)
@@ -875,8 +875,8 @@ func runPerformanceLimitsEnvtestStatusScenario(t *testing.T, ctx context.Context
 	if err != nil {
 		t.Fatalf("measure envtest compact status: %v", err)
 	}
-	store := reconciliation.NewClientKubeseerStore(apiClient)
-	acquire := func(candidate *v1alpha1.Kubeseer, tracker *reconciliation.FreshnessTracker) (reconciliation.Lease, context.Context, func()) {
+	store := reconciliation.NewClientFacetStore(apiClient)
+	acquire := func(candidate *v1alpha1.Facet, tracker *reconciliation.FreshnessTracker) (reconciliation.Lease, context.Context, func()) {
 		tracker.Observe(candidate)
 		lease, leaseCtx, release, acquireErr := tracker.Acquire(ctx, key, candidate.UID, candidate.Generation)
 		if acquireErr != nil {
@@ -893,7 +893,7 @@ func runPerformanceLimitsEnvtestStatusScenario(t *testing.T, ctx context.Context
 		t.Fatalf("publish envtest compact status: %v", err)
 	}
 	release()
-	persisted := &v1alpha1.Kubeseer{}
+	persisted := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, persisted); err != nil {
 		t.Fatalf("read envtest compact status: %v", err)
 	}
@@ -932,7 +932,7 @@ func runPerformanceLimitsEnvtestStatusScenario(t *testing.T, ctx context.Context
 		t.Fatalf("invalid envtest compact status attempted a write")
 	}
 
-	small := statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{}, Sources: []statuscontract.SourceAssessment{assessment}}
+	small := statuscontract.Evaluation{Result: &v1alpha1.FacetResult{}, Sources: []statuscontract.SourceAssessment{assessment}}
 	smallStatus, err := statuscontract.Compose(persisted.Generation, persisted.Status.Conditions, small)
 	if err != nil {
 		t.Fatalf("compose envtest recovery status: %v", err)
@@ -948,7 +948,7 @@ func runPerformanceLimitsEnvtestStatusScenario(t *testing.T, ctx context.Context
 		t.Fatalf("envtest compact status recovery: %v", err)
 	}
 	recoveryRelease()
-	recovered := &v1alpha1.Kubeseer{}
+	recovered := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, recovered); err != nil {
 		t.Fatalf("read envtest recovered status: %v", err)
 	}
@@ -964,19 +964,19 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	if requestRecorder != nil {
 		requestRecorder.Reset()
 	}
-	store := reconciliation.NewClientKubeseerStore(apiClient)
+	store := reconciliation.NewClientFacetStore(apiClient)
 	source := runtimeEnvtestPodSource("budget-persist-source", true)
-	object := runtimeEnvtestKubeseer(key, source)
+	object := runtimeEnvtestFacet(key, source)
 	if err := apiClient.Create(ctx, object); err != nil {
-		t.Fatalf("create budget persistence Kubeseer: %v", err)
+		t.Fatalf("create budget persistence Facet: %v", err)
 	}
-	current := &v1alpha1.Kubeseer{}
+	current := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, current); err != nil {
-		t.Fatalf("read budget persistence Kubeseer: %v", err)
+		t.Fatalf("read budget persistence Facet: %v", err)
 	}
-	result := v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: source.ID, State: v1alpha1.SourceStateValues}}}
+	result := v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: source.ID, State: v1alpha1.SourceStateValues}}}
 	success := envtestStatusEvaluation(result)
-	acquire := func(candidate *v1alpha1.Kubeseer, tracker *reconciliation.FreshnessTracker) (reconciliation.Lease, context.Context, func()) {
+	acquire := func(candidate *v1alpha1.Facet, tracker *reconciliation.FreshnessTracker) (reconciliation.Lease, context.Context, func()) {
 		tracker.Observe(candidate)
 		lease, leaseCtx, release, err := tracker.Acquire(ctx, key, candidate.UID, candidate.Generation)
 		if err != nil {
@@ -992,7 +992,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 		t.Fatalf("publish initial budget persistence result: %v", err)
 	}
 	initialRelease()
-	persisted := &v1alpha1.Kubeseer{}
+	persisted := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, persisted); err != nil {
 		t.Fatalf("read initial budget persistence result: %v", err)
 	}
@@ -1007,10 +1007,10 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	}{
 		{name: "conflict", wantRetry: true, wantReason: reconciliation.ReasonStatusConflict},
 		{name: "transient", err: apierrors.NewServiceUnavailable("status API unavailable"), wantRetry: true, wantReason: reconciliation.ReasonStatusUnavailable},
-		{name: "forbidden", err: apierrors.NewForbidden(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseers"}, key.Name, errors.New("status RBAC denied")), wantRetry: false, wantReason: reconciliation.ReasonStatusUnavailable},
+		{name: "forbidden", err: apierrors.NewForbidden(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facets"}, key.Name, errors.New("status RBAC denied")), wantRetry: false, wantReason: reconciliation.ReasonStatusUnavailable},
 	} {
 		t.Run("failed "+test.name+" write preserves the old result", func(t *testing.T) {
-			candidate := &v1alpha1.Kubeseer{}
+			candidate := &v1alpha1.Facet{}
 			if err := apiClient.Get(ctx, key, candidate); err != nil {
 				t.Fatalf("read candidate before %s write: %v", test.name, err)
 			}
@@ -1038,7 +1038,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 			if calls != 1 {
 				t.Fatalf("%s writer calls = %d, want one attempted write", test.name, calls)
 			}
-			unchanged := &v1alpha1.Kubeseer{}
+			unchanged := &v1alpha1.Facet{}
 			if err := apiClient.Get(ctx, key, unchanged); err != nil {
 				t.Fatalf("read status after failed %s write: %v", test.name, err)
 			}
@@ -1059,7 +1059,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 		t.Fatalf("publish persisted budget rejection: %v", err)
 	}
 	budgetRelease()
-	rejected := &v1alpha1.Kubeseer{}
+	rejected := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, rejected); err != nil {
 		t.Fatalf("read persisted budget rejection: %v", err)
 	}
@@ -1111,7 +1111,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	if err := apiClient.Update(ctx, recoveredSpec); err != nil {
 		t.Fatalf("update compliant budget recovery spec: %v", err)
 	}
-	compliant := &v1alpha1.Kubeseer{}
+	compliant := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, compliant); err != nil {
 		t.Fatalf("read compliant budget recovery object: %v", err)
 	}
@@ -1126,14 +1126,14 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 		t.Fatalf("publish denied compliant recovery: %v", err)
 	}
 	deniedRelease()
-	deniedPersisted := &v1alpha1.Kubeseer{}
+	deniedPersisted := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, deniedPersisted); err != nil {
 		t.Fatalf("read denied compliant recovery: %v", err)
 	}
 	assertRuntimeStatusSnapshot(t, deniedPersisted, deniedPersisted.Generation, false)
 	assertRuntimeCondition(t, deniedPersisted.Status, statuscontract.ConditionAuthorized, metav1.ConditionFalse, statuscontract.ReasonAuthorizationDenied)
 
-	recoveredResult := v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "budget-recovered-source", State: v1alpha1.SourceStateValues}}}
+	recoveredResult := v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "budget-recovered-source", State: v1alpha1.SourceStateValues}}}
 	recoveryTracker := reconciliation.NewFreshnessTracker()
 	recoveryLease, recoveryCtx, recoveryRelease := acquire(deniedPersisted, recoveryTracker)
 	if err := reconciliation.NewStatusPublisher(store, reconciliation.NewClientStatusWriter(apiClient.Status()), recoveryTracker).Publish(recoveryCtx, recoveryLease, envtestStatusEvaluation(recoveredResult)); err != nil {
@@ -1141,7 +1141,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 		t.Fatalf("publish successful budget recovery: %v", err)
 	}
 	recoveryRelease()
-	recovered := &v1alpha1.Kubeseer{}
+	recovered := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, recovered); err != nil {
 		t.Fatalf("read successful budget recovery: %v", err)
 	}
@@ -1155,7 +1155,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	// sources, while a compatible profile restart must evaluate the current
 	// policy and replace it with fresh data.
 	restartSpec := recovered.DeepCopy()
-	restartSpec.Spec.Sources = []v1alpha1.KubeseerSource{
+	restartSpec.Spec.Sources = []v1alpha1.FacetSource{
 		runtimeEnvtestPodSource("budget-restart-source-a", false),
 		runtimeEnvtestPodSource("budget-restart-source-b", false),
 	}
@@ -1181,7 +1181,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 		}
 		tracker := reconciliation.NewFreshnessTracker()
 		observer := observability.NewNoop()
-		store := reconciliation.NewClientKubeseerStore(apiClient)
+		store := reconciliation.NewClientFacetStore(apiClient)
 		routes := reconciliation.NewRouteRegistry(
 			reconciliation.NewClientMetadataWatcher(metadataClient),
 			tracker,
@@ -1221,7 +1221,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	}
 
 	restrictiveSources := 1
-	restrictiveProfile, err := limits.Resolve(limits.Overrides{Admission: limits.AdmissionOverrides{MaxKubeseerSources: &restrictiveSources}})
+	restrictiveProfile, err := limits.Resolve(limits.Overrides{Admission: limits.AdmissionOverrides{MaxFacetSources: &restrictiveSources}})
 	if err != nil {
 		t.Fatalf("resolve restrictive budget restart profile: %v", err)
 	}
@@ -1236,7 +1236,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 			t.Fatalf("restrictive profile runtime rejection: %v", err)
 		}
 	}
-	rejectedAfterRestart := &v1alpha1.Kubeseer{}
+	rejectedAfterRestart := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, rejectedAfterRestart); err != nil {
 		t.Fatalf("read restrictive profile rejection: %v", err)
 	}
@@ -1244,7 +1244,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	assertRuntimeCondition(t, rejectedAfterRestart.Status, statuscontract.ConditionReady, metav1.ConditionFalse, statuscontract.ReasonConfigurationBudgetExceeded)
 
 	compatibleSources := 2
-	compatibleProfile, err := limits.Resolve(limits.Overrides{Admission: limits.AdmissionOverrides{MaxKubeseerSources: &compatibleSources}})
+	compatibleProfile, err := limits.Resolve(limits.Overrides{Admission: limits.AdmissionOverrides{MaxFacetSources: &compatibleSources}})
 	if err != nil {
 		t.Fatalf("resolve compatible budget restart profile: %v", err)
 	}
@@ -1256,7 +1256,7 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	if _, err := compatibleRuntime.Reconcile(ctx, reconcile.Request{NamespacedName: key}); err != nil {
 		t.Fatalf("compatible profile runtime recovery: %v", err)
 	}
-	restarted := &v1alpha1.Kubeseer{}
+	restarted := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, restarted); err != nil {
 		t.Fatalf("read compatible profile recovery: %v", err)
 	}
@@ -1267,29 +1267,29 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 
 	for _, test := range []struct {
 		name   string
-		mutate func(*reconciliation.FreshnessTracker, *v1alpha1.Kubeseer)
+		mutate func(*reconciliation.FreshnessTracker, *v1alpha1.Facet)
 	}{
-		{name: "uid", mutate: func(tracker *reconciliation.FreshnessTracker, candidate *v1alpha1.Kubeseer) {
+		{name: "uid", mutate: func(tracker *reconciliation.FreshnessTracker, candidate *v1alpha1.Facet) {
 			newer := candidate.DeepCopy()
 			newer.UID = types.UID("different-budget-uid")
 			tracker.Observe(newer)
 		}},
-		{name: "generation", mutate: func(tracker *reconciliation.FreshnessTracker, candidate *v1alpha1.Kubeseer) {
+		{name: "generation", mutate: func(tracker *reconciliation.FreshnessTracker, candidate *v1alpha1.Facet) {
 			newer := candidate.DeepCopy()
 			newer.Generation++
 			tracker.Observe(newer)
 		}},
-		{name: "deletion", mutate: func(tracker *reconciliation.FreshnessTracker, candidate *v1alpha1.Kubeseer) {
+		{name: "deletion", mutate: func(tracker *reconciliation.FreshnessTracker, candidate *v1alpha1.Facet) {
 			newer := candidate.DeepCopy()
 			newer.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 			tracker.Observe(newer)
 		}},
-		{name: "policy epoch", mutate: func(tracker *reconciliation.FreshnessTracker, _ *v1alpha1.Kubeseer) {
+		{name: "policy epoch", mutate: func(tracker *reconciliation.FreshnessTracker, _ *v1alpha1.Facet) {
 			tracker.InvalidateAll()
 		}},
 	} {
 		t.Run("stale "+test.name+" suppresses write", func(t *testing.T) {
-			candidate := &v1alpha1.Kubeseer{}
+			candidate := &v1alpha1.Facet{}
 			if err := apiClient.Get(ctx, key, candidate); err != nil {
 				t.Fatalf("read stale candidate: %v", err)
 			}
@@ -1312,36 +1312,36 @@ func runBudgetRejectionPersistenceScenario(t *testing.T, ctx context.Context, co
 	t.Log("API_CONTRACT=configuration-budget-status-invalidation STATUS=passed")
 }
 
-func runtimeEnvtestKubeseer(key types.NamespacedName, source v1alpha1.KubeseerSource) *v1alpha1.Kubeseer {
-	return &v1alpha1.Kubeseer{
+func runtimeEnvtestFacet(key types.NamespacedName, source v1alpha1.FacetSource) *v1alpha1.Facet {
+	return &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name},
-		Spec:       v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}},
+		Spec:       v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}},
 	}
 }
 
-func runtimeEnvtestPodSource(id string, explicitEmpty bool) v1alpha1.KubeseerSource {
-	source := v1alpha1.KubeseerSource{ID: id, Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+func runtimeEnvtestPodSource(id string, explicitEmpty bool) v1alpha1.FacetSource {
+	source := v1alpha1.FacetSource{ID: id, Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 	if explicitEmpty {
 		source.Namespaces = &v1alpha1.NamespaceSelection{Names: []string{}}
 	}
 	return source
 }
 
-func runtimeEnvtestPodFieldSource(id string) v1alpha1.KubeseerSource {
+func runtimeEnvtestPodFieldSource(id string) v1alpha1.FacetSource {
 	source := runtimeEnvtestPodSource(id, false)
 	source.Selector = &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"runtime-status": "yes"}}
-	source.Fields = []v1alpha1.KubeseerField{{Name: "name", Path: "{.metadata.name}", Type: v1alpha1.ValueTypeString}}
+	source.Fields = []v1alpha1.FacetField{{Name: "name", Path: "{.metadata.name}", Type: v1alpha1.ValueTypeString}}
 	return source
 }
 
-func runtimeEnvtestInvalidSource(id string) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{
+func runtimeEnvtestInvalidSource(id string) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{
 		ID:       id,
 		Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Missing"},
 	}
 }
 
-func runtimeEnvtestInvalidSelectorSource(id string) v1alpha1.KubeseerSource {
+func runtimeEnvtestInvalidSelectorSource(id string) v1alpha1.FacetSource {
 	source := runtimeEnvtestPodSource(id, false)
 	source.Selector = &v1alpha1.ResourceSelector{FieldSelector: "metadata.name in ("}
 	return source
@@ -1361,29 +1361,29 @@ func runtimeEnvtestOperatorPod(name, namespace, selector, value string) *corev1.
 	}
 }
 
-func runtimeEnvtestValueOperatorSource(id, selector string, typeName v1alpha1.KubeseerValueType, operator v1alpha1.KubeseerOperatorName, operand *v1alpha1.KubeseerOperatorOperand) v1alpha1.KubeseerSource {
+func runtimeEnvtestValueOperatorSource(id, selector string, typeName v1alpha1.FacetValueType, operator v1alpha1.FacetOperatorName, operand *v1alpha1.FacetOperatorOperand) v1alpha1.FacetSource {
 	source := runtimeEnvtestPodSource(id, false)
 	source.Selector = &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"value-operator": selector}}
-	field := v1alpha1.KubeseerField{Name: "value", Path: "{.metadata.labels['operator-result']}", Type: typeName}
+	field := v1alpha1.FacetField{Name: "value", Path: "{.metadata.labels['operator-result']}", Type: typeName}
 	if operator != "" {
-		field.Operators = []v1alpha1.KubeseerOperator{{Operator: operator, Value: operand}}
+		field.Operators = []v1alpha1.FacetOperator{{Operator: operator, Value: operand}}
 	}
-	source.Fields = []v1alpha1.KubeseerField{field}
+	source.Fields = []v1alpha1.FacetField{field}
 	return source
 }
 
-func runtimeEnvtestAggregationSource(id, firstNamespace, secondNamespace string) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{
+func runtimeEnvtestAggregationSource(id, firstNamespace, secondNamespace string) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{
 		ID:         id,
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{firstNamespace, secondNamespace}},
 		Selector:   &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"runtime-aggregation": "yes"}},
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "group", Path: "{.metadata.labels['aggregation-group']}", Type: v1alpha1.ValueTypeString},
 			{Name: "value", Path: "{.metadata.labels['aggregation-value']}", Type: v1alpha1.ValueTypeNumber},
 			{Name: "bad", Path: "{.metadata.labels['aggregation-bad']}", Type: v1alpha1.ValueTypeInteger},
 		},
-		Aggregations: []v1alpha1.KubeseerAggregation{
+		Aggregations: []v1alpha1.FacetAggregation{
 			{Name: "average-default", Function: v1alpha1.AggregationAverage, Field: "value", IncludeProvenance: true},
 			{Name: "invalid-plan", Function: v1alpha1.AggregationSum, Field: "not-declared"},
 			{Name: "sum-bad", Function: v1alpha1.AggregationSum, Field: "bad"},
@@ -1391,13 +1391,13 @@ func runtimeEnvtestAggregationSource(id, firstNamespace, secondNamespace string)
 	}
 }
 
-func runtimeEnvtestAggregationSiblingSource(id, namespace string) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{
+func runtimeEnvtestAggregationSiblingSource(id, namespace string) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{
 		ID:         id,
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{namespace}},
 		Selector:   &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"runtime-aggregation": "yes"}},
-		Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.metadata.labels['aggregation-value']}", Type: v1alpha1.ValueTypeNumber}},
+		Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.metadata.labels['aggregation-value']}", Type: v1alpha1.ValueTypeNumber}},
 	}
 }
 
@@ -1417,18 +1417,18 @@ func runtimeEnvtestAggregationPod(name, namespace, group, value, bad string) *co
 	}
 }
 
-func stringOperatorOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value}
+func stringOperatorOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value}
 }
 
-func integerOperatorOperand(value int64) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, IntegerValue: &value}
+func integerOperatorOperand(value int64) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, IntegerValue: &value}
 }
 
-func waitRuntimeValueOperatorState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceID string, want v1alpha1.KubeseerSourceState, resourceCount int, value string) {
+func waitRuntimeValueOperatorState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceID string, want v1alpha1.FacetSourceState, resourceCount int, value string) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1456,10 +1456,10 @@ func waitRuntimeValueOperatorState(t *testing.T, ctx context.Context, client crc
 	}
 }
 
-func waitRuntimeAggregationState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceID string, want v1alpha1.KubeseerSourceState, resourceCount int) {
+func waitRuntimeAggregationState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceID string, want v1alpha1.FacetSourceState, resourceCount int) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1481,7 +1481,7 @@ func waitRuntimeAggregationState(t *testing.T, ctx context.Context, client crcli
 func waitRuntimeAggregationDenied(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceID string) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1511,21 +1511,21 @@ func runtimeEnvtestStatusPod(name, namespace string) *corev1.Pod {
 	}
 }
 
-func runtimeEnvtestPolicy(namespace string) *v1alpha1.KubeseerAccessPolicy {
-	return &v1alpha1.KubeseerAccessPolicy{
+func runtimeEnvtestPolicy(namespace string) *v1alpha1.FacetAccessPolicy {
+	return &v1alpha1.FacetAccessPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName},
-		Spec: v1alpha1.KubeseerAccessPolicySpec{
+		Spec: v1alpha1.FacetAccessPolicySpec{
 			Namespaces: v1alpha1.NamespacePolicy{Mode: v1alpha1.NamespaceModeExplicit, Include: []string{namespace}},
 			Resources: []v1alpha1.ResourceRule{
 				{APIGroups: []string{""}, Kinds: []string{"Pod"}},
-				{APIGroups: []string{"runtime.kubeseer.io"}, Kinds: []string{"Observation"}},
+				{APIGroups: []string{"runtime.kubefacet.steeltanuki.it"}, Kinds: []string{"Observation"}},
 			},
 		},
 	}
 }
 
 func runtimeObservedResourceCRD() (*apiextensionsv1.CustomResourceDefinition, schema.GroupVersionResource) {
-	const group = "runtime.kubeseer.io"
+	const group = "runtime.kubefacet.steeltanuki.it"
 	const version = "v1"
 	return &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{Name: "observations." + group},
@@ -1561,7 +1561,7 @@ func runtimeObservedResourceCRD() (*apiextensionsv1.CustomResourceDefinition, sc
 
 func runtimeEnvtestObservation(name, namespace, watchLabel, value string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "runtime.kubeseer.io/v1",
+		"apiVersion": "runtime.kubefacet.steeltanuki.it/v1",
 		"kind":       "Observation",
 		"metadata": map[string]interface{}{
 			"name":      name,
@@ -1572,12 +1572,12 @@ func runtimeEnvtestObservation(name, namespace, watchLabel, value string) *unstr
 	}}
 }
 
-func runtimeEnvtestObservedSource(id string) v1alpha1.KubeseerSource {
-	return v1alpha1.KubeseerSource{
+func runtimeEnvtestObservedSource(id string) v1alpha1.FacetSource {
+	return v1alpha1.FacetSource{
 		ID:       id,
-		Resource: v1alpha1.ResourceReference{APIVersion: "runtime.kubeseer.io/v1", Kind: "Observation"},
+		Resource: v1alpha1.ResourceReference{APIVersion: "runtime.kubefacet.steeltanuki.it/v1", Kind: "Observation"},
 		Selector: &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"watch": "yes"}},
-		Fields: []v1alpha1.KubeseerField{{
+		Fields: []v1alpha1.FacetField{{
 			Name: "value",
 			Path: "{.spec.value}",
 			Type: v1alpha1.ValueTypeString,
@@ -1616,7 +1616,7 @@ func (r *runtimeObservedRequestRecorder) observedPath() string {
 }
 
 func (r *runtimeObservedRequestRecorder) policyPath() string {
-	return "/apis/kubeseer.io/v1alpha1/kubeseeraccesspolicies/" + v1alpha1.InstallationAccessCeilingName
+	return "/apis/kubefacet.steeltanuki.it/v1alpha1/facetaccesspolicies/" + v1alpha1.InstallationAccessCeilingName
 }
 
 func (r *runtimeObservedRequestRecorder) record(request *http.Request) {
@@ -1678,7 +1678,7 @@ func (r *runtimeObservedRequestRecorder) recordStatusWrite(request *http.Request
 	if r == nil || request == nil || request.URL == nil || request.Method != http.MethodPut {
 		return
 	}
-	prefix := "/apis/kubeseer.io/v1alpha1/namespaces/" + r.namespace + "/kubeseers/"
+	prefix := "/apis/kubefacet.steeltanuki.it/v1alpha1/namespaces/" + r.namespace + "/facets/"
 	if !strings.HasPrefix(request.URL.Path, prefix) || !strings.HasSuffix(request.URL.Path, "/status") {
 		return
 	}
@@ -1877,12 +1877,12 @@ func assertRuntimeStatusWritesStable(t *testing.T, ctx context.Context, recorder
 	}
 }
 
-func waitRuntimeSourceState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, want v1alpha1.KubeseerSourceState) {
+func waitRuntimeSourceState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, want v1alpha1.FacetSourceState) {
 	t.Helper()
 	waitRuntimeSourceStates(t, ctx, client, key, 1, want, -1, "")
 }
 
-func waitRuntimeObservedState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceCount int, want v1alpha1.KubeseerSourceState, resourceCount int, value string) {
+func waitRuntimeObservedState(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceCount int, want v1alpha1.FacetSourceState, resourceCount int, value string) {
 	t.Helper()
 	waitRuntimeSourceStates(t, ctx, client, key, sourceCount, want, resourceCount, value)
 }
@@ -1890,7 +1890,7 @@ func waitRuntimeObservedState(t *testing.T, ctx context.Context, client crclient
 func waitRuntimeMixedStatus(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, generation int64, resourceCount int) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1913,10 +1913,10 @@ func waitRuntimeMixedStatus(t *testing.T, ctx context.Context, client crclient.C
 	}
 }
 
-func waitRuntimeSourceStates(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceCount int, want v1alpha1.KubeseerSourceState, resourceCount int, value string) {
+func waitRuntimeSourceStates(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, sourceCount int, want v1alpha1.FacetSourceState, resourceCount int, value string) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1940,11 +1940,11 @@ func waitRuntimeSourceStates(t *testing.T, ctx context.Context, client crclient.
 	}
 }
 
-func runtimeSourceHasStringValue(source v1alpha1.KubeseerSourceResult, want string) bool {
+func runtimeSourceHasStringValue(source v1alpha1.FacetSourceResult, want string) bool {
 	return runtimeSourceHasFieldStringValue(source, "value", want)
 }
 
-func runtimeSourceHasFieldStringValue(source v1alpha1.KubeseerSourceResult, fieldName, want string) bool {
+func runtimeSourceHasFieldStringValue(source v1alpha1.FacetSourceResult, fieldName, want string) bool {
 	for _, resource := range source.Resources {
 		for _, field := range resource.Fields {
 			if field.Name != fieldName {
@@ -1963,7 +1963,7 @@ func runtimeSourceHasFieldStringValue(source v1alpha1.KubeseerSourceResult, fiel
 func waitRuntimeEmptyResult(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1976,7 +1976,7 @@ func waitRuntimeEmptyResult(t *testing.T, ctx context.Context, client crclient.C
 func waitRuntimeObservedGeneration(t *testing.T, ctx context.Context, client crclient.Client, key types.NamespacedName, want int64) {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		object := &v1alpha1.Kubeseer{}
+		object := &v1alpha1.Facet{}
 		if err := client.Get(ctx, key, object); err != nil {
 			return false, err
 		}
@@ -1986,22 +1986,22 @@ func waitRuntimeObservedGeneration(t *testing.T, ctx context.Context, client crc
 	}
 }
 
-func waitRuntimeKubeseerEvents(t *testing.T, ctx context.Context, clients Clients, key types.NamespacedName, want int) []corev1.Event {
+func waitRuntimeFacetEvents(t *testing.T, ctx context.Context, clients Clients, key types.NamespacedName, want int) []corev1.Event {
 	t.Helper()
 	if err := WaitFor(ctx, 10*time.Second, func(ctx context.Context) (bool, error) {
-		events, err := listRuntimeKubeseerEvents(ctx, clients, key)
+		events, err := listRuntimeFacetEvents(ctx, clients, key)
 		return len(events) >= want, err
 	}); err != nil {
 		t.Fatalf("wait %d Events for %s/%s: %v", want, key.Namespace, key.Name, err)
 	}
-	events, err := listRuntimeKubeseerEvents(ctx, clients, key)
+	events, err := listRuntimeFacetEvents(ctx, clients, key)
 	if err != nil {
 		t.Fatalf("list Events for %s/%s: %v", key.Namespace, key.Name, err)
 	}
 	return events
 }
 
-func listRuntimeKubeseerEvents(ctx context.Context, clients Clients, key types.NamespacedName) ([]corev1.Event, error) {
+func listRuntimeFacetEvents(ctx context.Context, clients Clients, key types.NamespacedName) ([]corev1.Event, error) {
 	list, err := clients.Core.CoreV1().Events(key.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -2017,7 +2017,7 @@ func listRuntimeKubeseerEvents(ctx context.Context, clients Clients, key types.N
 
 func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiClient crclient.Client, clients Clients, namespace string, adapterKey, busyKey, freeKey, deterministicKey, emptyKey types.NamespacedName) {
 	t.Helper()
-	store := reconciliation.NewClientKubeseerStore(apiClient)
+	store := reconciliation.NewClientFacetStore(apiClient)
 	discoveryClient := &runtimeEnvtestDiscoveryAdapter{delegate: clients.Discovery}
 	resolver := discoveryruntime.NewResolver(discoveryClient)
 	verifier := authorization.VerifierFunc(func(subject authorization.Subject) bool {
@@ -2042,12 +2042,12 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 		t.Fatalf("construct real-client adapter runtime: %v", err)
 	}
 
-	adapterObject := &v1alpha1.Kubeseer{
+	adapterObject := &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: adapterKey.Namespace, Name: adapterKey.Name},
-		Spec:       v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{runtimeEnvtestPodFieldSource("adapter-source")}},
+		Spec:       v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{runtimeEnvtestPodFieldSource("adapter-source")}},
 	}
 	if err := apiClient.Create(ctx, adapterObject); err != nil {
-		t.Fatalf("create adapter runtime Kubeseer: %v", err)
+		t.Fatalf("create adapter runtime Facet: %v", err)
 	}
 	request := reconcile.Request{NamespacedName: adapterKey}
 	discoveryClient.FailNext()
@@ -2092,12 +2092,12 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	}
 	waitRuntimeSourceStates(t, ctx, apiClient, adapterKey, 1, v1alpha1.SourceStateValues, 1, "")
 
-	deterministicObject := &v1alpha1.Kubeseer{
+	deterministicObject := &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: deterministicKey.Namespace, Name: deterministicKey.Name},
-		Spec:       v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{runtimeEnvtestInvalidSource("deterministic-invalid")}},
+		Spec:       v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{runtimeEnvtestInvalidSource("deterministic-invalid")}},
 	}
 	if err := apiClient.Create(ctx, deterministicObject); err != nil {
-		t.Fatalf("create deterministic-failure Kubeseer: %v", err)
+		t.Fatalf("create deterministic-failure Facet: %v", err)
 	}
 	if _, err := runtimeInstance.Reconcile(ctx, reconcile.Request{NamespacedName: deterministicKey}); err != nil {
 		t.Fatalf("deterministic source failure unexpectedly requested retry: %v", err)
@@ -2117,7 +2117,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	invalidPolicyRuntime, err := reconciliation.NewRuntime(reconciliation.Options{SafetyInterval: time.Hour}, reconciliation.Dependencies{
 		Reader:       store,
 		Lister:       store,
-		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) { return invalidPolicy.DeepCopy(), nil }),
+		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) { return invalidPolicy.DeepCopy(), nil }),
 		Enforcer:     authorization.NewEnforcer(nil),
 		Planner:      selection.NewPlanner(resolver),
 		Executor:     selection.NewExecutor(resourceLister, selection.WithVerifier(verifier)),
@@ -2131,7 +2131,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	if _, err := invalidPolicyRuntime.Reconcile(ctx, reconcile.Request{NamespacedName: deterministicKey}); err != nil {
 		t.Fatalf("invalid-policy reconciliation: %v", err)
 	}
-	invalidPolicyStatus := &v1alpha1.Kubeseer{}
+	invalidPolicyStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, deterministicKey, invalidPolicyStatus); err != nil {
 		t.Fatalf("read invalid-policy status: %v", err)
 	}
@@ -2144,7 +2144,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	denialRuntime, err := reconciliation.NewRuntime(reconciliation.Options{SafetyInterval: time.Hour}, reconciliation.Dependencies{
 		Reader:       store,
 		Lister:       store,
-		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) { return denyingPolicy.DeepCopy(), nil }),
+		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) { return denyingPolicy.DeepCopy(), nil }),
 		Enforcer:     authorization.NewEnforcer(nil),
 		Planner:      selection.NewPlanner(resolver),
 		Executor:     selection.NewExecutor(resourceLister, selection.WithVerifier(verifier)),
@@ -2158,7 +2158,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	if _, err := denialRuntime.Reconcile(ctx, reconcile.Request{NamespacedName: adapterKey}); err != nil {
 		t.Fatalf("denying-policy reconciliation: %v", err)
 	}
-	deniedPolicyStatus := &v1alpha1.Kubeseer{}
+	deniedPolicyStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, adapterKey, deniedPolicyStatus); err != nil {
 		t.Fatalf("read denied-policy status: %v", err)
 	}
@@ -2170,23 +2170,23 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 		t.Fatalf("forbidden-read reconciliation: %v", err)
 	}
 	waitRuntimeSourceState(t, ctx, apiClient, adapterKey, v1alpha1.SourceStateError)
-	forbiddenStatus := &v1alpha1.Kubeseer{}
+	forbiddenStatus := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, adapterKey, forbiddenStatus); err != nil {
 		t.Fatalf("read forbidden status: %v", err)
 	}
 	assertRuntimeStatusSnapshot(t, forbiddenStatus, forbiddenStatus.Generation, true)
 	assertRuntimeCondition(t, forbiddenStatus.Status, statuscontract.ConditionAuthorized, metav1.ConditionFalse, statuscontract.ReasonReadForbidden)
 
-	busyObject := &v1alpha1.Kubeseer{
+	busyObject := &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: busyKey.Namespace, Name: busyKey.Name},
-		Spec:       v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{runtimeEnvtestPodFieldSource("busy-source")}},
+		Spec:       v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{runtimeEnvtestPodFieldSource("busy-source")}},
 	}
-	freeObject := &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: freeKey.Namespace, Name: freeKey.Name}}
+	freeObject := &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: freeKey.Namespace, Name: freeKey.Name}}
 	if err := apiClient.Create(ctx, busyObject); err != nil {
-		t.Fatalf("create busy Kubeseer: %v", err)
+		t.Fatalf("create busy Facet: %v", err)
 	}
 	if err := apiClient.Create(ctx, freeObject); err != nil {
-		t.Fatalf("create independent free Kubeseer: %v", err)
+		t.Fatalf("create independent free Facet: %v", err)
 	}
 	blockRelease := make(chan struct{})
 	blockStarted := make(chan struct{})
@@ -2232,9 +2232,9 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 		t.Fatalf("canceled reconciliation published status: before=%d after=%d", busyWrites, statusWriter.Calls())
 	}
 
-	adapterCurrent := &v1alpha1.Kubeseer{}
+	adapterCurrent := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, adapterKey, adapterCurrent); err != nil {
-		t.Fatalf("read adapter Kubeseer before conflict proof: %v", err)
+		t.Fatalf("read adapter Facet before conflict proof: %v", err)
 	}
 	conflictTracker := reconciliation.NewFreshnessTracker()
 	conflictTracker.Observe(adapterCurrent)
@@ -2242,7 +2242,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	if err != nil {
 		t.Fatalf("acquire conflict proof lease: %v", err)
 	}
-	conflictResult := v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "conflict-result", State: v1alpha1.SourceStateValues}}}
+	conflictResult := v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "conflict-result", State: v1alpha1.SourceStateValues}}}
 	conflictWriter := &runtimeEnvtestConflictStatusWriter{
 		delegate: reconciliation.NewClientStatusWriter(apiClient.Status()),
 		client:   apiClient,
@@ -2254,9 +2254,9 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 	if !reconciliation.IsRetryable(conflictErr) || conflictWriter.Calls() != 1 {
 		t.Fatalf("real status conflict = err=%v calls=%d, want one retryable attempt", conflictErr, conflictWriter.Calls())
 	}
-	conflicted := &v1alpha1.Kubeseer{}
+	conflicted := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, adapterKey, conflicted); err != nil {
-		t.Fatalf("read adapter Kubeseer after conflict: %v", err)
+		t.Fatalf("read adapter Facet after conflict: %v", err)
 	}
 	if len(conflicted.Status.Conditions) != 1 || conflicted.Status.Conditions[0].Type != "ConflictFixture" {
 		t.Fatalf("concurrent real API status write was overwritten: %#v", conflicted.Status.Conditions)
@@ -2274,7 +2274,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 		t.Fatalf("status did not converge after conflict retry: %v", err)
 	}
 	releaseConverge()
-	converged := &v1alpha1.Kubeseer{}
+	converged := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, adapterKey, converged); err != nil {
 		t.Fatalf("read converged adapter status: %v", err)
 	}
@@ -2282,9 +2282,9 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 		t.Fatalf("status conflict did not converge to the fresh candidate: %#v", converged.Status.Result)
 	}
 
-	emptyCurrent := &v1alpha1.Kubeseer{}
+	emptyCurrent := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, emptyKey, emptyCurrent); err != nil {
-		t.Fatalf("read zero-source Kubeseer for nil/empty suppression: %v", err)
+		t.Fatalf("read zero-source Facet for nil/empty suppression: %v", err)
 	}
 	emptyTracker := reconciliation.NewFreshnessTracker()
 	emptyTracker.Observe(emptyCurrent)
@@ -2293,7 +2293,7 @@ func runRuntimeEnvtestAdapterScenarios(t *testing.T, ctx context.Context, apiCli
 		t.Fatalf("acquire zero-source semantic lease: %v", err)
 	}
 	emptyWriter := &runtimeEnvtestCountingStatusWriter{delegate: reconciliation.NewClientStatusWriter(apiClient.Status())}
-	if err := reconciliation.NewStatusPublisher(store, emptyWriter, emptyTracker).Publish(emptyContext, emptyLease, envtestStatusEvaluation(v1alpha1.KubeseerResult{})); err != nil {
+	if err := reconciliation.NewStatusPublisher(store, emptyWriter, emptyTracker).Publish(emptyContext, emptyLease, envtestStatusEvaluation(v1alpha1.FacetResult{})); err != nil {
 		releaseEmpty()
 		t.Fatalf("nil/empty semantic status suppression failed: %v", err)
 	}
@@ -2349,7 +2349,7 @@ func runAdmissionValidationRuntimeEnvtestScenario(t *testing.T, ctx context.Cont
 	admittedKey := types.NamespacedName{Namespace: namespace, Name: "runtime-admission-admitted"}
 	source := runtimeEnvtestObservedSource("runtime-admission-source")
 	source.Selector = &v1alpha1.ResourceSelector{MatchLabels: map[string]string{"admission-runtime": "yes"}}
-	observedResources := clients.Dynamic.Resource(schema.GroupVersionResource{Group: "runtime.kubeseer.io", Version: "v1", Resource: "observations"}).Namespace(namespace)
+	observedResources := clients.Dynamic.Resource(schema.GroupVersionResource{Group: "runtime.kubefacet.steeltanuki.it", Version: "v1", Resource: "observations"}).Namespace(namespace)
 	fixture := runtimeEnvtestObservation("runtime-admission-observation", namespace, "yes", "runtime-admission-value")
 	fixture.SetLabels(map[string]string{"admission-runtime": "yes"})
 	if _, err := observedResources.Create(ctx, fixture, metav1.CreateOptions{}); err != nil {
@@ -2357,10 +2357,10 @@ func runAdmissionValidationRuntimeEnvtestScenario(t *testing.T, ctx context.Cont
 	}
 	defer func() {
 		for _, key := range []types.NamespacedName{legacyKey, admittedKey} {
-			object := &v1alpha1.Kubeseer{}
+			object := &v1alpha1.Facet{}
 			if err := apiClient.Get(ctx, key, object); err == nil {
 				if err := apiClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
-					t.Errorf("delete admission-runtime Kubeseer %s/%s: %v", key.Namespace, key.Name, err)
+					t.Errorf("delete admission-runtime Facet %s/%s: %v", key.Namespace, key.Name, err)
 				}
 			}
 		}
@@ -2369,17 +2369,17 @@ func runAdmissionValidationRuntimeEnvtestScenario(t *testing.T, ctx context.Cont
 		}
 	}()
 
-	legacy := runtimeEnvtestKubeseer(legacyKey, source)
+	legacy := runtimeEnvtestFacet(legacyKey, source)
 	if err := apiClient.Create(ctx, legacy); err != nil {
-		t.Fatalf("create pre-webhook legacy Kubeseer: %v", err)
+		t.Fatalf("create pre-webhook legacy Facet: %v", err)
 	}
-	admitted := runtimeEnvtestKubeseer(admittedKey, source)
+	admitted := runtimeEnvtestFacet(admittedKey, source)
 	validator := admission.NewValidator(discoveryruntime.NewResolver(discoveryClient), accesspolicy.NewClientPolicySource(apiClient))
-	if result := validator.ValidateKubeseer(ctx, admitted); !result.Valid() {
+	if result := validator.ValidateFacet(ctx, admitted); !result.Valid() {
 		t.Fatalf("admitted runtime fixture was rejected: %#v", result.IssuesCopy())
 	}
 	if err := apiClient.Create(ctx, admitted); err != nil {
-		t.Fatalf("create previously admitted Kubeseer: %v", err)
+		t.Fatalf("create previously admitted Facet: %v", err)
 	}
 
 	resolver.InvalidateAll()
@@ -2412,7 +2412,7 @@ func runAdmissionValidationRuntimeEnvtestScenario(t *testing.T, ctx context.Cont
 		waitRuntimeSourceStates(t, ctx, apiClient, key, 1, v1alpha1.SourceStateValues, 1, "")
 	}
 
-	policy := &v1alpha1.KubeseerAccessPolicy{}
+	policy := &v1alpha1.FacetAccessPolicy{}
 	if err := apiClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, policy); err != nil {
 		t.Fatalf("read policy before runtime narrowing: %v", err)
 	}
@@ -2442,7 +2442,7 @@ func runAdmissionValidationRuntimeEnvtestScenario(t *testing.T, ctx context.Cont
 			t.Fatalf("runtime policy deletion for %s/%s: %v", key.Namespace, key.Name, err)
 		}
 		waitRuntimeSourceStates(t, ctx, apiClient, key, 1, v1alpha1.SourceStateError, 0, "")
-		status := &v1alpha1.Kubeseer{}
+		status := &v1alpha1.Facet{}
 		if err := apiClient.Get(ctx, key, status); err != nil {
 			t.Fatalf("read policy-deletion status for %s/%s: %v", key.Namespace, key.Name, err)
 		}
@@ -2475,7 +2475,7 @@ func runRuntimeEnvtestAuthorizationPaginationScenario(t *testing.T, ctx context.
 	if err != nil {
 		t.Fatalf("plan real pagination source: %v", err)
 	}
-	owner := &v1alpha1.Kubeseer{}
+	owner := &v1alpha1.Facet{}
 	if err := apiClient.Get(ctx, key, owner); err != nil {
 		t.Fatalf("read pagination owner: %v", err)
 	}
@@ -2506,7 +2506,7 @@ func runRuntimeEnvtestAuthorizationPaginationScenario(t *testing.T, ctx context.
 	if err != nil {
 		t.Fatalf("bind real pagination source: %v", err)
 	}
-	observedResources := clients.Dynamic.Resource(schema.GroupVersionResource{Group: "runtime.kubeseer.io", Version: "v1", Resource: "observations"}).Namespace(namespace)
+	observedResources := clients.Dynamic.Resource(schema.GroupVersionResource{Group: "runtime.kubefacet.steeltanuki.it", Version: "v1", Resource: "observations"}).Namespace(namespace)
 	for index := 0; index < 3; index++ {
 		fixture := runtimeEnvtestObservation("authorization-pagination-"+string(rune('a'+index)), namespace, "yes", "pagination-value-"+string(rune('a'+index)))
 		if _, err := observedResources.Create(ctx, fixture, metav1.CreateOptions{}); err != nil {
@@ -2554,11 +2554,11 @@ func (f runtimeEnvtestResourceListerFunc) List(ctx context.Context, read selecti
 	return f(ctx, read, options)
 }
 
-func envtestStatusEvaluation(result v1alpha1.KubeseerResult) statuscontract.Evaluation {
+func envtestStatusEvaluation(result v1alpha1.FacetResult) statuscontract.Evaluation {
 	return statuscontract.Evaluation{Result: result.DeepCopy()}
 }
 
-func assertRuntimeStatusSnapshot(t *testing.T, object *v1alpha1.Kubeseer, generation int64, wantResult bool) {
+func assertRuntimeStatusSnapshot(t *testing.T, object *v1alpha1.Facet, generation int64, wantResult bool) {
 	t.Helper()
 	if object.Status.ObservedGeneration != generation {
 		t.Fatalf("status observed generation = %d, want %d", object.Status.ObservedGeneration, generation)
@@ -2616,7 +2616,7 @@ func assertRuntimeStatusSnapshot(t *testing.T, object *v1alpha1.Kubeseer, genera
 	}
 }
 
-func assertRuntimeCondition(t *testing.T, candidate v1alpha1.KubeseerStatus, conditionType string, conditionStatus metav1.ConditionStatus, reason string) {
+func assertRuntimeCondition(t *testing.T, candidate v1alpha1.FacetStatus, conditionType string, conditionStatus metav1.ConditionStatus, reason string) {
 	t.Helper()
 	condition := runtimeCondition(candidate, conditionType)
 	if condition.Type == "" || condition.Status != conditionStatus || condition.Reason != reason {
@@ -2624,7 +2624,7 @@ func assertRuntimeCondition(t *testing.T, candidate v1alpha1.KubeseerStatus, con
 	}
 }
 
-func runtimeCondition(candidate v1alpha1.KubeseerStatus, conditionType string) metav1.Condition {
+func runtimeCondition(candidate v1alpha1.FacetStatus, conditionType string) metav1.Condition {
 	for _, condition := range candidate.Conditions {
 		if condition.Type == conditionType {
 			return condition
@@ -2767,7 +2767,7 @@ type budgetEnvtestStatusWriter struct {
 	calls    int
 }
 
-func (w *budgetEnvtestStatusWriter) Update(ctx context.Context, object *v1alpha1.Kubeseer) error {
+func (w *budgetEnvtestStatusWriter) Update(ctx context.Context, object *v1alpha1.Facet) error {
 	w.mu.Lock()
 	w.calls++
 	err := w.err
@@ -2790,7 +2790,7 @@ type runtimeEnvtestCountingStatusWriter struct {
 	calls    int
 }
 
-func (w *runtimeEnvtestCountingStatusWriter) Update(ctx context.Context, object *v1alpha1.Kubeseer) error {
+func (w *runtimeEnvtestCountingStatusWriter) Update(ctx context.Context, object *v1alpha1.Facet) error {
 	w.mu.Lock()
 	w.calls++
 	w.mu.Unlock()
@@ -2811,11 +2811,11 @@ type runtimeEnvtestConflictStatusWriter struct {
 	calls    int
 }
 
-func (w *runtimeEnvtestConflictStatusWriter) Update(ctx context.Context, object *v1alpha1.Kubeseer) error {
+func (w *runtimeEnvtestConflictStatusWriter) Update(ctx context.Context, object *v1alpha1.Facet) error {
 	w.mu.Lock()
 	w.calls++
 	w.mu.Unlock()
-	current := &v1alpha1.Kubeseer{}
+	current := &v1alpha1.Facet{}
 	if err := w.client.Get(ctx, w.key, current); err != nil {
 		return err
 	}

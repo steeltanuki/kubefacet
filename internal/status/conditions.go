@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	apiMeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -97,7 +97,7 @@ type SourceAssessment struct {
 // Evaluation is the status-relevant terminal result of one reconciliation.
 // A non-nil Result and ResultUnavailable are mutually exclusive.
 type Evaluation struct {
-	Result                      *v1alpha1.KubeseerResult
+	Result                      *v1alpha1.FacetResult
 	Sources                     []SourceAssessment
 	GlobalAuthorization         *AuthorizationOutcome
 	ResultUnavailable           bool
@@ -108,31 +108,31 @@ type Evaluation struct {
 // Compose builds a complete status candidate for one generation. Persisted
 // conditions are used only to preserve native transition timestamps and
 // non-canonical condition metadata.
-func Compose(generation int64, persisted []metav1.Condition, evaluation Evaluation) (v1alpha1.KubeseerStatus, error) {
+func Compose(generation int64, persisted []metav1.Condition, evaluation Evaluation) (v1alpha1.FacetStatus, error) {
 	if generation < 0 {
-		return v1alpha1.KubeseerStatus{}, errors.New("status generation must be non-negative")
+		return v1alpha1.FacetStatus{}, errors.New("status generation must be non-negative")
 	}
 	if err := validateEvaluation(evaluation); err != nil {
-		return v1alpha1.KubeseerStatus{}, err
+		return v1alpha1.FacetStatus{}, err
 	}
 
 	if evaluation.ConfigurationBudgetExceeded {
-		candidate := v1alpha1.KubeseerStatus{ObservedGeneration: generation}
+		candidate := v1alpha1.FacetStatus{ObservedGeneration: generation}
 		candidate.Conditions = mergeConditions(persisted, configurationBudgetConditions(generation))
 		return candidate, nil
 	}
 
 	if evaluation.ResultLimitExceeded {
-		candidate := v1alpha1.KubeseerStatus{ObservedGeneration: generation}
+		candidate := v1alpha1.FacetStatus{ObservedGeneration: generation}
 		candidate.Conditions = mergeConditions(persisted, compactLimitConditions(generation, evaluation))
 		return candidate, nil
 	}
 
 	derived, err := DeriveResult(evaluation.Result)
 	if err != nil {
-		return v1alpha1.KubeseerStatus{}, err
+		return v1alpha1.FacetStatus{}, err
 	}
-	candidate := v1alpha1.KubeseerStatus{
+	candidate := v1alpha1.FacetStatus{
 		ObservedGeneration: generation,
 		Summary:            derived.Summary,
 		ResultHash:         derived.ResultHash,
@@ -297,7 +297,7 @@ func compactResolutionCondition(generation int64, sources []SourceAssessment) me
 // ComposeResultLimitExceeded creates the compact terminal status used when a
 // complete result cannot fit the configured status ceiling. It never retains
 // the result or any derived summary/hash.
-func ComposeResultLimitExceeded(generation int64, persisted []metav1.Condition, evaluation Evaluation) (v1alpha1.KubeseerStatus, error) {
+func ComposeResultLimitExceeded(generation int64, persisted []metav1.Condition, evaluation Evaluation) (v1alpha1.FacetStatus, error) {
 	evaluation.Result = nil
 	evaluation.ResultUnavailable = false
 	evaluation.ResultLimitExceeded = true
@@ -306,7 +306,7 @@ func ComposeResultLimitExceeded(generation int64, persisted []metav1.Condition, 
 
 // ComposeConfigurationBudgetExceeded composes the compact terminal status used
 // when a persisted configuration exceeds the effective runtime budget.
-func ComposeConfigurationBudgetExceeded(generation int64, persisted []metav1.Condition) (v1alpha1.KubeseerStatus, error) {
+func ComposeConfigurationBudgetExceeded(generation int64, persisted []metav1.Condition) (v1alpha1.FacetStatus, error) {
 	return Compose(generation, persisted, Evaluation{ConfigurationBudgetExceeded: true})
 }
 
@@ -462,7 +462,7 @@ func degradedCondition(generation int64, evaluation Evaluation, derived DerivedR
 		fmt.Sprintf("generation %d evaluation is not degraded: %s", generation, resultCountsMessage(derived.Summary)), generation)
 }
 
-func resultCountsMessage(summary *v1alpha1.KubeseerSummary) string {
+func resultCountsMessage(summary *v1alpha1.FacetSummary) string {
 	if summary == nil {
 		return "result unavailable"
 	}

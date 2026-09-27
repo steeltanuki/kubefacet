@@ -19,43 +19,43 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertValueOperatorPlanningScenarios(t *testing.T) {
 	t.Helper()
 
-	valid := v1alpha1.KubeseerSource{
+	valid := v1alpha1.FacetSource{
 		ID: "operator-planning",
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{
 				Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity,
-				Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorGte, Value: quantityOperand("1Gi")}},
+				Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorGte, Value: quantityOperand("1Gi")}},
 			},
-			{Name: "string", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{
+			{Name: "string", Path: "{.data.value}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{
 				{Operator: v1alpha1.OperatorContains, Value: stringOperand("emo")},
 				{Operator: v1alpha1.OperatorStartsWith, Value: stringOperand("demo")},
 				{Operator: v1alpha1.OperatorEndsWith, Value: stringOperand("value")},
 				{Operator: v1alpha1.OperatorMatches, Value: stringOperand(`^demo.*value$`)},
 			}},
-			{Name: "object", Path: "{.data.object}", Type: v1alpha1.ValueTypeObject, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorDefault, Value: objectOperand(`{"fallback":true}`)}}},
-			{Name: "list", Path: "{.data.list}", Type: v1alpha1.ValueTypeList, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorCoalesce}}},
-			{Name: "boolean", Path: "{.data.enabled}", Type: v1alpha1.ValueTypeBoolean, Operators: []v1alpha1.KubeseerOperator{
+			{Name: "object", Path: "{.data.object}", Type: v1alpha1.ValueTypeObject, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorDefault, Value: objectOperand(`{"fallback":true}`)}}},
+			{Name: "list", Path: "{.data.list}", Type: v1alpha1.ValueTypeList, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorCoalesce}}},
+			{Name: "boolean", Path: "{.data.enabled}", Type: v1alpha1.ValueTypeBoolean, Operators: []v1alpha1.FacetOperator{
 				{Operator: v1alpha1.OperatorEq, Value: booleanOperand(true)},
-				{Operator: v1alpha1.OperatorIn, Values: []v1alpha1.KubeseerOperatorOperand{booleanOperandValue(false), booleanOperandValue(true)}},
+				{Operator: v1alpha1.OperatorIn, Values: []v1alpha1.FacetOperatorOperand{booleanOperandValue(false), booleanOperandValue(true)}},
 			}},
-			{Name: "integer", Path: "{.data.count}", Type: v1alpha1.ValueTypeInteger, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorNe, Value: integerOperand(4)}}},
-			{Name: "number", Path: "{.data.ratio}", Type: v1alpha1.ValueTypeNumber, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorLt, Value: numberOperand("2.5")}}},
-			{Name: "timestamp", Path: "{.data.when}", Type: v1alpha1.ValueTypeTimestamp, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorLte, Value: timestampOperand("2026-08-27T00:00:00Z")}}},
-			{Name: "duration", Path: "{.data.age}", Type: v1alpha1.ValueTypeDuration, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorGt, Value: durationOperand("1s")}}},
-			{Name: "presence", Path: "{.data.optional}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorExists}, {Operator: v1alpha1.OperatorNotExists}}},
+			{Name: "integer", Path: "{.data.count}", Type: v1alpha1.ValueTypeInteger, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorNe, Value: integerOperand(4)}}},
+			{Name: "number", Path: "{.data.ratio}", Type: v1alpha1.ValueTypeNumber, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorLt, Value: numberOperand("2.5")}}},
+			{Name: "timestamp", Path: "{.data.when}", Type: v1alpha1.ValueTypeTimestamp, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorLte, Value: timestampOperand("2026-08-27T00:00:00Z")}}},
+			{Name: "duration", Path: "{.data.age}", Type: v1alpha1.ValueTypeDuration, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorGt, Value: durationOperand("1s")}}},
+			{Name: "presence", Path: "{.data.optional}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorExists}, {Operator: v1alpha1.OperatorNotExists}}},
 			{
 				Name: "membership", Path: "{.data.value}", Type: v1alpha1.ValueTypeString,
-				Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.KubeseerOperatorOperand{stringOperandValue("other"), stringOperandValue("demo-value")}}},
+				Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.FacetOperatorOperand{stringOperandValue("other"), stringOperandValue("demo-value")}}},
 			},
 		},
 	}
@@ -95,11 +95,11 @@ func assertValueOperatorPlanningScenarios(t *testing.T) {
 	})
 
 	t.Run("real extraction and typed conversion feed the immutable plan", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "operator-collaboration",
-			Fields: []v1alpha1.KubeseerField{{
+			Fields: []v1alpha1.FacetField{{
 				Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString,
-				Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorStartsWith, Value: stringOperand("demo")}},
+				Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorStartsWith, Value: stringOperand("demo")}},
 			}},
 		}
 		native := selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"value": "demo-value"}})
@@ -128,24 +128,24 @@ func assertValueOperatorPlanningScenarios(t *testing.T) {
 		secret := "TOP_SECRET_VALUE"
 		cases := []struct {
 			name   string
-			field  v1alpha1.KubeseerField
+			field  v1alpha1.FacetField
 			reason operators.Reason
 		}{
-			{name: "unsupported name", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.KubeseerOperatorName("explode")}}}, reason: operators.ReasonUnsupportedOperator},
-			{name: "incompatible", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeObject, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand(secret)}}}, reason: operators.ReasonIncompatibleOperator},
-			{name: "single arity missing", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq}}}, reason: operators.ReasonInvalidArity},
-			{name: "both operands", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand(secret), Values: []v1alpha1.KubeseerOperatorOperand{stringOperandValue(secret)}}}}, reason: operators.ReasonInvalidArity},
-			{name: "empty membership", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorIn}}}, reason: operators.ReasonInvalidArity},
-			{name: "operand null", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateNull}}}}, reason: operators.ReasonInvalidOperand},
-			{name: "operand branches", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: multiBranchOperand(secret)}}}, reason: operators.ReasonInvalidOperand},
-			{name: "operand mismatch", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeInteger, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand(secret)}}}, reason: operators.ReasonInvalidOperand},
-			{name: "malformed pattern", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorMatches, Value: stringOperand("[")}}}, reason: operators.ReasonInvalidPattern},
-			{name: "inferred field type", field: v1alpha1.KubeseerField{Name: "value", Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorExists}}}, reason: operators.ReasonInvalidOperand},
-			{name: "forbidden branch conversion", field: v1alpha1.KubeseerField{Name: "value", Type: v1alpha1.ValueTypeNumber, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorEq, Value: numberOperand("1e2000000")}}}, reason: operators.ReasonInvalidOperand},
+			{name: "unsupported name", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.FacetOperatorName("explode")}}}, reason: operators.ReasonUnsupportedOperator},
+			{name: "incompatible", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeObject, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand(secret)}}}, reason: operators.ReasonIncompatibleOperator},
+			{name: "single arity missing", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq}}}, reason: operators.ReasonInvalidArity},
+			{name: "both operands", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand(secret), Values: []v1alpha1.FacetOperatorOperand{stringOperandValue(secret)}}}}, reason: operators.ReasonInvalidArity},
+			{name: "empty membership", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorIn}}}, reason: operators.ReasonInvalidArity},
+			{name: "operand null", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateNull}}}}, reason: operators.ReasonInvalidOperand},
+			{name: "operand branches", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: multiBranchOperand(secret)}}}, reason: operators.ReasonInvalidOperand},
+			{name: "operand mismatch", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeInteger, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: stringOperand(secret)}}}, reason: operators.ReasonInvalidOperand},
+			{name: "malformed pattern", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorMatches, Value: stringOperand("[")}}}, reason: operators.ReasonInvalidPattern},
+			{name: "inferred field type", field: v1alpha1.FacetField{Name: "value", Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorExists}}}, reason: operators.ReasonInvalidOperand},
+			{name: "forbidden branch conversion", field: v1alpha1.FacetField{Name: "value", Type: v1alpha1.ValueTypeNumber, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorEq, Value: numberOperand("1e2000000")}}}, reason: operators.ReasonInvalidOperand},
 		}
 		for _, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
-				outcome := operators.CompileSource(v1alpha1.KubeseerSource{ID: "planning-failures", Fields: []v1alpha1.KubeseerField{test.field}})
+				outcome := operators.CompileSource(v1alpha1.FacetSource{ID: "planning-failures", Fields: []v1alpha1.FacetField{test.field}})
 				failures := outcome.Failures()
 				if len(failures) != 1 || failures[0].Reason != test.reason || failures[0].SourceID != "planning-failures" || failures[0].FieldName != "value" || failures[0].OperatorIndex != 0 || failures[0].OperatorName == "" {
 					t.Fatalf("failure = %#v, want reason %s and complete identity", failures, test.reason)
@@ -158,9 +158,9 @@ func assertValueOperatorPlanningScenarios(t *testing.T) {
 			})
 		}
 
-		invalid := v1alpha1.KubeseerSource{ID: "invalid-sibling", Fields: []v1alpha1.KubeseerField{{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.KubeseerOperatorName("explode")}}}}}
-		validSibling := v1alpha1.KubeseerSource{ID: "valid-sibling", Fields: []v1alpha1.KubeseerField{{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorExists}}}}}
-		batch := operators.CompileBatch([]v1alpha1.KubeseerSource{invalid, validSibling})
+		invalid := v1alpha1.FacetSource{ID: "invalid-sibling", Fields: []v1alpha1.FacetField{{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.FacetOperatorName("explode")}}}}}
+		validSibling := v1alpha1.FacetSource{ID: "valid-sibling", Fields: []v1alpha1.FacetField{{Name: "value", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorExists}}}}}
+		batch := operators.CompileBatch([]v1alpha1.FacetSource{invalid, validSibling})
 		if len(batch) != 2 || batch[0].Valid() || !batch[1].Valid() || batch[1].SourceID() != validSibling.ID {
 			t.Fatalf("sibling plan isolation = %#v", batch)
 		}
@@ -203,47 +203,47 @@ func v1alpha1FieldPlanReplacementForTest(field operators.FieldPlan) operators.Fi
 	return field
 }
 
-func stringOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value}
+func stringOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value}
 }
 
-func stringOperandValue(value string) v1alpha1.KubeseerOperatorOperand {
+func stringOperandValue(value string) v1alpha1.FacetOperatorOperand {
 	return *stringOperand(value)
 }
 
-func integerOperand(value int64) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, IntegerValue: &value}
+func integerOperand(value int64) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, IntegerValue: &value}
 }
 
-func numberOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, NumberValue: &value}
+func numberOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, NumberValue: &value}
 }
 
-func booleanOperand(value bool) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, BooleanValue: &value}
+func booleanOperand(value bool) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, BooleanValue: &value}
 }
 
-func booleanOperandValue(value bool) v1alpha1.KubeseerOperatorOperand {
+func booleanOperandValue(value bool) v1alpha1.FacetOperatorOperand {
 	return *booleanOperand(value)
 }
 
-func timestampOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, TimestampValue: &value}
+func timestampOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, TimestampValue: &value}
 }
 
-func durationOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, DurationValue: &value}
+func durationOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, DurationValue: &value}
 }
 
-func quantityOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, QuantityValue: &value}
+func quantityOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, QuantityValue: &value}
 }
 
-func objectOperand(value string) *v1alpha1.KubeseerOperatorOperand {
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, ObjectValue: &value}
+func objectOperand(value string) *v1alpha1.FacetOperatorOperand {
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, ObjectValue: &value}
 }
 
-func multiBranchOperand(value string) *v1alpha1.KubeseerOperatorOperand {
+func multiBranchOperand(value string) *v1alpha1.FacetOperatorOperand {
 	boolean := true
-	return &v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value, BooleanValue: &boolean}
+	return &v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value, BooleanValue: &boolean}
 }

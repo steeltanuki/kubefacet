@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package extraction compiles and evaluates the deliberately small field-path
-// language used by Kubeseer sources. It performs no Kubernetes API I/O.
+// language used by Facet sources. It performs no Kubernetes API I/O.
 //
 // Responsibility: validate the approved path grammar and extract native,
 // provenance-preserving matches from immutable resource values.

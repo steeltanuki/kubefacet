@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -35,12 +35,12 @@ func assertTypedOutputConversionScenarios(t *testing.T) {
 	t.Helper()
 
 	t.Run("planning validates every type before conversion and keeps valid fields", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "planning-source",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "zeta", Path: "{.data.zeta}", Type: v1alpha1.ValueTypeString},
 				{Name: "missing", Path: "{.data.missing}"},
-				{Name: "unsupported", Path: "{.data.unsupported}", Type: v1alpha1.KubeseerValueType("decimal")},
+				{Name: "unsupported", Path: "{.data.unsupported}", Type: v1alpha1.FacetValueType("decimal")},
 			},
 		}
 		outcome := typedoutput.CompileSource(source)
@@ -97,7 +97,7 @@ func assertTypedOutputConversionScenarios(t *testing.T) {
 		tests := []struct {
 			name      string
 			path      string
-			typeName  v1alpha1.KubeseerValueType
+			typeName  v1alpha1.FacetValueType
 			wantValue any
 		}{
 			{name: "string", path: "{.data.string}", typeName: v1alpha1.ValueTypeString, wantValue: "hello"},
@@ -113,7 +113,7 @@ func assertTypedOutputConversionScenarios(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				source := v1alpha1.KubeseerSource{ID: "conversion-source", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: test.path, Type: test.typeName}}}
+				source := v1alpha1.FacetSource{ID: "conversion-source", Fields: []v1alpha1.FacetField{{Name: "value", Path: test.path, Type: test.typeName}}}
 				planOutcome := typedoutput.CompileSource(source)
 				if len(planOutcome.Failures()) != 0 {
 					t.Fatalf("compile %q failures = %#v", test.name, planOutcome.Failures())
@@ -151,7 +151,7 @@ func assertTypedOutputConversionScenarios(t *testing.T) {
 	t.Run("forbidden conversions and malformed values have stable sanitized reasons", func(t *testing.T) {
 		tests := []struct {
 			name     string
-			typeName v1alpha1.KubeseerValueType
+			typeName v1alpha1.FacetValueType
 			native   any
 			reason   typedoutput.ConversionErrorReason
 		}{
@@ -204,16 +204,16 @@ func assertTypedOutputConversionScenarios(t *testing.T) {
 	})
 }
 
-func mustTypedFieldPlan(t *testing.T, name string, typeName v1alpha1.KubeseerValueType) typedoutput.FieldPlan {
+func mustTypedFieldPlan(t *testing.T, name string, typeName v1alpha1.FacetValueType) typedoutput.FieldPlan {
 	t.Helper()
-	outcome := typedoutput.CompileSource(v1alpha1.KubeseerSource{ID: "conversion-source", Fields: []v1alpha1.KubeseerField{{Name: name, Path: "{.data.value}", Type: typeName}}})
+	outcome := typedoutput.CompileSource(v1alpha1.FacetSource{ID: "conversion-source", Fields: []v1alpha1.FacetField{{Name: name, Path: "{.data.value}", Type: typeName}}})
 	if len(outcome.Failures()) != 0 || len(outcome.Plan().Fields()) != 1 {
 		t.Fatalf("compile typed field plan %q: failures=%#v fields=%#v", name, outcome.Failures(), outcome.Plan().Fields())
 	}
 	return outcome.Plan().Fields()[0]
 }
 
-func assertTypedMatchValue(t *testing.T, match typedoutput.Match, typeName v1alpha1.KubeseerValueType, want any) {
+func assertTypedMatchValue(t *testing.T, match typedoutput.Match, typeName v1alpha1.FacetValueType, want any) {
 	t.Helper()
 	switch typeName {
 	case v1alpha1.ValueTypeString:
@@ -402,11 +402,11 @@ func assertNativeDurationCompatibility(t *testing.T) {
 
 // convertExtractedNativeScalar keeps the regression scenarios on the real
 // field-extraction and typed-conversion boundary instead of private helpers.
-func convertExtractedNativeScalar(t *testing.T, input string, typeName v1alpha1.KubeseerValueType) (typedoutput.Match, error) {
+func convertExtractedNativeScalar(t *testing.T, input string, typeName v1alpha1.FacetValueType) (typedoutput.Match, error) {
 	t.Helper()
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID: "native-scalar-source",
-		Fields: []v1alpha1.KubeseerField{{
+		Fields: []v1alpha1.FacetField{{
 			Name: "value",
 			Path: "{.data.value}",
 			Type: typeName,

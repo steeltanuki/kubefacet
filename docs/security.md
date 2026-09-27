@@ -1,6 +1,6 @@
 # Security model
 
-Kubeseer is a delegated observer: administrators decide the maximum data scope,
+KubeFacet is a delegated observer: administrators decide the maximum data scope,
 authors declare narrower views, and the manager reads resources on their
 behalf. This guide describes the trust boundaries and the controls that keep
 an authored resource from expanding installation authority.
@@ -10,11 +10,11 @@ an authored resource from expanding installation authority.
 | Actor or component | Authority |
 | --- | --- |
 | Cluster administrator | Installs the chart, owns policy, manager RBAC, limits, certificates, and lifecycle |
-| Kubeseer author | Creates or changes namespaced `Kubeseer` declarations only where RBAC permits |
+| KubeFacet author | Creates or changes namespaced `Facet` declarations only where RBAC permits |
 | Manager ServiceAccount | Performs exact reads granted by administrator-controlled Kubernetes RBAC |
 | `installation-access-ceiling` | Defines the logical namespace and resource-type ceiling |
 | Kubernetes API server | Enforces RBAC, admission registration, object persistence, and API semantics |
-| Status reader | Can read all values materialized into any `Kubeseer` it is authorized to get |
+| Status reader | Can read all values materialized into any `KubeFacet` it is authorized to get |
 
 The installation policy and ServiceAccount RBAC are intentionally independent.
 Both must allow a target. Author permissions do not imply observed-resource
@@ -26,7 +26,7 @@ Every source is resolved to an exact API resource and namespace scope. The
 controller then evaluates a fresh policy snapshot and creates an internal
 capability bound to:
 
-- the exact `Kubeseer` subject and generation;
+- the exact `Facet` subject and generation;
 - the current policy identity;
 - the resolved API group, version, resource, Kind, and scope;
 - the permitted operation.
@@ -42,7 +42,7 @@ routes. An older result is not allowed to publish after authority changes.
 
 ## Watch authority and transport lifetime
 
-Sharing is exact-target only. Kubeseer creates one supervisor stream per
+Sharing is exact-target only. KubeFacet creates one supervisor stream per
 `WatchAddress`—the exact API resource, scope, and namespace—and shares it only
 with bindings whose current owners are authorized for that target. A stream
 never broadens a source's scope or combines unrelated targets.
@@ -91,23 +91,23 @@ authorization before reads.
 
 The `status` subresource is the product output. It can contain extracted values,
 typed objects or lists, aggregate values, and resource provenance. Anyone who
-can read a `Kubeseer` can read its current materialized result.
+can read a `Facet` can read its current materialized result.
 
 Therefore:
 
 - authorize source types and fields with the same care as a read API;
-- do not use Kubeseer to project credentials, tokens, private keys, or other
+- do not use KubeFacet to project credentials, tokens, private keys, or other
   secret material;
-- restrict RBAC on Kubeseer objects when results contain sensitive operational
+- restrict RBAC on KubeFacet objects when results contain sensitive operational
   data;
 - remember that a cross-namespace view transfers selected data into the
-  `Kubeseer` namespace;
+  `Facet` namespace;
 - review provenance exposure as well as values.
 
 The Helm chart deliberately rejects Secret resources in its observed-resource
 RBAC interface and grants no Secret access by default. An administrator who
 adds broader RBAC outside the chart and a matching logical policy assumes
-responsibility for the resulting data flow. Kubeseer does not redact values
+responsibility for the resulting data flow. KubeFacet does not redact values
 from its own status because those values are the declared result.
 
 ## Diagnostic confidentiality
@@ -129,7 +129,7 @@ sensitive and should follow the cluster's normal observability controls.
 
 ## JSONPath and expression safety
 
-Kubeseer implements a small, native evaluator rather than executing arbitrary
+KubeFacet implements a small, native evaluator rather than executing arbitrary
 kubectl templates. It accepts property lookup, quoted keys, non-negative array
 indexes, and array wildcards only. Filters, scripts, recursive descent,
 functions, template directives, and surrounding text are rejected. Regular
@@ -153,7 +153,7 @@ server, memory, CPU, and data-exposure analysis. See
 
 ## Budget rejection and data removal
 
-When the effective configuration budget rejects a `Kubeseer`, the runtime
+When the effective configuration budget rejects a `Facet`, the runtime
 stops before policy, discovery, or observed-resource reads and removes that
 owner's route bindings. It composes a fixed status with
 `ConfigurationBudgetExceeded`, `AuthorizationNotEvaluated`,
@@ -166,7 +166,7 @@ UID, generation, deletion state, or policy epoch suppresses the write. A
 resource-version conflict or transient API failure is retryable, and a
 forbidden status-subresource write is reported as sanitized
 `StatusUnavailable`; in either case the old data may remain until a later
-successful attempt. Kubeseer does not emit an Event claiming removal for an
+successful attempt. KubeFacet does not emit an Event claiming removal for an
 unsuccessful write.
 
 Operational examples should project only identity, generation, condition
@@ -213,17 +213,17 @@ preserves both CRDs, all custom-resource instances, the access policy, and any
 external TLS Secret. This makes uninstall reversible and avoids implicit data
 destruction.
 
-The separate `kubeseer-purge` client is destructive. It requires an absolute
+The separate `kubefacet-purge` client is destructive. It requires an absolute
 kubeconfig, an explicit context, an exact confirmed API server, the same
-confirmed context, and the literal final token `purge-kubeseer-crds`. It
-deletes only Kubeseer's two collections and CRDs and stops if instance cleanup
+confirmed context, and the literal final token `purge-kubefacet-crds`. It
+deletes only KubeFacet's two collections and CRDs and stops if instance cleanup
 is blocked. See [Safe uninstall and explicit purge](installation.md#safe-uninstall-and-explicit-purge).
 
 ## Administrative checklist
 
 Before expanding an installation:
 
-1. Identify the exact fields that a proposed `Kubeseer` could publish.
+1. Identify the exact fields that a proposed `KubeFacet` could publish.
 2. Confirm the destination namespace's readers are allowed to see that data.
 3. Add the minimum resource Kind and namespace to the logical policy.
 4. Add matching plural resource and namespace RBAC to the manager.

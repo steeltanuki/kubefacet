@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package reconciliation composes the approved Kubeseer processing modules
+// Package reconciliation composes the approved Facet processing modules
 // into one controller-runtime reconciliation boundary.
 //
 // The package owns lifecycle tracking, exact authorized watch routing,

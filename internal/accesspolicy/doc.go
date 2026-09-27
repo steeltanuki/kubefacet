@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package accesspolicy compiles and evaluates the installation-wide ceiling
-// that bounds which Kubernetes resources Kubeseer may observe.
+// that bounds which Kubernetes resources Facet may observe.
 //
 // Responsibility: load the canonical access policy, compile immutable
 // fail-closed snapshots, and evaluate resource and namespace requests.

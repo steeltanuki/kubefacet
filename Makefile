@@ -26,11 +26,12 @@ manifests:
 
 verify:
 	./hack/verify-generated.sh
+	./hack/verify-project-identity.sh audit
 	./hack/verify-test-layer-policy.sh
 	./hack/verify-admission-boundaries.sh
 	./hack/verify-observability-boundaries.sh
 	./hack/verify-performance-and-limits-boundaries.sh
-	GOCACHE=$${GOCACHE:-/tmp/kubeseer-e2e-go-build} GOMODCACHE=$${GOMODCACHE:-/tmp/kubeseer-e2e-go-mod} ./hack/verify-e2e-boundaries.sh complete
+	GOCACHE=$${GOCACHE:-/tmp/kubefacet-e2e-go-build} GOMODCACHE=$${GOMODCACHE:-/tmp/kubefacet-e2e-go-mod} ./hack/verify-e2e-boundaries.sh complete
 	./hack/verify-package.sh
 	./hack/verify-local-environment.sh complete
 
@@ -64,11 +65,11 @@ package-apply-crds:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubeseer ./cmd/kubeseer
+	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubefacet ./cmd/kubefacet
 
 build-purge:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubeseer-purge ./cmd/kubeseer-purge
+	CGO_ENABLED=0 GOOS=$(or $(GOOS),linux) GOARCH=$(or $(GOARCH),amd64) go build -trimpath -ldflags="-s -w -X main.buildVersion=$(or $(VERSION),unknown) -X main.buildCommit=$(or $(COMMIT),unknown) -X main.buildDate=$(or $(BUILD_DATE),unknown)" -o bin/kubefacet-purge ./cmd/kubefacet-purge
 
 test:
 	@set -eu; \

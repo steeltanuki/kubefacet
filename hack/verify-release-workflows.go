@@ -178,7 +178,7 @@ func actionSteps(workflow object, prefix string) []object {
 func prepareWorkflowFixture(root, fixture string) (string, func()) {
 	check(fixture == "harmless-conditional-step" || fixture == "missing-required-command" || fixture == "public-write", "unknown workflow fixture: "+fixture)
 
-	fixtureRoot, err := os.MkdirTemp("", "kubeseer-release-workflow-fixture-")
+	fixtureRoot, err := os.MkdirTemp("", "kubefacet-release-workflow-fixture-")
 	check(err == nil, "cannot create temporary workflow fixture")
 	cleanup := func() {
 		if err := os.RemoveAll(fixtureRoot); err != nil {

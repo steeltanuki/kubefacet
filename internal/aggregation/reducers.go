@@ -18,9 +18,9 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func reduceAggregate(ctx context.Context, plan AggregatePlan, groups []*contributionGroup, failures []ResourceFailure) AggregateOutcome {

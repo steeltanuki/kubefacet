@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-readonly repository="steeltanuki/kubeseer"
+readonly repository="steeltanuki/kubefacet"
 readonly workflow_path=".github/workflows/release.yml"
 readonly http_helper="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/release-distribution-http.py"
 stage_output_dir=""
@@ -212,10 +212,10 @@ config = image.get("Config") or {}
 labels = config.get("Labels") or image.get("Labels") or {}
 version, revision, created = sys.argv[2:]
 required_labels = {
-    "org.opencontainers.image.title": "Kubeseer",
+    "org.opencontainers.image.title": "KubeFacet",
     "org.opencontainers.image.version": version,
     "org.opencontainers.image.revision": revision,
-    "org.opencontainers.image.source": "https://github.com/steeltanuki/kubeseer",
+    "org.opencontainers.image.source": "https://github.com/steeltanuki/kubefacet",
     "org.opencontainers.image.created": created,
     "org.opencontainers.image.licenses": "Apache-2.0",
 }
@@ -226,7 +226,7 @@ if image.get("Os", "").lower() != "linux" or image.get("Architecture", "").lower
     raise SystemExit("candidate image platform must be linux/amd64")
 if config.get("User") not in ("65532:65532", "65532"):
     raise SystemExit("candidate image must run as UID 65532")
-if config.get("Entrypoint") != ["/kubeseer", "manager"]:
+if config.get("Entrypoint") != ["/kubefacet", "manager"]:
     raise SystemExit("candidate image must use the production manager entrypoint")
 image_id = str(image.get("Id", ""))
 if not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", image_id):
@@ -247,7 +247,7 @@ set_stage_output_dir() {
 		[[ -z "$(find "$stage_output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] || fail "candidate output directory must be empty"
 		stage_output_owned=false
 	else
-		stage_output_dir="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-release-candidate.XXXXXX")" || fail "cannot create run-owned candidate directory"
+		stage_output_dir="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-release-candidate.XXXXXX")" || fail "cannot create run-owned candidate directory"
 		stage_output_owned=true
 	fi
 }
@@ -274,30 +274,30 @@ stage_candidate() {
 
 	nonce="${GITHUB_RUN_ID:-local}-$RANDOM-$RANDOM-$$"
 	nonce="$(printf '%s' "$nonce" | tr -cd '[:alnum:]._-')"
-	staged_image_ref="localhost/kubeseer-release-candidate:${version}-${nonce}"
+	staged_image_ref="localhost/kubefacet-release-candidate:${version}-${nonce}"
 	podman build --pull=always --platform linux/amd64 --format oci --timestamp "$commit_epoch" \
 		--build-arg "VERSION=$version" --build-arg "COMMIT=$source_sha" --build-arg "BUILD_DATE=$build_date" \
 		--tag "$staged_image_ref" --file "$root/Dockerfile" "$root" || fail "production Dockerfile image build failed"
 	podman image inspect "$staged_image_ref" >"$stage_output_dir/image-inspect.json" || fail "cannot inspect built controller image"
 	image_id="$(verify_image_candidate "$stage_output_dir/image-inspect.json" "$version" "$source_sha" "$build_date")" || fail "controller image metadata or security contract failed"
-	expected_image="ghcr.io/steeltanuki/kubeseer:$version"
+	expected_image="ghcr.io/steeltanuki/kubefacet:$version"
 	local version_output
-	version_output="$(podman run --rm --network=none --pull=never --entrypoint /kubeseer "$staged_image_ref" version 2>&1)" || fail "built controller executable could not report its release identity"
-	[[ "$version_output" == "kubeseer version=$version commit=$source_sha date=$build_date" ]] || fail "controller executable metadata does not match the release identity"
-	local image_archive="$stage_output_dir/kubeseer-controller.oci.tar"
+	version_output="$(podman run --rm --network=none --pull=never --entrypoint /kubefacet "$staged_image_ref" version 2>&1)" || fail "built controller executable could not report its release identity"
+	[[ "$version_output" == "kubefacet version=$version commit=$source_sha date=$build_date" ]] || fail "controller executable metadata does not match the release identity"
+	local image_archive="$stage_output_dir/kubefacet-controller.oci.tar"
 	podman save --format oci-archive --output "$image_archive" "$staged_image_ref" >/dev/null || fail "cannot preserve the verified OCI image for release publication"
 	local image_manifest_digest
 	image_manifest_digest="$(python3 "$http_helper" archive-manifest --archive "$image_archive" | python3 -c 'import json,sys; print(json.load(sys.stdin)["manifest_digest"])')" || fail "cannot identify the staged OCI image manifest"
 
 	local chart_stage="$stage_output_dir/chart-source"
 	mkdir "$chart_stage"
-	cp -a "$root/charts/kubeseer/." "$chart_stage/"
+	cp -a "$root/charts/kubefacet/." "$chart_stage/"
 	find "$chart_stage" -exec touch -h -d "@$commit_epoch" {} + || fail "cannot normalize canonical chart package timestamps"
 	helm package "$chart_stage" --destination "$stage_output_dir" >/dev/null || fail "canonical Helm chart packaging failed"
-	local archive="$stage_output_dir/kubeseer-$version.tgz"
-	[[ -f "$archive" ]] || fail "canonical Helm package did not produce kubeseer-$version.tgz"
+	local archive="$stage_output_dir/kubefacet-$version.tgz"
+	[[ -f "$archive" ]] || fail "canonical Helm package did not produce kubefacet-$version.tgz"
 	python3 "$http_helper" normalize-chart --archive "$archive" --epoch "$commit_epoch" || fail "cannot normalize canonical Helm archive metadata"
-	[[ "$(find "$stage_output_dir" -maxdepth 1 -type f -name 'kubeseer-*.tgz' | wc -l | tr -d ' ')" == 1 ]] || fail "candidate directory must contain exactly one Kubeseer chart archive"
+	[[ "$(find "$stage_output_dir" -maxdepth 1 -type f -name 'kubefacet-*.tgz' | wc -l | tr -d ' ')" == 1 ]] || fail "candidate directory must contain exactly one KubeFacet chart archive"
 	tar -tzf "$archive" >"$stage_output_dir/archive-files.txt" || fail "cannot list packaged Helm chart"
 python3 - "$stage_output_dir/archive-files.txt" <<'PY'
 import pathlib
@@ -305,28 +305,28 @@ import sys
 
 for item in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
     path = pathlib.PurePosixPath(item)
-    if path.is_absolute() or ".." in path.parts or not item.startswith("kubeseer/"):
+    if path.is_absolute() or ".." in path.parts or not item.startswith("kubefacet/"):
         raise SystemExit(f"unsafe or unexpected Helm archive path: {item}")
 PY
 	mkdir "$stage_output_dir/unpacked"
 	tar -xzf "$archive" --no-same-owner --no-same-permissions -C "$stage_output_dir/unpacked"
-	local unpacked_chart="$stage_output_dir/unpacked/kubeseer"
+	local unpacked_chart="$stage_output_dir/unpacked/kubefacet"
 	[[ -f "$unpacked_chart/Chart.yaml" ]] || fail "Helm archive lacks the canonical Chart.yaml"
 	helm show chart "$archive" >/dev/null || fail "Helm cannot read the packaged chart metadata"
 	chart_version="$(chart_field "$unpacked_chart/Chart.yaml" version)" || fail "cannot read packaged chart version"
 	chart_app_version="$(chart_field "$unpacked_chart/Chart.yaml" appVersion)" || fail "cannot read packaged chart appVersion"
 	[[ "$chart_version" == "$version" ]] || fail "packaged Helm chart version does not match release version"
 	[[ "$chart_app_version" == "$version" ]] || fail "packaged Helm chart appVersion does not match release version"
-	helm show chart "$root/charts/kubeseer" >"$stage_output_dir/source-chart-metadata.yaml" || fail "Helm cannot read tagged canonical chart metadata"
+	helm show chart "$root/charts/kubefacet" >"$stage_output_dir/source-chart-metadata.yaml" || fail "Helm cannot read tagged canonical chart metadata"
 	helm show chart "$archive" >"$stage_output_dir/packaged-chart-metadata.yaml" || fail "Helm cannot read packaged chart metadata"
 	cmp -s "$stage_output_dir/source-chart-metadata.yaml" "$stage_output_dir/packaged-chart-metadata.yaml" || fail "packaged chart metadata differs from the tagged canonical chart"
-	chart_source_digest="$(tree_digest "$root/charts/kubeseer")" || fail "cannot hash the tagged canonical chart"
+	chart_source_digest="$(tree_digest "$root/charts/kubefacet")" || fail "cannot hash the tagged canonical chart"
 	local chart_packaged_digest
 	chart_packaged_digest="$(tree_digest "$unpacked_chart")" || fail "cannot hash the packaged canonical chart"
 	[[ "$chart_source_digest" == "$chart_packaged_digest" ]] || fail "packaged chart content differs from the tagged canonical chart"
 	chart_metadata_digest="$(sha256sum "$stage_output_dir/source-chart-metadata.yaml" | awk '{print $1}')"
 	chart_content_digest="$(printf '%s\n%s\n' "$chart_metadata_digest" "$chart_source_digest" | sha256sum | awk '{print $1}')"
-	helm template kubeseer "$archive" --namespace kubeseer-system --kube-version 1.35.6 --include-crds >"$stage_output_dir/rendered-chart.yaml" || fail "packaged chart cannot be rendered with the certified Kubernetes version"
+	helm template kubefacet "$archive" --namespace kubefacet-system --kube-version 1.35.6 --include-crds >"$stage_output_dir/rendered-chart.yaml" || fail "packaged chart cannot be rendered with the certified Kubernetes version"
 	python3 - "$stage_output_dir/rendered-chart.yaml" "$expected_image" <<'PY'
 import pathlib
 import re
@@ -360,9 +360,9 @@ data = {
     "image_candidate": image_ref,
     "image_config_digest": image_id,
     "image_manifest_digest": image_manifest_digest,
-    "image_archive": "kubeseer-controller.oci.tar",
+    "image_archive": "kubefacet-controller.oci.tar",
     "image_reference": default_image,
-    "chart_archive": f"kubeseer-{version}.tgz",
+    "chart_archive": f"kubefacet-{version}.tgz",
     "chart_archive_sha256": chart_digest,
     "chart_content_sha256": chart_content_digest,
 }
@@ -397,8 +397,8 @@ validate_source() {
 	git -C "$root" merge-base --is-ancestor "$resolved_sha" refs/remotes/origin/main || fail "tagged commit is not reachable from origin/main"
 	git -C "$root" cat-file -e "$resolved_sha:$workflow_path" 2>/dev/null || fail "tagged source does not contain the official release workflow"
 
-	local chart="$root/charts/kubeseer/Chart.yaml"
-	[[ -f "$chart" ]] || fail "tagged source is missing charts/kubeseer/Chart.yaml"
+	local chart="$root/charts/kubefacet/Chart.yaml"
+	[[ -f "$chart" ]] || fail "tagged source is missing charts/kubefacet/Chart.yaml"
 	chart_version="$(chart_field "$chart" version)" || fail "cannot read Chart.yaml version"
 	chart_app_version="$(chart_field "$chart" appVersion)" || fail "cannot read Chart.yaml appVersion"
 	[[ "$chart_version" == "$version" ]] || fail "Chart.yaml version does not match release version $version"
@@ -406,12 +406,12 @@ validate_source() {
 
 	notes_path="docs/releases/$tag.md"
 	git -C "$root" cat-file -e "$resolved_sha:$notes_path" 2>/dev/null || fail "tagged source is missing maintainer release notes: $notes_path"
-	note_file="$(mktemp "${TMPDIR:-/tmp}/kubeseer-release-notes.XXXXXX")" || fail "cannot create temporary release-note inspection file"
+	note_file="$(mktemp "${TMPDIR:-/tmp}/kubefacet-release-notes.XXXXXX")" || fail "cannot create temporary release-note inspection file"
 	if ! git -C "$root" show "$resolved_sha:$notes_path" >"$note_file"; then
 		rm -f "$note_file"
 		fail "cannot read tagged maintainer release notes: $notes_path"
 	fi
-	if ! grep -Fqx "# Kubeseer $tag" "$note_file"; then
+	if ! grep -Fqx "# KubeFacet $tag" "$note_file"; then
 		rm -f "$note_file"
 		fail "release notes must identify $tag in the title"
 	fi
@@ -474,7 +474,7 @@ candidate_value() {
 validate_candidate() {
 	local directory="$1" tag="$2" source_sha="$3" version="$4"
 	[[ -d "$directory" && -f "$directory/candidate.json" ]] || fail "candidate directory lacks candidate.json"
-	[[ -f "$directory/kubeseer-controller.oci.tar" && -f "$directory/kubeseer-$version.tgz" ]] || fail "candidate directory lacks the staged OCI image or Helm archive"
+	[[ -f "$directory/kubefacet-controller.oci.tar" && -f "$directory/kubefacet-$version.tgz" ]] || fail "candidate directory lacks the staged OCI image or Helm archive"
 	python3 - "$directory/candidate.json" "$tag" "$version" "$source_sha" <<'PY'
 import json
 import pathlib
@@ -483,8 +483,8 @@ import sys
 data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 tag, version, source = sys.argv[2:]
 expected = {"tag": tag, "version": version, "source_commit": source,
-            "platform": "linux/amd64", "image_reference": f"ghcr.io/steeltanuki/kubeseer:{version}",
-            "image_archive": "kubeseer-controller.oci.tar", "chart_archive": f"kubeseer-{version}.tgz"}
+            "platform": "linux/amd64", "image_reference": f"ghcr.io/steeltanuki/kubefacet:{version}",
+            "image_archive": "kubefacet-controller.oci.tar", "chart_archive": f"kubefacet-{version}.tgz"}
 for key, value in expected.items():
     if data.get(key) != value:
         raise SystemExit(f"candidate {key} does not match the verified release source")
@@ -493,9 +493,9 @@ for key in ("image_config_digest", "image_manifest_digest"):
         raise SystemExit(f"candidate {key} is not a SHA-256 digest")
 PY
 	local archive_digest manifest_digest
-	archive_digest="$(sha256sum "$directory/kubeseer-$version.tgz" | awk '{print $1}')"
+	archive_digest="$(sha256sum "$directory/kubefacet-$version.tgz" | awk '{print $1}')"
 	[[ "$archive_digest" == "$(candidate_value "$directory" chart_archive_sha256)" ]] || fail "candidate Helm archive changed after staging"
-	manifest_digest="$(python3 "$http_helper" archive-manifest --archive "$directory/kubeseer-controller.oci.tar" | python3 -c 'import json,sys; print(json.load(sys.stdin)["manifest_digest"])')" || fail "cannot verify staged OCI image manifest"
+	manifest_digest="$(python3 "$http_helper" archive-manifest --archive "$directory/kubefacet-controller.oci.tar" | python3 -c 'import json,sys; print(json.load(sys.stdin)["manifest_digest"])')" || fail "cannot verify staged OCI image manifest"
 	[[ "$manifest_digest" == "$(candidate_value "$directory" image_manifest_digest)" ]] || fail "candidate OCI image manifest changed after staging"
 }
 
@@ -513,10 +513,10 @@ data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 labels = data.get("labels") or {}
 version, revision = sys.argv[2:]
 expected = {
-    "org.opencontainers.image.title": "Kubeseer",
+    "org.opencontainers.image.title": "KubeFacet",
     "org.opencontainers.image.version": version,
     "org.opencontainers.image.revision": revision,
-    "org.opencontainers.image.source": "https://github.com/steeltanuki/kubeseer",
+    "org.opencontainers.image.source": "https://github.com/steeltanuki/kubefacet",
     "org.opencontainers.image.licenses": "Apache-2.0",
 }
 for key, value in expected.items():
@@ -529,25 +529,25 @@ PY
 
 verify_public_chart() {
 	local version="$1" candidate_dir="$2" scratch="$3" expected_digest="$4"
-	local pull_dir="$scratch/chart-pull" archive="$scratch/chart-pull/kubeseer-$version.tgz" chart_ref="oci://$(registry_host)/steeltanuki/charts/kubeseer"
+	local pull_dir="$scratch/chart-pull" archive="$scratch/chart-pull/kubefacet-$version.tgz" chart_ref="oci://$(registry_host)/steeltanuki/charts/kubefacet"
 	local -a flags=() transport_flags=()
 	mkdir -p "$pull_dir"
 	helm_transport_flags pull
 	flags=("${transport_flags[@]}")
 	helm pull "$chart_ref" --version "$version" --destination "$pull_dir" --registry-config "$candidate_dir/helm-anonymous.json" "${flags[@]}" >/dev/null || fail "published Helm OCI chart is not publicly retrievable"
 	[[ -f "$archive" ]] || fail "Helm OCI pull did not produce the expected versioned chart archive"
-	cmp -s "$candidate_dir/kubeseer-$version.tgz" "$archive" || fail "published Helm OCI chart bytes differ from the staged canonical chart"
+	cmp -s "$candidate_dir/kubefacet-$version.tgz" "$archive" || fail "published Helm OCI chart bytes differ from the staged canonical chart"
 	local metadata_version metadata_app_version archive_digest
-	metadata_version="$(chart_field "$candidate_dir/unpacked/kubeseer/Chart.yaml" version)" || fail "staged chart metadata cannot be read"
-	metadata_app_version="$(chart_field "$candidate_dir/unpacked/kubeseer/Chart.yaml" appVersion)" || fail "staged chart appVersion cannot be read"
+	metadata_version="$(chart_field "$candidate_dir/unpacked/kubefacet/Chart.yaml" version)" || fail "staged chart metadata cannot be read"
+	metadata_app_version="$(chart_field "$candidate_dir/unpacked/kubefacet/Chart.yaml" appVersion)" || fail "staged chart appVersion cannot be read"
 	[[ "$metadata_version" == "$version" && "$metadata_app_version" == "$version" ]] || fail "published chart metadata does not match release version"
 	archive_digest="$(sha256sum "$archive" | awk '{print $1}')"
 	[[ "$archive_digest" == "$(candidate_value "$candidate_dir" chart_archive_sha256)" ]] || fail "pulled Helm chart archive digest differs from the candidate"
 	local rendered="$scratch/published-chart.yaml"
 	helm_transport_flags template
 	flags=("${transport_flags[@]}")
-	helm template kubeseer "$chart_ref" --version "$version" --namespace kubeseer-system --kube-version 1.35.6 --include-crds --registry-config "$candidate_dir/helm-anonymous.json" "${flags[@]}" >"$rendered" || fail "published Helm OCI chart cannot be rendered"
-	python3 - "$rendered" "ghcr.io/steeltanuki/kubeseer:$version" <<'PY'
+	helm template kubefacet "$chart_ref" --version "$version" --namespace kubefacet-system --kube-version 1.35.6 --include-crds --registry-config "$candidate_dir/helm-anonymous.json" "${flags[@]}" >"$rendered" || fail "published Helm OCI chart cannot be rendered"
+	python3 - "$rendered" "ghcr.io/steeltanuki/kubefacet:$version" <<'PY'
 import pathlib
 import re
 import sys
@@ -560,7 +560,7 @@ if any(image.endswith(":latest") for image in images):
     raise SystemExit("published Helm chart renders a forbidden latest image tag")
 PY
 	local manifest_file="$scratch/chart-manifest.json"
-	registry_probe chart steeltanuki/charts/kubeseer "$version" "$manifest_file"
+	registry_probe chart steeltanuki/charts/kubefacet "$version" "$manifest_file"
 	[[ "$(json_value "$manifest_file" state)" == present ]] || fail "published Helm OCI chart version disappeared after pull"
 	local digest
 	digest="$(json_value "$manifest_file" digest)"
@@ -572,7 +572,7 @@ release_sentinel() {
 	local body="$1"
 	python3 - "$body" <<'PY'
 import pathlib, re, sys
-matches = re.findall(r"^<!-- kubeseer-release-distribution ([^>]+) -->$", pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), re.M)
+matches = re.findall(r"^<!-- kubefacet-release-distribution ([^>]+) -->$", pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), re.M)
 print(matches[0] if len(matches) == 1 else "")
 PY
 }
@@ -596,18 +596,18 @@ PY
 	k8s="${release_toolchain[0]:-}"
 	helm_min="${release_toolchain[1]:-}"
 	[[ -n "$k8s" && -n "$helm_min" && -f "$notes" ]] || fail "cannot derive supported versions or tagged release notes"
-	chart_url="oci://ghcr.io/steeltanuki/charts/kubeseer"
-	image_ref="ghcr.io/steeltanuki/kubeseer:$version"
+	chart_url="oci://ghcr.io/steeltanuki/charts/kubefacet"
+	image_ref="ghcr.io/steeltanuki/kubefacet:$version"
 	{
-		printf '<!-- kubeseer-release-distribution version=%s source_sha=%s image_digest=%s chart_digest=%s chart_archive_sha256=%s latest_image=%s latest_chart=%s -->\n\n' \
+		printf '<!-- kubefacet-release-distribution version=%s source_sha=%s image_digest=%s chart_digest=%s chart_archive_sha256=%s latest_image=%s latest_chart=%s -->\n\n' \
 			"$version" "$source_sha" "$image_digest" "$chart_digest" "$archive_sha" "$latest_image" "$latest_chart"
-		printf '# Kubeseer %s\n\n' "$tag"
+		printf '# KubeFacet %s\n\n' "$tag"
 		printf '**Version:** %s  \n**Source tag:** %s  \n**Source commit:** %s  \n' "$version" "$tag" "$source_sha"
 		printf '**Certified Kubernetes versions:** %s  \n**Minimum Helm version:** %s  \n**Controller platform:** linux/amd64\n\n' "$k8s" "$helm_min"
 		printf '**Controller image:** %s  \n**Controller image digest:** %s  \n' "$image_ref" "$image_digest"
 		printf '**Helm OCI chart:** %s (version %s)  \n**Helm OCI chart digest:** %s  \n**Chart archive SHA-256:** %s\n\n' "$chart_url" "$version" "$chart_digest" "$archive_sha"
-		printf 'Install this official release:\n\n<pre><code>helm upgrade --install kubeseer %s --version %s --namespace kubeseer-system --create-namespace</code></pre>\n\n' "$chart_url" "$version"
-		printf 'Review [installation and upgrade documentation](https://github.com/steeltanuki/kubeseer/blob/%s/docs/installation.md) and [CRD upgrade guidance](https://github.com/steeltanuki/kubeseer/blob/%s/docs/installation.md#policy-rbac-and-upgrades) before upgrading.\n\n' "$tag" "$tag"
+		printf 'Install this official release:\n\n<pre><code>helm upgrade --install kubefacet %s --version %s --namespace kubefacet-system --create-namespace</code></pre>\n\n' "$chart_url" "$version"
+		printf 'Review [installation and upgrade documentation](https://github.com/steeltanuki/kubefacet/blob/%s/docs/installation.md) and [CRD upgrade guidance](https://github.com/steeltanuki/kubefacet/blob/%s/docs/installation.md#policy-rbac-and-upgrades) before upgrading.\n\n' "$tag" "$tag"
 		printf '## Release notes\n\n'
 		cat "$notes"
 	} >"$destination"
@@ -630,10 +630,10 @@ PY
 
 remote_inventory() {
 	local tag="$1" version="$2" source_sha="$3" directory="$4"
-	registry_inventory_probe image steeltanuki/kubeseer "$version" "$directory/image.json"
-	registry_inventory_probe chart steeltanuki/charts/kubeseer "$version" "$directory/chart.json"
-	registry_inventory_probe image steeltanuki/kubeseer latest "$directory/image-latest.json"
-	registry_inventory_probe chart steeltanuki/charts/kubeseer latest "$directory/chart-latest.json"
+	registry_inventory_probe image steeltanuki/kubefacet "$version" "$directory/image.json"
+	registry_inventory_probe chart steeltanuki/charts/kubefacet "$version" "$directory/chart.json"
+	registry_inventory_probe image steeltanuki/kubefacet latest "$directory/image-latest.json"
+	registry_inventory_probe chart steeltanuki/charts/kubefacet latest "$directory/chart-latest.json"
 	github_tag_identity "$tag" "$directory/github-tag.json"
 	[[ "$(json_value "$directory/github-tag.json" sha)" == "$source_sha" ]] || fail "GitHub release tag resolves to a different source commit"
 	github_release_identity "$tag" "$directory/github-release.json"
@@ -649,8 +649,8 @@ latest_baseline() {
 
 check_latest_unchanged() {
 	local expected_image="$1" expected_chart="$2" directory="$3" actual_image actual_chart
-	actual_image="$(latest_baseline image steeltanuki/kubeseer "$directory/image-latest-after.json")"
-	actual_chart="$(latest_baseline chart steeltanuki/charts/kubeseer "$directory/chart-latest-after.json")"
+	actual_image="$(latest_baseline image steeltanuki/kubefacet "$directory/image-latest-after.json")"
+	actual_chart="$(latest_baseline chart steeltanuki/charts/kubefacet "$directory/chart-latest-after.json")"
 	[[ "$actual_image" == "$expected_image" ]] || fail "release workflow created or changed the controller latest tag"
 	[[ "$actual_chart" == "$expected_chart" ]] || fail "release workflow created or changed a latest Helm OCI artifact"
 }
@@ -659,7 +659,7 @@ acquire_release_lock() {
 	local version="$1" lock_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 	command -v flock >/dev/null 2>&1 || fail "flock is required to serialize same-version release publication"
 	mkdir -p "$lock_root"
-	exec 9>"$lock_root/kubeseer-release-distribution-$version.lock"
+	exec 9>"$lock_root/kubefacet-release-distribution-$version.lock"
 	flock 9 || fail "cannot acquire the per-version release publication lock"
 }
 
@@ -690,7 +690,7 @@ check_tools() {
 	done
 	# Parse the actual publication options without contacting or writing a registry.
 	local -a push_flags=()
-	image_push_flags /tmp/kubeseer-release-toolcheck
+	image_push_flags /tmp/kubefacet-release-toolcheck
 	podman push "${push_flags[@]}" --help >/dev/null || fail "installed Podman cannot parse the image publication options"
 	podman build --platform linux/amd64 --format oci --timestamp 0 --help >/dev/null || fail "installed Podman cannot parse the image build options"
 	helm push --registry-config /dev/null --help >/dev/null || fail "installed Helm does not support OCI publication"
@@ -706,7 +706,7 @@ push_candidate_image() {
 	local -a push_flags=()
 	image_push_flags "$directory"
 	staged_image_ref="$(candidate_value "$directory" image_candidate)"
-	podman load --input "$directory/kubeseer-controller.oci.tar" >/dev/null || fail "cannot restore the staged production OCI image into Podman storage"
+	podman load --input "$directory/kubefacet-controller.oci.tar" >/dev/null || fail "cannot restore the staged production OCI image into Podman storage"
 	podman image exists "$staged_image_ref" || fail "staged OCI image archive did not preserve its unique candidate reference"
 	podman push "${push_flags[@]}" "$staged_image_ref" "docker://$destination" >/dev/null || fail "controller image publication failed"
 }
@@ -717,7 +717,7 @@ publish_chart_archive() {
 	local -a flags=(--registry-config "$directory/helm-publish.json") transport_flags=()
 	helm_transport_flags push
 	flags+=("${transport_flags[@]}")
-	helm push "$directory/kubeseer-$version.tgz" "$destination" "${flags[@]}" >/dev/null || fail "Helm OCI chart publication failed"
+	helm push "$directory/kubefacet-$version.tgz" "$destination" "${flags[@]}" >/dev/null || fail "Helm OCI chart publication failed"
 }
 
 validate_existing_release_body() {
@@ -754,7 +754,7 @@ publish_transaction() {
 	prepare_registry_credentials "$directory"
 	image_digest="$(candidate_value "$directory" image_manifest_digest)"
 	archive_sha="$(candidate_value "$directory" chart_archive_sha256)"
-	image_destination="$(registry_host)/steeltanuki/kubeseer:$version"
+	image_destination="$(registry_host)/steeltanuki/kubefacet:$version"
 	remote_inventory "$tag" "$version" "$source_sha" "$directory"
 	image_latest="$(json_value "$directory/image-latest.json" state)"
 	if [[ "$image_latest" == present ]]; then image_latest="$(json_value "$directory/image-latest.json" digest)"; else image_latest=absent; fi
@@ -775,19 +775,19 @@ publish_transaction() {
 		cmp -s "$directory/existing-release.md" "$directory/expected-release.md" || fail "existing GitHub Release body conflicts with the immutable release candidate"
 	fi
 	if [[ "$image_state" == absent && "$mode" != publish-chart && "$mode" != publish-release ]]; then
-		registry_inventory_probe image steeltanuki/kubeseer "$version" "$directory/image-immediate.json"
+		registry_inventory_probe image steeltanuki/kubefacet "$version" "$directory/image-immediate.json"
 		if [[ "$(json_value "$directory/image-immediate.json" state)" == present ]]; then
 			assert_public_image "$directory/image-immediate.json" "$version" "$source_sha" "$image_digest"
 		else
 			push_candidate_image "$directory" "$image_destination"
-			registry_probe image steeltanuki/kubeseer "$version" "$directory/image-after-push.json"
+			registry_probe image steeltanuki/kubefacet "$version" "$directory/image-after-push.json"
 			assert_public_image "$directory/image-after-push.json" "$version" "$source_sha" "$image_digest"
 			[[ "$(cat "$directory/pushed-image-digest.txt")" == "$image_digest" ]] || fail "image push digest differs from the staged OCI manifest"
 		fi
 		image_state=present
 	fi
 	if [[ "$chart_state" == absent && "$mode" != publish-image && "$mode" != publish-release ]]; then
-		registry_inventory_probe chart steeltanuki/charts/kubeseer "$version" "$directory/chart-immediate.json"
+		registry_inventory_probe chart steeltanuki/charts/kubefacet "$version" "$directory/chart-immediate.json"
 		if [[ "$(json_value "$directory/chart-immediate.json" state)" == present ]]; then
 			chart_digest="$(verify_public_chart "$version" "$directory" "$directory/chart-raced" "$chart_digest")"
 		else
@@ -805,7 +805,7 @@ publish_transaction() {
 	check_latest_unchanged "$image_latest" "$chart_latest" "$directory"
 	write_release_body "$directory/expected-release.md" "$tag" "$version" "$source_sha" "$image_digest" "$chart_digest" "$archive_sha" "$image_latest" "$chart_latest"
 	if [[ "$release_state" == absent ]]; then
-		GH_TOKEN="$GITHUB_TOKEN" gh release create "$tag" --verify-tag --repo "$repository" --title "Kubeseer $tag" --notes-file "$directory/expected-release.md" --latest=false >/dev/null || fail "GitHub Release creation failed after GHCR publication; rerun the same protected tag to recover missing release metadata"
+		GH_TOKEN="$GITHUB_TOKEN" gh release create "$tag" --verify-tag --repo "$repository" --title "KubeFacet $tag" --notes-file "$directory/expected-release.md" --latest=false >/dev/null || fail "GitHub Release creation failed after GHCR publication; rerun the same protected tag to recover missing release metadata"
 	fi
 	github_release_identity "$tag" "$directory/github-release-after.json"
 	[[ "$(json_value "$directory/github-release-after.json" state)" != absent ]] || fail "GitHub Release is not visible after creation"
@@ -819,7 +819,7 @@ run_inventory() {
 	local tag="$1" source_sha="$2" version scratch temp_root="${TMPDIR:-/tmp}"
 	version="$(stable_version "$tag")"
 	validate_source "$tag" "$source_sha" >/dev/null
-	scratch="$(mktemp -d "$temp_root/kubeseer-release-inventory.XXXXXX")"
+	scratch="$(mktemp -d "$temp_root/kubefacet-release-inventory.XXXXXX")"
 	remote_inventory "$tag" "$version" "$source_sha" "$scratch"
 	python3 - "$scratch" "$version" "$source_sha" <<'PY'
 import json, pathlib, sys
@@ -844,7 +844,7 @@ run_audit() {
 	version="$(stable_version "$tag")"
 	validate_source "$tag" "$source_sha" >/dev/null
 	temp_root="${TMPDIR:-/tmp}"
-	scratch="$(mktemp -d "$temp_root/kubeseer-release-audit.XXXXXX")"
+	scratch="$(mktemp -d "$temp_root/kubefacet-release-audit.XXXXXX")"
 	stage_output_dir="$scratch"
 	stage_output_owned=true
 	printf '{"auths":{}}\n' >"$scratch/helm-anonymous.json"
@@ -874,14 +874,14 @@ run_audit() {
 	local -a helm_flags=() transport_flags=()
 	helm_transport_flags pull
 	helm_flags=("${transport_flags[@]}")
-	helm pull "oci://$(registry_host)/steeltanuki/charts/kubeseer" --version "$version" --destination "$chart_pull" --registry-config "$scratch/helm-anonymous.json" "${helm_flags[@]}" >/dev/null || fail "audited public chart cannot be pulled"
-	local chart_archive="$chart_pull/kubeseer-$version.tgz" chart_metadata="$scratch/Chart.yaml"
+	helm pull "oci://$(registry_host)/steeltanuki/charts/kubefacet" --version "$version" --destination "$chart_pull" --registry-config "$scratch/helm-anonymous.json" "${helm_flags[@]}" >/dev/null || fail "audited public chart cannot be pulled"
+	local chart_archive="$chart_pull/kubefacet-$version.tgz" chart_metadata="$scratch/Chart.yaml"
 	[[ -f "$chart_archive" ]] || fail "audited Helm pull produced no versioned archive"
 	[[ "$(sha256sum "$chart_archive" | awk '{print $1}')" == "$archive_sha" ]] || fail "audited Helm chart archive content differs from the GitHub Release"
 	helm show chart "$chart_archive" >"$chart_metadata" || fail "audited chart metadata cannot be read"
-	cp "$chart_archive" "$scratch/kubeseer-$version.tgz"
-	mkdir -p "$scratch/unpacked/kubeseer"
-	cp "$chart_metadata" "$scratch/unpacked/kubeseer/Chart.yaml"
+	cp "$chart_archive" "$scratch/kubefacet-$version.tgz"
+	mkdir -p "$scratch/unpacked/kubefacet"
+	cp "$chart_metadata" "$scratch/unpacked/kubefacet/Chart.yaml"
 	python3 - "$scratch/candidate.json" "$archive_sha" <<'PY'
 import json, pathlib, sys
 pathlib.Path(sys.argv[1]).write_text(json.dumps({"chart_archive_sha256": sys.argv[2]}), encoding="utf-8")

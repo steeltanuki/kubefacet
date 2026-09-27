@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,16 +31,16 @@ import (
 )
 
 const (
-	// KubeseerWebhookPath is the stable endpoint for Kubeseer main resources.
-	KubeseerWebhookPath = "/validate-kubeseer-io-v1alpha1-kubeseer"
+	// FacetWebhookPath is the stable endpoint for Facet main resources.
+	FacetWebhookPath = "/validate-kubefacet-steeltanuki-it-v1alpha1-facet"
 
-	// KubeseerAccessPolicyWebhookPath is the stable endpoint for the singleton
+	// FacetAccessPolicyWebhookPath is the stable endpoint for the singleton
 	// installation access policy main resource.
-	KubeseerAccessPolicyWebhookPath = "/validate-kubeseer-io-v1alpha1-kubeseeraccesspolicy"
+	FacetAccessPolicyWebhookPath = "/validate-kubefacet-steeltanuki-it-v1alpha1-facetaccesspolicy"
 
-	validatingWebhookConfigurationName = "kubeseer-validating-webhook"
-	kubeseerWebhookName                = "kubeseer.kubeseer.io"
-	accessPolicyWebhookName            = "kubeseeraccesspolicy.kubeseer.io"
+	validatingWebhookConfigurationName = "kubefacet-validating-webhook"
+	facetWebhookName                   = "facet.kubefacet.steeltanuki.it"
+	accessPolicyWebhookName            = "facetaccesspolicy.kubefacet.steeltanuki.it"
 )
 
 // Register installs both typed validating handlers on the supplied
@@ -50,66 +50,66 @@ func Register(server webhook.Server, scheme *runtime.Scheme, validator *Validato
 	if server == nil || scheme == nil {
 		return
 	}
-	server.Register(KubeseerWebhookPath, NewKubeseerWebhook(scheme, validator))
-	server.Register(KubeseerAccessPolicyWebhookPath, NewKubeseerAccessPolicyWebhook(scheme, validator))
+	server.Register(FacetWebhookPath, NewFacetWebhook(scheme, validator))
+	server.Register(FacetAccessPolicyWebhookPath, NewFacetAccessPolicyWebhook(scheme, validator))
 }
 
-// NewKubeseerWebhook creates the generic controller-runtime validator for
-// Kubeseer objects.
-func NewKubeseerWebhook(scheme *runtime.Scheme, validator *Validator) *cradmission.Webhook {
-	return cradmission.WithValidator[*v1alpha1.Kubeseer](scheme, &kubeseerWebhookValidator{validator: validator})
+// NewFacetWebhook creates the generic controller-runtime validator for
+// Facet objects.
+func NewFacetWebhook(scheme *runtime.Scheme, validator *Validator) *cradmission.Webhook {
+	return cradmission.WithValidator[*v1alpha1.Facet](scheme, &facetWebhookValidator{validator: validator})
 }
 
-// NewKubeseerAccessPolicyWebhook creates the generic controller-runtime
-// validator for KubeseerAccessPolicy objects.
-func NewKubeseerAccessPolicyWebhook(scheme *runtime.Scheme, validator *Validator) *cradmission.Webhook {
-	return cradmission.WithValidator[*v1alpha1.KubeseerAccessPolicy](scheme, &accessPolicyWebhookValidator{validator: validator})
+// NewFacetAccessPolicyWebhook creates the generic controller-runtime
+// validator for FacetAccessPolicy objects.
+func NewFacetAccessPolicyWebhook(scheme *runtime.Scheme, validator *Validator) *cradmission.Webhook {
+	return cradmission.WithValidator[*v1alpha1.FacetAccessPolicy](scheme, &accessPolicyWebhookValidator{validator: validator})
 }
 
-type kubeseerWebhookValidator struct {
+type facetWebhookValidator struct {
 	validator *Validator
 }
 
-func (v *kubeseerWebhookValidator) ValidateCreate(ctx context.Context, object *v1alpha1.Kubeseer) (cradmission.Warnings, error) {
+func (v *facetWebhookValidator) ValidateCreate(ctx context.Context, object *v1alpha1.Facet) (cradmission.Warnings, error) {
 	return nil, v.validate(ctx, object)
 }
 
-func (v *kubeseerWebhookValidator) ValidateUpdate(ctx context.Context, _, object *v1alpha1.Kubeseer) (cradmission.Warnings, error) {
+func (v *facetWebhookValidator) ValidateUpdate(ctx context.Context, _, object *v1alpha1.Facet) (cradmission.Warnings, error) {
 	return nil, v.validate(ctx, object)
 }
 
-func (*kubeseerWebhookValidator) ValidateDelete(context.Context, *v1alpha1.Kubeseer) (cradmission.Warnings, error) {
+func (*facetWebhookValidator) ValidateDelete(context.Context, *v1alpha1.Facet) (cradmission.Warnings, error) {
 	return nil, nil
 }
 
-func (v *kubeseerWebhookValidator) validate(ctx context.Context, object *v1alpha1.Kubeseer) error {
+func (v *facetWebhookValidator) validate(ctx context.Context, object *v1alpha1.Facet) error {
 	if v == nil || v.validator == nil {
-		return unavailableError("Kubeseer")
+		return unavailableError("Facet")
 	}
-	return resultError("Kubeseer", v.validator.ValidateKubeseer(ctx, object))
+	return resultError("Facet", v.validator.ValidateFacet(ctx, object))
 }
 
 type accessPolicyWebhookValidator struct {
 	validator *Validator
 }
 
-func (v *accessPolicyWebhookValidator) ValidateCreate(ctx context.Context, object *v1alpha1.KubeseerAccessPolicy) (cradmission.Warnings, error) {
+func (v *accessPolicyWebhookValidator) ValidateCreate(ctx context.Context, object *v1alpha1.FacetAccessPolicy) (cradmission.Warnings, error) {
 	return nil, v.validate(ctx, object)
 }
 
-func (v *accessPolicyWebhookValidator) ValidateUpdate(ctx context.Context, _, object *v1alpha1.KubeseerAccessPolicy) (cradmission.Warnings, error) {
+func (v *accessPolicyWebhookValidator) ValidateUpdate(ctx context.Context, _, object *v1alpha1.FacetAccessPolicy) (cradmission.Warnings, error) {
 	return nil, v.validate(ctx, object)
 }
 
-func (*accessPolicyWebhookValidator) ValidateDelete(context.Context, *v1alpha1.KubeseerAccessPolicy) (cradmission.Warnings, error) {
+func (*accessPolicyWebhookValidator) ValidateDelete(context.Context, *v1alpha1.FacetAccessPolicy) (cradmission.Warnings, error) {
 	return nil, nil
 }
 
-func (v *accessPolicyWebhookValidator) validate(ctx context.Context, object *v1alpha1.KubeseerAccessPolicy) error {
+func (v *accessPolicyWebhookValidator) validate(ctx context.Context, object *v1alpha1.FacetAccessPolicy) error {
 	if v == nil || v.validator == nil {
-		return unavailableError("KubeseerAccessPolicy")
+		return unavailableError("FacetAccessPolicy")
 	}
-	return resultError("KubeseerAccessPolicy", v.validator.ValidateAccessPolicy(ctx, object))
+	return resultError("FacetAccessPolicy", v.validator.ValidateAccessPolicy(ctx, object))
 }
 
 func unavailableError(kind string) error {
@@ -173,9 +173,9 @@ func WebhookConfiguration(clientConfig admissionregistrationv1.WebhookClientConf
 		ObjectMeta: metav1.ObjectMeta{Name: validatingWebhookConfigurationName},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
 			{
-				Name:                    kubeseerWebhookName,
-				ClientConfig:            clientConfigForPath(clientConfig, KubeseerWebhookPath),
-				Rules:                   []admissionregistrationv1.RuleWithOperations{resourceRule(admissionregistrationv1.NamespacedScope, "kubeseers")},
+				Name:                    facetWebhookName,
+				ClientConfig:            clientConfigForPath(clientConfig, FacetWebhookPath),
+				Rules:                   []admissionregistrationv1.RuleWithOperations{resourceRule(admissionregistrationv1.NamespacedScope, "facets")},
 				FailurePolicy:           &failurePolicy,
 				MatchPolicy:             &matchPolicy,
 				SideEffects:             &sideEffects,
@@ -184,8 +184,8 @@ func WebhookConfiguration(clientConfig admissionregistrationv1.WebhookClientConf
 			},
 			{
 				Name:                    accessPolicyWebhookName,
-				ClientConfig:            clientConfigForPath(clientConfig, KubeseerAccessPolicyWebhookPath),
-				Rules:                   []admissionregistrationv1.RuleWithOperations{resourceRule(admissionregistrationv1.ClusterScope, "kubeseeraccesspolicies")},
+				ClientConfig:            clientConfigForPath(clientConfig, FacetAccessPolicyWebhookPath),
+				Rules:                   []admissionregistrationv1.RuleWithOperations{resourceRule(admissionregistrationv1.ClusterScope, "facetaccesspolicies")},
 				FailurePolicy:           &failurePolicy,
 				MatchPolicy:             &matchPolicy,
 				SideEffects:             &sideEffects,
@@ -239,5 +239,5 @@ func stringPointer(value string) *string {
 	return &value
 }
 
-var _ cradmission.Validator[*v1alpha1.Kubeseer] = (*kubeseerWebhookValidator)(nil)
-var _ cradmission.Validator[*v1alpha1.KubeseerAccessPolicy] = (*accessPolicyWebhookValidator)(nil)
+var _ cradmission.Validator[*v1alpha1.Facet] = (*facetWebhookValidator)(nil)
+var _ cradmission.Validator[*v1alpha1.FacetAccessPolicy] = (*accessPolicyWebhookValidator)(nil)

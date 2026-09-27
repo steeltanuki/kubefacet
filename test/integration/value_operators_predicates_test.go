@@ -17,8 +17,8 @@ package integration
 import (
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/operators"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/operators"
 )
 
 func assertValueOperatorPredicateScenarios(t *testing.T) {
@@ -27,7 +27,7 @@ func assertValueOperatorPredicateScenarios(t *testing.T) {
 	t.Run("string predicates are case-sensitive and existential", func(t *testing.T) {
 		cases := []struct {
 			name string
-			op   v1alpha1.KubeseerOperatorName
+			op   v1alpha1.FacetOperatorName
 			arg  string
 			want operators.ResourceState
 		}{
@@ -39,11 +39,11 @@ func assertValueOperatorPredicateScenarios(t *testing.T) {
 		}
 		for _, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
-				outcome := evaluateValueOperator(t, "predicate-"+test.name, v1alpha1.ValueTypeString, "HelloWorld", "{.data.value}", &v1alpha1.KubeseerOperator{Operator: test.op, Value: stringOperand(test.arg)})
+				outcome := evaluateValueOperator(t, "predicate-"+test.name, v1alpha1.ValueTypeString, "HelloWorld", "{.data.value}", &v1alpha1.FacetOperator{Operator: test.op, Value: stringOperand(test.arg)})
 				assertSingleResourceState(t, outcome, test.want)
 			})
 		}
-		multi := evaluateValueOperator(t, "predicate-multi", v1alpha1.ValueTypeString, []any{"other", nil, "HelloWorld"}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorContains, Value: stringOperand("World")})
+		multi := evaluateValueOperator(t, "predicate-multi", v1alpha1.ValueTypeString, []any{"other", nil, "HelloWorld"}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorContains, Value: stringOperand("World")})
 		assertSingleResourceState(t, multi, operators.ResourceAccepted)
 		if len(multi.Resources()[0].Fields()[0].Matches()) != 3 {
 			t.Fatalf("string predicate changed multi-match cardinality: %#v", multi.Resources()[0].Fields())
@@ -53,7 +53,7 @@ func assertValueOperatorPredicateScenarios(t *testing.T) {
 	t.Run("presence counts null and empty values but distinguishes absence", func(t *testing.T) {
 		presentCases := []struct {
 			name     string
-			typeName v1alpha1.KubeseerValueType
+			typeName v1alpha1.FacetValueType
 			value    any
 		}{
 			{name: "explicit null", typeName: v1alpha1.ValueTypeString, value: nil},
@@ -63,30 +63,30 @@ func assertValueOperatorPredicateScenarios(t *testing.T) {
 		}
 		for _, test := range presentCases {
 			t.Run(test.name, func(t *testing.T) {
-				outcome := evaluateValueOperator(t, "present-"+test.name, test.typeName, test.value, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorExists})
+				outcome := evaluateValueOperator(t, "present-"+test.name, test.typeName, test.value, "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorExists})
 				assertSingleResourceState(t, outcome, operators.ResourceAccepted)
 			})
 		}
-		absentExists := evaluateValueOperator(t, "absent-exists", v1alpha1.ValueTypeString, nil, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorExists})
+		absentExists := evaluateValueOperator(t, "absent-exists", v1alpha1.ValueTypeString, nil, "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorExists})
 		assertSingleResourceState(t, absentExists, operators.ResourceRejected)
-		absentNotExists := evaluateValueOperator(t, "absent-not-exists", v1alpha1.ValueTypeString, nil, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNotExists})
+		absentNotExists := evaluateValueOperator(t, "absent-not-exists", v1alpha1.ValueTypeString, nil, "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNotExists})
 		assertSingleResourceState(t, absentNotExists, operators.ResourceAccepted)
-		presentNotExists := evaluateValueOperator(t, "present-not-exists", v1alpha1.ValueTypeString, "", "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNotExists})
+		presentNotExists := evaluateValueOperator(t, "present-not-exists", v1alpha1.ValueTypeString, "", "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNotExists})
 		assertSingleResourceState(t, presentNotExists, operators.ResourceRejected)
 	})
 
 	t.Run("membership uses typed equality, duplicate members, and non-empty negative sets", func(t *testing.T) {
-		in := evaluateValueOperator(t, "membership-in", v1alpha1.ValueTypeString, []any{"other", nil, "target"}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorIn, Values: []v1alpha1.KubeseerOperatorOperand{stringOperandValue("target"), stringOperandValue("target")}})
+		in := evaluateValueOperator(t, "membership-in", v1alpha1.ValueTypeString, []any{"other", nil, "target"}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorIn, Values: []v1alpha1.FacetOperatorOperand{stringOperandValue("target"), stringOperandValue("target")}})
 		assertSingleResourceState(t, in, operators.ResourceAccepted)
-		notIn := evaluateValueOperator(t, "membership-not-in", v1alpha1.ValueTypeInteger, []any{int64(1), int64(2)}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.KubeseerOperatorOperand{*integerOperand(3), *integerOperand(3)}})
+		notIn := evaluateValueOperator(t, "membership-not-in", v1alpha1.ValueTypeInteger, []any{int64(1), int64(2)}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.FacetOperatorOperand{*integerOperand(3), *integerOperand(3)}})
 		assertSingleResourceState(t, notIn, operators.ResourceAccepted)
-		notInEqual := evaluateValueOperator(t, "membership-not-in-equal", v1alpha1.ValueTypeInteger, []any{int64(1), int64(2)}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.KubeseerOperatorOperand{*integerOperand(2)}})
+		notInEqual := evaluateValueOperator(t, "membership-not-in-equal", v1alpha1.ValueTypeInteger, []any{int64(1), int64(2)}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.FacetOperatorOperand{*integerOperand(2)}})
 		assertSingleResourceState(t, notInEqual, operators.ResourceRejected)
-		noMatch := evaluateValueOperator(t, "membership-no-match", v1alpha1.ValueTypeString, []any{"other", nil}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorIn, Values: []v1alpha1.KubeseerOperatorOperand{stringOperandValue("target")}})
+		noMatch := evaluateValueOperator(t, "membership-no-match", v1alpha1.ValueTypeString, []any{"other", nil}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorIn, Values: []v1alpha1.FacetOperatorOperand{stringOperandValue("target")}})
 		assertSingleResourceState(t, noMatch, operators.ResourceRejected)
-		allNull := evaluateValueOperator(t, "membership-all-null", v1alpha1.ValueTypeString, []any{nil, nil}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.KubeseerOperatorOperand{stringOperandValue("target")}})
+		allNull := evaluateValueOperator(t, "membership-all-null", v1alpha1.ValueTypeString, []any{nil, nil}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.FacetOperatorOperand{stringOperandValue("target")}})
 		assertSingleResourceState(t, allNull, operators.ResourceRejected)
-		absent := evaluateValueOperator(t, "membership-absent", v1alpha1.ValueTypeString, nil, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.KubeseerOperatorOperand{stringOperandValue("target")}})
+		absent := evaluateValueOperator(t, "membership-absent", v1alpha1.ValueTypeString, nil, "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNotIn, Values: []v1alpha1.FacetOperatorOperand{stringOperandValue("target")}})
 		assertSingleResourceState(t, absent, operators.ResourceRejected)
 	})
 }

@@ -16,7 +16,7 @@ fi
 readonly MODE="$1"
 readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ORIGINAL_PATH="$PATH"
-readonly FIXTURE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-local-acceptance.XXXXXX")"
+readonly FIXTURE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-local-acceptance.XXXXXX")"
 readonly BIN_DIR="$FIXTURE_DIR/bin"
 readonly STATE_DIR="$FIXTURE_DIR/state"
 readonly CACHE_DIR="$FIXTURE_DIR/cache"
@@ -43,16 +43,16 @@ cat >"$BIN_DIR/go" <<'EOF'
 set -euo pipefail
 if [[ "${1:-}" == version ]]; then printf '%s\n' 'go version go1.26.7 linux/amd64'; exit 0; fi
 printf 'go args=%s\n' "$*" >>"${TRACE_FILE:?}"
-if [[ "$*" == *'./cmd/kubeseer-local readiness'* ]]; then printf '%s\n' '{"phase":"readiness","status":"passed"}'; exit 0; fi
-if [[ "$*" == *'./cmd/kubeseer-local status'* ]]; then printf '%s\n' '{"cluster":{"clusterName":"kubeseer-local","context":"kind-kubeseer-local"}}'; exit 0; fi
-if [[ "$*" == *'./cmd/kubeseer-local diagnostics'* ]]; then
+if [[ "$*" == *'./cmd/kubefacet-local readiness'* ]]; then printf '%s\n' '{"phase":"readiness","status":"passed"}'; exit 0; fi
+if [[ "$*" == *'./cmd/kubefacet-local status'* ]]; then printf '%s\n' '{"cluster":{"clusterName":"kubefacet-local","context":"kind-kubefacet-local"}}'; exit 0; fi
+if [[ "$*" == *'./cmd/kubefacet-local diagnostics'* ]]; then
   destination=''; previous=''
   for argument in "$@"; do if [[ "$previous" == --destination ]]; then destination="$argument"; fi; previous="$argument"; done
   [[ -n "$destination" ]] || exit 71
   mkdir -p "$destination"; printf '%s\n' '{"schemaVersion":1,"completedSections":["versions","ownership"]}' >"$destination/manifest.json"
   printf 'LOCAL_DIAGNOSTICS=%s\n' "$destination"; exit 0
 fi
-if [[ "$*" == *'./cmd/kubeseer-local verify'* ]]; then
+if [[ "$*" == *'./cmd/kubefacet-local verify'* ]]; then
   example=''; previous=''
   for argument in "$@"; do if [[ "$previous" == --example ]]; then example="$argument"; fi; previous="$argument"; done
   if [[ -n "$example" ]]; then printf 'EXAMPLE=%s STATUS=passed\n' "$example"; else for example in builtin-resource typed-extraction value-operator cross-namespace-aggregation custom-resource authorization-denial partial-degradation; do printf 'EXAMPLE=%s STATUS=passed\n' "$example"; done; fi
@@ -76,7 +76,7 @@ cat >"$BIN_DIR/podman" <<'EOF'
 set -euo pipefail
 printf 'podman provider=%s kubeconfig=%s args=%s\n' "${KIND_EXPERIMENTAL_PROVIDER-<unset>}" "${KUBECONFIG-<unset>}" "$*" >>"${TRACE_FILE:?}"
 if [[ "${1:-}" == --version ]]; then printf '%s\n' 'podman version 5.8.4'; exit 0; fi
-if [[ "${PODMAN_FAIL_INFO-}" == 1 && "${1:-}" == info ]]; then exit 41; fi
+if [[ "${KUBEFACET_TEST_PODMAN_FAIL_INFO-}" == 1 && "${1:-}" == info ]]; then exit 41; fi
 if [[ "${1:-}" == info ]]; then printf '%s\n' 'true'; exit 0; fi
 if [[ "${1:-}" == container && "${2:-}" == inspect ]]; then
   if [[ "${PODMAN_INSPECT_FAIL-}" == 1 || ! -s "${CLUSTER_MARKER:?}" || ! -s "${CONTAINER_ID_FILE:?}" ]]; then
@@ -95,7 +95,7 @@ if [[ "${1:-}" == container && "${2:-}" == inspect ]]; then
 fi
 if [[ "${1:-}" == container && "${2:-}" == start ]]; then
   target="${@: -1}"
-  if [[ "${PODMAN_FAIL_START-}" == 1 ]]; then printf '%s\n' 'fixture Podman start failure' >&2; exit 50; fi
+  if [[ "${KUBEFACET_TEST_PODMAN_FAIL_START-}" == 1 ]]; then printf '%s\n' 'fixture Podman start failure' >&2; exit 50; fi
   [[ "$target" == "$(<"$CONTAINER_ID_FILE")" ]] || { printf 'fixture start target mismatch: %s\n' "$target" >&2; exit 51; }
   starts=$(( $(<"$CONTAINER_STARTS_FILE") + 1 ))
   printf '%s\n' "$starts" >"$CONTAINER_STARTS_FILE"
@@ -103,7 +103,7 @@ if [[ "${1:-}" == container && "${2:-}" == start ]]; then
   if [[ -n "${PODMAN_START_BINDING-}" ]]; then printf '%s\n' "$PODMAN_START_BINDING" >"$API_BINDING_FILE"; fi
   exit 0
 fi
-if [[ "${PODMAN_FAIL_BUILD-}" == 1 && "${1:-}" == build ]]; then exit 44; fi
+if [[ "${KUBEFACET_TEST_PODMAN_FAIL_BUILD-}" == 1 && "${1:-}" == build ]]; then exit 44; fi
 if [[ "${1:-}" == build ]]; then printf '%s\n' 'built'; exit 0; fi
 if [[ "${1:-}" == image && "${2:-}" == inspect ]]; then printf '%s\n' 'sha256:local-immutable-image'; exit 0; fi
 if [[ "${1:-}" == save ]]; then output=''; previous=''; for argument in "$@"; do if [[ "$previous" == --output ]]; then output="$argument"; fi; previous="$argument"; done; printf '%s\n' 'oci archive' >"$output"; exit 0; fi
@@ -120,7 +120,7 @@ if [[ "${1:-}" == get && "${2:-}" == nodes ]]; then
   if [[ -s "${CLUSTER_MARKER:?}" && "${KIND_FIXTURE_NODE_MISSING-}" != 1 ]]; then printf '%s-control-plane\n' "$(<"$CLUSTER_MARKER")"; fi
   exit 0
 fi
-if [[ "${KIND_FAIL_CREATE-}" == 1 && "${1:-}" == create ]]; then exit 42; fi
+if [[ "${KUBEFACET_TEST_KIND_FAIL_CREATE-}" == 1 && "${1:-}" == create ]]; then exit 42; fi
 if [[ "${1:-}" == create ]]; then
   kubeconfig=''; cluster=''; previous=''
   for argument in "$@"; do
@@ -158,7 +158,7 @@ KIND_KUBECONFIG
   printf '%s\n' 0 >"$CONTAINER_STARTS_FILE"
   exit 0
 fi
-if [[ "${KIND_FAIL_DELETE-}" == 1 && "${1:-}" == delete ]]; then exit 43; fi
+if [[ "${KUBEFACET_TEST_KIND_FAIL_DELETE-}" == 1 && "${1:-}" == delete ]]; then exit 43; fi
 if [[ "${1:-}" == delete ]]; then rm -f "$CLUSTER_MARKER"; exit 0; fi
 exit 0
 EOF
@@ -184,7 +184,7 @@ if [[ "$command" == version ]]; then
   if [[ -f "${API_AVAILABLE_FILE-}" && "$(<"$API_AVAILABLE_FILE")" != 1 ]]; then
     attempts=$(( $(<"$API_ATTEMPTS_FILE") + 1 ))
     printf '%s\n' "$attempts" >"$API_ATTEMPTS_FILE"
-    if [[ "${API_APPEAR_AFTER:-0}" =~ ^[0-9]+$ ]] && ((API_APPEAR_AFTER > 0 && attempts >= API_APPEAR_AFTER)); then printf '%s\n' 1 >"$API_AVAILABLE_FILE"; else exit 45; fi
+    if [[ "${KUBEFACET_TEST_API_APPEAR_AFTER:-0}" =~ ^[0-9]+$ ]] && ((KUBEFACET_TEST_API_APPEAR_AFTER > 0 && attempts >= KUBEFACET_TEST_API_APPEAR_AFTER)); then printf '%s\n' 1 >"$API_AVAILABLE_FILE"; else exit 45; fi
   fi
   printf '%s\n' '{"clientVersion":{"gitVersion":"v1.35.6"},"serverVersion":{"gitVersion":"v1.35.6"}}'; exit 0
 fi
@@ -193,7 +193,7 @@ if [[ "$command" == config && "${arguments[index+1]:-}" == view ]]; then
   sed -n -E 's/^[[:space:]]*server:[[:space:]]*([^[:space:]]+).*$/\1/p' "$kubeconfig" | head -n 1
   exit 0
 fi
-if [[ "${KUBESEER_FAIL_CERT-}" == 1 && "$command" == apply && "$*" == *cert-manager* ]]; then exit 47; fi
+if [[ "${KUBEFACET_FAIL_CERT-}" == 1 && "$command" == apply && "$*" == *cert-manager* ]]; then exit 47; fi
 if [[ "$command" == get && "${arguments[index+1]:-}" == nodes ]]; then cat "${API_NODES_FILE:?}"; exit 0; fi
 if [[ "$command" == apply || "$command" == wait || "$command" == delete || "$command" == get || "$command" == create || "$command" == patch || "$command" == replace ]]; then exit 0; fi
 if [[ "$command" == version ]]; then printf '%s\n' 'Client Version: v1.35.6'; exit 0; fi
@@ -205,7 +205,7 @@ cat >"$BIN_DIR/helm" <<'EOF'
 set -euo pipefail
 printf 'helm kubeconfig=%s args=%s\n' "${KUBECONFIG-<unset>}" "$*" >>"${TRACE_FILE:?}"
 if [[ "${1:-}" == version ]]; then printf '%s\n' 'v3.17.0+stub'; exit 0; fi
-if [[ "${HELM_FAIL_INSTALL-}" == 1 && "${1:-}" == upgrade ]]; then exit 49; fi
+if [[ "${KUBEFACET_TEST_HELM_FAIL_INSTALL-}" == 1 && "${1:-}" == upgrade ]]; then exit 49; fi
 exit 0
 EOF
 
@@ -218,7 +218,7 @@ output=''; previous=''; for argument in "$@"; do if [[ "$previous" == --output ]
 if [[ -n "$output" ]]; then printf '%s\n' '# pinned cert-manager manifest' >"$output"; fi
 url="${*: -1}"
 if [[ "$url" == *'/readyz' ]]; then printf '%s\n' 'ok'; fi
-if [[ "$url" == *'/metrics' ]]; then printf '%s\n' '# HELP kubeseer_reconciliations_total'; fi
+if [[ "$url" == *'/metrics' ]]; then printf '%s\n' '# HELP kubefacet_reconciliations_total'; fi
 EOF
 
 chmod +x "$BIN_DIR"/*
@@ -230,11 +230,11 @@ run_local() {
 		ROLE_LABEL_FILE="$ROLE_LABEL_FILE" API_BINDING_FILE="$API_BINDING_FILE" \
 		API_AVAILABLE_FILE="$API_AVAILABLE_FILE" API_NODES_FILE="$API_NODES_FILE" \
 		API_ATTEMPTS_FILE="$API_ATTEMPTS_FILE" CONTAINER_STARTS_FILE="$CONTAINER_STARTS_FILE" \
-		KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS="${KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS:-}" \
-		API_APPEAR_AFTER="${API_APPEAR_AFTER:-0}" PODMAN_FAIL_START="${PODMAN_FAIL_START:-0}" \
+		KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS="${KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS:-}" \
+		KUBEFACET_TEST_API_APPEAR_AFTER="${KUBEFACET_TEST_API_APPEAR_AFTER:-0}" KUBEFACET_TEST_PODMAN_FAIL_START="${KUBEFACET_TEST_PODMAN_FAIL_START:-0}" \
 		PODMAN_START_BINDING="${PODMAN_START_BINDING:-}" PODMAN_INSPECT_FAIL="${PODMAN_INSPECT_FAIL:-0}" \
 		KIND_FIXTURE_NODE_MISSING="${KIND_FIXTURE_NODE_MISSING:-0}" \
-		KUBESEER_LOCAL_STATE_DIR="$STATE_DIR" KUBESEER_LOCAL_CACHE_DIR="$CACHE_DIR" \
+		KUBEFACET_LOCAL_STATE_DIR="$STATE_DIR" KUBEFACET_LOCAL_CACHE_DIR="$CACHE_DIR" \
 		KUBECONFIG=/tmp/ambient-kubeconfig USE_EXISTING_CLUSTER=true AWS_SECRET_ACCESS_KEY=local-secret \
 		"$ROOT_DIR/hack/local-environment.sh" "$@"
 }
@@ -292,7 +292,7 @@ assert_read_only_resume_trace() {
 	assert_not_contains "$trace" 'args=save --format '
 	assert_not_contains "$trace" 'args=cp '
 	assert_not_contains "$trace" 'args=exec '
-	assert_not_contains "$trace" 'upgrade --install kubeseer'
+	assert_not_contains "$trace" 'upgrade --install kubefacet'
 	assert_not_contains "$trace" ' apply '
 	assert_not_contains "$trace" ' create '
 	assert_not_contains "$trace" ' patch '
@@ -380,7 +380,7 @@ assert_no_convergence_trace() {
 	assert_not_contains "$trace" 'args=save --format '
 	assert_not_contains "$trace" 'args=cp '
 	assert_not_contains "$trace" 'args=exec '
-	assert_not_contains "$trace" 'upgrade --install kubeseer'
+	assert_not_contains "$trace" 'upgrade --install kubefacet'
 	assert_not_contains "$trace" ' apply '
 	assert_not_contains "$trace" ' wait '
 	assert_not_contains "$trace" ' port-forward '
@@ -397,7 +397,7 @@ resume_state_checks() {
 	printf '%s\n' 0 >"$API_AVAILABLE_FILE"
 	printf '%s\n' exited >"$CONTAINER_STATE_FILE"
 	: >"$TRACE_FILE"
-	output="$(API_APPEAR_AFTER=2 KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS=5 run_local up 2>&1)"
+	output="$(KUBEFACET_TEST_API_APPEAR_AFTER=2 KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS=5 run_local up 2>&1)"
 	assert_contains "$output" 'LOCAL_ENVIRONMENT=up STATUS=passed'
 	assert_contains "$(<"$TRACE_FILE")" 'args=container start '
 	[[ "$(<"$CONTAINER_STARTS_FILE")" == 1 ]] || { printf '%s\n' 'resume did not start exactly one container' >&2; exit 1; }
@@ -410,7 +410,7 @@ resume_state_checks() {
 	assert_not_contains "$trace" 'args=create cluster'
 	assert_not_contains "$trace" 'args=delete cluster'
 	local helm_line
-	helm_line="$(rg -n 'upgrade --install kubeseer' "$TRACE_FILE" | head -n 1 | cut -d: -f1)"
+	helm_line="$(rg -n 'upgrade --install kubefacet' "$TRACE_FILE" | head -n 1 | cut -d: -f1)"
 	[[ -n "$helm_line" && "$api_line" -lt "$helm_line" ]] || { printf '%s\n' 'normal convergence began before API identity validation' >&2; exit 1; }
 
 	# A subsequent up validates and converges without another container start.
@@ -430,14 +430,14 @@ resume_state_checks() {
 
 	# Bad timeout is rejected before Podman mutation; start failures retain state.
 	: >"$TRACE_FILE"
-	output="$(KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS=0 expect_failure 'integer from 1 through 600' run_local up)"
+	output="$(KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS=0 expect_failure 'integer from 1 through 600' run_local up)"
 	assert_contains "$output" 'integer from 1 through 600'
 	assert_not_contains "$(<"$TRACE_FILE")" 'args=container start '
 	assert_resume_state_preserved
 
 	printf '%s\n' 0 >"$API_AVAILABLE_FILE"
 	: >"$TRACE_FILE"
-	output="$(PODMAN_FAIL_START=1 expect_failure 'failed to start owned node kubeseer-local-control-plane with Podman: fixture Podman start failure' run_local up)"
+	output="$(KUBEFACET_TEST_PODMAN_FAIL_START=1 expect_failure 'failed to start owned node kubefacet-local-control-plane with Podman: fixture Podman start failure' run_local up)"
 	assert_contains "$output" 'fixture Podman start failure'
 	[[ "$(<"$CONTAINER_STATE_FILE")" == exited ]] || { printf '%s\n' 'failed Podman start changed container state' >&2; exit 1; }
 	assert_not_contains "$(<"$TRACE_FILE")" 'version --request-timeout='
@@ -448,7 +448,7 @@ resume_state_checks() {
 	printf '%s\n' 0 >"$API_AVAILABLE_FILE"
 	printf '%s\n' 0 >"$API_ATTEMPTS_FILE"
 	: >"$TRACE_FILE"
-	output="$(KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS=2 expect_failure 'readiness wait expired after 2 seconds' run_local up)"
+	output="$(KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS=2 expect_failure 'readiness wait expired after 2 seconds' run_local up)"
 	assert_contains "$output" 'readiness wait expired after 2 seconds'
 	[[ "$(<"$CONTAINER_STATE_FILE")" == running ]] || { printf '%s\n' 'timed-out started node should remain available for diagnosis' >&2; exit 1; }
 	assert_no_convergence_trace "$(<"$TRACE_FILE")"
@@ -495,7 +495,7 @@ package_checks() {
 	assert_contains "$trace" 'args=exec '
 	assert_contains "$trace" 'ctr --namespace k8s.io images import'
 	assert_contains "$trace" 'cert-manager-v1.18.2.yaml'
-	assert_contains "$trace" 'upgrade --install kubeseer'
+	assert_contains "$trace" 'upgrade --install kubefacet'
 	assert_contains "$trace" '--atomic --cleanup-on-fail --wait'
 	assert_not_contains "$trace" 'docker.io'
 	assert_not_contains "$trace" 'podman image prune'
@@ -513,12 +513,12 @@ case "$MODE" in
 		if [[ "$MODE" == resume || "$MODE" == complete ]]; then resume_state_checks; fi
 		if [[ "$MODE" == ownership || "$MODE" == complete ]]; then
 			# Creation failure cleans only the current partial exact target.
-			output="$(KIND_FAIL_CREATE=1 run_local down 2>&1)" || true
-			KIND_FAIL_CREATE=1 expect_failure 'kind creation failed' run_local up
+			output="$(KUBEFACET_TEST_KIND_FAIL_CREATE=1 run_local down 2>&1)" || true
+			KUBEFACET_TEST_KIND_FAIL_CREATE=1 expect_failure 'kind creation failed' run_local up
 			[[ ! -f "$STATE_DIR/metadata.v1" && ! -f "$CLUSTER_MARKER" ]] || { printf '%s\n' 'partial creation state survived' >&2; exit 1; }
 			workflow_checks
 			# Deletion failure retains both metadata and the owned kubeconfig for retry.
-			KIND_FAIL_DELETE=1 expect_failure 'retained cluster=kubeseer-local' run_local down
+			KUBEFACET_TEST_KIND_FAIL_DELETE=1 expect_failure 'retained cluster=kubefacet-local' run_local down
 			[[ -f "$STATE_DIR/metadata.v1" && -f "$STATE_DIR/kubeconfig" ]] || { printf '%s\n' 'failed deletion lost retry state' >&2; exit 1; }
 		fi
 		case "$MODE" in

@@ -4,11 +4,11 @@ Start with the current generation, public conditions, and bounded operator
 signals. Do not begin by dumping all cluster objects or Secret contents.
 
 ```sh
-kubectl --context my-cluster -n applications get kubeseer workload-view -o yaml
+kubectl --context my-cluster -n applications get facet workload-view -o yaml
 kubectl --context my-cluster -n applications get events \
-  --field-selector involvedObject.kind=Kubeseer,involvedObject.name=workload-view
-kubectl --context my-cluster -n kubeseer-system logs \
-  deployment/kubeseer --all-containers --tail=200
+  --field-selector involvedObject.kind=Facet,involvedObject.name=workload-view
+kubectl --context my-cluster -n kubefacet-system logs \
+  deployment/kubefacet --all-containers --tail=200
 ```
 
 The [operations guide](operations.md#diagnostic-order) gives the general
@@ -19,10 +19,10 @@ diagnostic sequence. The cases below map public symptoms to focused checks.
 Check rollout, Pod status, and probes:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system get deployment,pods
-kubectl --context my-cluster -n kubeseer-system describe deployment kubeseer
-kubectl --context my-cluster -n kubeseer-system logs \
-  deployment/kubeseer --all-containers --tail=200
+kubectl --context my-cluster -n kubefacet-system get deployment,pods
+kubectl --context my-cluster -n kubefacet-system describe deployment kubefacet
+kubectl --context my-cluster -n kubefacet-system logs \
+  deployment/kubefacet --all-containers --tail=200
 ```
 
 Common causes are an unreachable image, invalid manager arguments, or invalid
@@ -30,8 +30,8 @@ webhook TLS. If Pods run but readiness fails, inspect certificate resource
 conditions and only Secret metadata/key names:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system get certificate,issuer
-kubectl --context my-cluster -n kubeseer-system get secret
+kubectl --context my-cluster -n kubefacet-system get certificate,issuer
+kubectl --context my-cluster -n kubefacet-system get secret
 ```
 
 Do not print `tls.key` or other Secret values. In `externalSecret` mode,
@@ -45,7 +45,7 @@ required webhook Service DNS names. Follow the staged CA rollover in the
 If `kubectl apply` reports a connection, TLS, or webhook timeout error:
 
 1. confirm the Deployment is ready;
-2. confirm the `kubeseer-webhook` Service has at least one ready EndpointSlice
+2. confirm the `kubefacet-webhook` Service has at least one ready EndpointSlice
    endpoint using the standard `kubernetes.io/service-name` selector;
 3. inspect the `ValidatingWebhookConfiguration` Service namespace/name and CA
    bundle presence;
@@ -68,7 +68,7 @@ The only active policy is the cluster-scoped object named exactly
 `installation-access-ceiling`:
 
 ```sh
-kubectl --context my-cluster get kubeseeraccesspolicy \
+kubectl --context my-cluster get facetaccesspolicy \
   installation-access-ceiling -o yaml
 ```
 
@@ -91,7 +91,7 @@ The source resolves correctly but exceeds the logical policy. Compare:
 - exact policy API group/Kind rules;
 - `allowClusterScoped` for cluster resources.
 
-Either narrow the `Kubeseer` or deliberately expand the administrator-owned
+Either narrow the `Facet` or deliberately expand the administrator-owned
 policy after reviewing the data destination. Do not grant broader RBAC as a
 workaround; it cannot change this decision.
 
@@ -102,13 +102,13 @@ ServiceAccount. Resolve the actual ServiceAccount from the Deployment and
 check its exact permission:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system get deployment kubeseer \
+kubectl --context my-cluster -n kubefacet-system get deployment kubefacet \
   -o jsonpath='{.spec.template.spec.serviceAccountName}{"\n"}'
 kubectl --context my-cluster auth can-i list deployments.apps \
-  --as=system:serviceaccount:kubeseer-system:SERVICE_ACCOUNT \
+  --as=system:serviceaccount:kubefacet-system:SERVICE_ACCOUNT \
   --namespace applications
 kubectl --context my-cluster auth can-i watch deployments.apps \
-  --as=system:serviceaccount:kubeseer-system:SERVICE_ACCOUNT \
+  --as=system:serviceaccount:kubefacet-system:SERVICE_ACCOUNT \
   --namespace applications
 ```
 
@@ -126,7 +126,7 @@ kubectl --context my-cluster get crd
 ```
 
 For a Custom Resource, wait until its CRD is Established before creating the
-`Kubeseer`. Check the exact `apiVersion`, Kind capitalization, served version,
+`Facet`. Check the exact `apiVersion`, Kind capitalization, served version,
 and scope. `ResolutionUnavailable` can indicate a transient discovery/API
 failure; if it persists, inspect API server availability and bounded manager
 logs.
@@ -159,7 +159,7 @@ change when the semantic outcome changes.
 
 ## `ResultLimitExceeded`
 
-Kubeseer reached a configured resource, byte, status, group, contribution,
+KubeFacet reached a configured resource, byte, status, group, contribution,
 value, or provenance limit. It does not truncate.
 
 Prefer narrowing the declaration:
@@ -177,14 +177,14 @@ the resulting status/data exposure. Defaults and tuning considerations are in
 
 ## Status does not change after an observed object changes
 
-First check whether the semantic result should change. Kubeseer deliberately
+First check whether the semantic result should change. KubeFacet deliberately
 suppresses no-op status writes.
 
 If the result should change:
 
 1. compare generation and observed generation;
 2. check conditions for policy or discovery changes;
-3. inspect `kubeseer_source_watch_restarts_total` and structured watch events;
+3. inspect `kubefacet_source_watch_restarts_total` and structured watch events;
 4. confirm the manager can `list` and `watch` the exact resource;
 5. wait for the bounded safety reconciliation interval;
 6. inspect source routing/retry logs without dumping values.
@@ -213,17 +213,17 @@ and the metadata and kubeconfig are retained. The default wait is 120 seconds;
 you can increase it for a slow host:
 
 ```sh
-KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS=240 make local-up
+KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS=240 make local-up
 ```
 
 For an ownership conflict or a running node whose API is still unavailable,
 check the saved local state and the named container without changing them:
 
 ```sh
-STATE="${KUBESEER_LOCAL_STATE_DIR:-$HOME/.local/state/kubeseer/local}"
+STATE="${KUBEFACET_LOCAL_STATE_DIR:-$HOME/.local/state/kubefacet/local}"
 podman container inspect --format '{{.Name}} {{.State.Status}}' \
-  kubeseer-local-control-plane
-kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubeseer-local get nodes
+  kubefacet-local-control-plane
+kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubefacet-local get nodes
 ```
 
 `make local-check` and `make local-status` do not start stopped nodes. Do not
@@ -235,7 +235,7 @@ automatically.
 State lives outside the repository under the path reported by `local-status`.
 On failure, run `make local-diagnostics`; it writes a private, bounded bundle
 and prints its location. Retry `make local-down` only for the fixed owned
-`kubeseer-local` cluster. Never use Podman prune or broad filesystem deletion
+`kubefacet-local` cluster. Never use Podman prune or broad filesystem deletion
 as recovery. See [Local development](local-development.md).
 
 ## Envtest or Go dependency download failure
@@ -244,8 +244,8 @@ Use writable build/module caches and verify network access to the pinned tool
 and module sources:
 
 ```sh
-GOCACHE=/tmp/kubeseer-go-build \
-GOMODCACHE=/tmp/kubeseer-go-mod \
+GOCACHE=/tmp/kubefacet-go-build \
+GOMODCACHE=/tmp/kubefacet-go-mod \
   make test-api
 ```
 
@@ -268,8 +268,8 @@ auto-rolled back. Follow the canonical
 
 This is expected. Normal uninstall retains:
 
-- both Kubeseer CRDs;
-- every `Kubeseer` instance;
+- both KubeFacet CRDs;
+- every `Facet` instance;
 - `installation-access-ceiling`;
 - every externally managed TLS Secret.
 

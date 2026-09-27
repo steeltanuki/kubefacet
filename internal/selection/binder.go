@@ -15,8 +15,8 @@
 package selection
 
 import (
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
 )
 
 // RequestForTarget converts one exact target into the policy request consumed

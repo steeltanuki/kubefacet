@@ -17,7 +17,7 @@ package authorization
 import (
 	"context"
 
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
 )
 
 // Enforcer evaluates exact policy requests and mints capabilities only for

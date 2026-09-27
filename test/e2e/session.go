@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,14 +46,14 @@ import (
 )
 
 const (
-	kubeseerGVR = "kubeseers.kubeseer.io"
-	policyGVR   = "kubeseeraccesspolicies.kubeseer.io"
+	facetGVR    = "facets.kubefacet.steeltanuki.it"
+	policyGVR   = "facetaccesspolicies.kubefacet.steeltanuki.it"
 	defaultWait = 5 * time.Minute
 )
 
 var (
-	KubeseerResource = schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseers"}
-	PolicyResource   = schema.GroupVersionResource{Group: "kubeseer.io", Version: "v1alpha1", Resource: "kubeseeraccesspolicies"}
+	FacetResource  = schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facets"}
+	PolicyResource = schema.GroupVersionResource{Group: "kubefacet.steeltanuki.it", Version: "v1alpha1", Resource: "facetaccesspolicies"}
 )
 
 // RunMetadata is immutable input supplied by hack/e2e-harness.sh. It contains
@@ -76,29 +76,29 @@ type RunMetadata struct {
 // LoadRunMetadata validates the explicit harness boundary.
 func LoadRunMetadata() (RunMetadata, error) {
 	metadata := RunMetadata{
-		Kubeconfig:         os.Getenv("KUBESEER_E2E_KUBECONFIG"),
-		ClusterName:        os.Getenv("KUBESEER_E2E_CLUSTER_NAME"),
-		Context:            os.Getenv("KUBESEER_E2E_CONTEXT"),
-		KubernetesVersion:  os.Getenv("KUBESEER_E2E_KUBERNETES_VERSION"),
-		CertManagerVersion: os.Getenv("KUBESEER_E2E_CERT_MANAGER_VERSION"),
-		Namespace:          os.Getenv("KUBESEER_E2E_NAMESPACE"),
-		Release:            os.Getenv("KUBESEER_E2E_RELEASE"),
-		ImageReference:     os.Getenv("KUBESEER_E2E_IMAGE_REF"),
-		SourceRevision:     os.Getenv("KUBESEER_E2E_SOURCE_REVISION"),
-		SourceIdentity:     os.Getenv("KUBESEER_E2E_SOURCE_IDENTITY"),
-		Diagnostics:        os.Getenv("KUBESEER_E2E_DIAGNOSTICS"),
+		Kubeconfig:         os.Getenv("KUBEFACET_E2E_KUBECONFIG"),
+		ClusterName:        os.Getenv("KUBEFACET_E2E_CLUSTER_NAME"),
+		Context:            os.Getenv("KUBEFACET_E2E_CONTEXT"),
+		KubernetesVersion:  os.Getenv("KUBEFACET_E2E_KUBERNETES_VERSION"),
+		CertManagerVersion: os.Getenv("KUBEFACET_E2E_CERT_MANAGER_VERSION"),
+		Namespace:          os.Getenv("KUBEFACET_E2E_NAMESPACE"),
+		Release:            os.Getenv("KUBEFACET_E2E_RELEASE"),
+		ImageReference:     os.Getenv("KUBEFACET_E2E_IMAGE_REF"),
+		SourceRevision:     os.Getenv("KUBEFACET_E2E_SOURCE_REVISION"),
+		SourceIdentity:     os.Getenv("KUBEFACET_E2E_SOURCE_IDENTITY"),
+		Diagnostics:        os.Getenv("KUBEFACET_E2E_DIAGNOSTICS"),
 	}
 	values := map[string]string{
-		"KUBESEER_E2E_KUBECONFIG":         metadata.Kubeconfig,
-		"KUBESEER_E2E_CLUSTER_NAME":       metadata.ClusterName,
-		"KUBESEER_E2E_CONTEXT":            metadata.Context,
-		"KUBESEER_E2E_KUBERNETES_VERSION": metadata.KubernetesVersion,
-		"KUBESEER_E2E_NAMESPACE":          metadata.Namespace,
-		"KUBESEER_E2E_RELEASE":            metadata.Release,
-		"KUBESEER_E2E_IMAGE_REF":          metadata.ImageReference,
-		"KUBESEER_E2E_SOURCE_REVISION":    metadata.SourceRevision,
-		"KUBESEER_E2E_SOURCE_IDENTITY":    metadata.SourceIdentity,
-		"KUBESEER_E2E_DIAGNOSTICS":        metadata.Diagnostics,
+		"KUBEFACET_E2E_KUBECONFIG":         metadata.Kubeconfig,
+		"KUBEFACET_E2E_CLUSTER_NAME":       metadata.ClusterName,
+		"KUBEFACET_E2E_CONTEXT":            metadata.Context,
+		"KUBEFACET_E2E_KUBERNETES_VERSION": metadata.KubernetesVersion,
+		"KUBEFACET_E2E_NAMESPACE":          metadata.Namespace,
+		"KUBEFACET_E2E_RELEASE":            metadata.Release,
+		"KUBEFACET_E2E_IMAGE_REF":          metadata.ImageReference,
+		"KUBEFACET_E2E_SOURCE_REVISION":    metadata.SourceRevision,
+		"KUBEFACET_E2E_SOURCE_IDENTITY":    metadata.SourceIdentity,
+		"KUBEFACET_E2E_DIAGNOSTICS":        metadata.Diagnostics,
 	}
 	for name, value := range values {
 		if strings.TrimSpace(value) == "" {
@@ -111,7 +111,7 @@ func LoadRunMetadata() (RunMetadata, error) {
 	if metadata.KubernetesVersion != "1.35.6" && metadata.KubernetesVersion != "1.36.2" {
 		return RunMetadata{}, fmt.Errorf("unsupported Kubernetes version %q", metadata.KubernetesVersion)
 	}
-	if !strings.HasPrefix(metadata.ClusterName, "kubeseer-e2e-") || metadata.Context != "kind-"+metadata.ClusterName {
+	if !strings.HasPrefix(metadata.ClusterName, "kubefacet-e2e-") || metadata.Context != "kind-"+metadata.ClusterName {
 		return RunMetadata{}, errors.New("run cluster identity is not a kind-owned name/context pair")
 	}
 	return metadata, nil
@@ -213,7 +213,7 @@ func NewClusterSession(ctx context.Context, metadata RunMetadata) (*ClusterSessi
 		Admission:     admissionClient,
 		HTTP:          &http.Client{Timeout: 10 * time.Second},
 		Scheme:        scheme.Scheme,
-		FixtureLabels: map[string]string{"kubeseer.io/e2e-cluster": metadata.ClusterName},
+		FixtureLabels: map[string]string{"kubefacet.steeltanuki.it/e2e-cluster": metadata.ClusterName},
 	}
 	if err := session.verifyServer(ctx); err != nil {
 		return nil, err
@@ -254,26 +254,26 @@ func (s *ClusterSession) WaitFor(ctx context.Context, scenarioID, awaited string
 	return wait.PollUntilContextCancel(deadline, 100*time.Millisecond, true, predicate)
 }
 
-// GetKubeseer reads only the public status object through the dynamic client.
-func (s *ClusterSession) GetKubeseer(ctx context.Context, namespace, name string) (*v1alpha1.Kubeseer, error) {
-	object, err := s.Dynamic.Resource(KubeseerResource).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+// GetFacet reads only the public status object through the dynamic client.
+func (s *ClusterSession) GetFacet(ctx context.Context, namespace, name string) (*v1alpha1.Facet, error) {
+	object, err := s.Dynamic.Resource(FacetResource).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	encoded, err := json.Marshal(object.Object)
 	if err != nil {
-		return nil, fmt.Errorf("encode public Kubeseer: %w", err)
+		return nil, fmt.Errorf("encode public Facet: %w", err)
 	}
-	decoded := &v1alpha1.Kubeseer{}
+	decoded := &v1alpha1.Facet{}
 	if err := json.Unmarshal(encoded, decoded); err != nil {
-		return nil, fmt.Errorf("decode public Kubeseer: %w", err)
+		return nil, fmt.Errorf("decode public Facet: %w", err)
 	}
 	return decoded, nil
 }
 
 // StatusDigest computes a stable digest of a public status snapshot for
 // resource-version/no-op assertions without exposing its result body.
-func StatusDigest(status v1alpha1.KubeseerStatus) string {
+func StatusDigest(status v1alpha1.FacetStatus) string {
 	encoded, _ := json.Marshal(status)
 	digest := sha256.Sum256(encoded)
 	return "sha256:" + hex.EncodeToString(digest[:])
@@ -302,21 +302,21 @@ func (s *ClusterSession) ProbeHTTP(ctx context.Context, endpoint, path string) (
 // E2E-001. The harness has already gated readiness, but these checks bind the
 // suite to the installed objects rather than a test seam.
 func (s *ClusterSession) ValidatePackage(ctx context.Context) error {
-	resources, err := s.Discovery.ServerResourcesForGroupVersion("kubeseer.io/v1alpha1")
+	resources, err := s.Discovery.ServerResourcesForGroupVersion("kubefacet.steeltanuki.it/v1alpha1")
 	if err != nil {
-		return fmt.Errorf("discover Kubeseer API: %w", err)
+		return fmt.Errorf("discover Facet API: %w", err)
 	}
-	seenKubeseer, seenPolicy := false, false
+	seenFacet, seenPolicy := false, false
 	for _, resource := range resources.APIResources {
 		switch resource.Name {
-		case "kubeseers", kubeseerGVR:
-			seenKubeseer = true
-		case "kubeseeraccesspolicies", policyGVR:
+		case "facets", facetGVR:
+			seenFacet = true
+		case "facetaccesspolicies", policyGVR:
 			seenPolicy = true
 		}
 	}
-	if !seenKubeseer || !seenPolicy {
-		return errors.New("installed discovery does not expose both Kubeseer resources")
+	if !seenFacet || !seenPolicy {
+		return errors.New("installed discovery does not expose both Facet resources")
 	}
 	if _, err := s.Dynamic.Resource(PolicyResource).Get(ctx, v1alpha1.InstallationAccessCeilingName, metav1.GetOptions{}); err != nil {
 		return fmt.Errorf("read canonical installation policy: %w", err)
@@ -328,7 +328,7 @@ func (s *ClusterSession) ValidatePackage(ctx context.Context) error {
 	if deployment.Status.AvailableReplicas < 1 {
 		return fmt.Errorf("manager Deployment has no available replicas")
 	}
-	webhook, err := s.Admission.ValidatingWebhookConfigurations().Get(ctx, "kubeseer-validating-webhook", metav1.GetOptions{})
+	webhook, err := s.Admission.ValidatingWebhookConfigurations().Get(ctx, "kubefacet-validating-webhook", metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("read validating webhook: %w", err)
 	}

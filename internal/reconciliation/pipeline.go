@@ -20,25 +20,25 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type plannedSource struct {
-	source          v1alpha1.KubeseerSource
+	source          v1alpha1.FacetSource
 	plan            selection.SelectionPlan
 	authorized      selection.AuthorizedPlan
 	selectionErr    *selection.SelectionError
@@ -72,7 +72,7 @@ func (r *Runtime) Reconcile(ctx context.Context, request reconcile.Request) (rec
 }
 
 func (r *Runtime) reconcileKey(ctx context.Context, key types.NamespacedName, attempt *observability.Attempt) (reconcile.Result, error, observability.Terminal) {
-	object := new(v1alpha1.Kubeseer)
+	object := new(v1alpha1.Facet)
 	if err := r.deps.Reader.Get(ctx, key, object); err != nil {
 		if apierrors.IsNotFound(err) {
 			r.deps.Routes.RemoveOwner(key)
@@ -82,7 +82,7 @@ func (r *Runtime) reconcileKey(ctx context.Context, key types.NamespacedName, at
 		if ctx.Err() != nil {
 			return reconcile.Result{}, nil, skippedTerminal(ctx)
 		}
-		runtimeErr := transientRuntimeError("kubeseer-read", "", ReasonReadUnavailable, "Kubeseer is unavailable", err)
+		runtimeErr := transientRuntimeError("kubefacet-read", "", ReasonReadUnavailable, "Facet is unavailable", err)
 		return reconcile.Result{}, runtimeErr, terminalForError(runtimeErr)
 	}
 	if attempt != nil {
@@ -112,10 +112,10 @@ func (r *Runtime) reconcileKey(ctx context.Context, key types.NamespacedName, at
 	}
 	completeObservedStage(attempt, evaluationCtx, observability.StageValidate)
 	sources := object.Spec.Sources
-	if budgetIssues := r.deps.BudgetValidator.ValidateKubeseer(object); len(budgetIssues) != 0 {
+	if budgetIssues := r.deps.BudgetValidator.ValidateFacet(object); len(budgetIssues) != 0 {
 		runtimeErr := configurationBudgetRuntimeError(budgetIssues)
 		// A budget rejection invalidates every observation owned by this
-		// Kubeseer.  Publish through the same lease-guarded status path while
+		// Facet.  Publish through the same lease-guarded status path while
 		// deliberately avoiding policy, discovery, and source I/O.
 		r.deps.Routes.RemoveOwner(key)
 		completeObservedStage(attempt, leaseCtx, observability.StageCompose)
@@ -131,7 +131,7 @@ func (r *Runtime) reconcileKey(ctx context.Context, key types.NamespacedName, at
 	}
 	aggregationLimits := aggregation.LimitsFromProfile(r.profile)
 	planned := make([]plannedSource, len(sources))
-	result := v1alpha1.KubeseerResult{Sources: make([]v1alpha1.KubeseerSourceResult, len(sources))}
+	result := v1alpha1.FacetResult{Sources: make([]v1alpha1.FacetSourceResult, len(sources))}
 	completed := make([]bool, len(sources))
 	var snapshot accesspolicy.Snapshot
 	for index, source := range sources {
@@ -156,7 +156,7 @@ func (r *Runtime) reconcileKey(ctx context.Context, key types.NamespacedName, at
 	// empty result without loading or evaluating the policy, but still follows
 	// the same route replacement and publication guards.
 	if len(sources) > 0 {
-		snapshot = accesspolicy.LoadWithValidation(evaluationCtx, r.deps.PolicySource, func(policy *v1alpha1.KubeseerAccessPolicy) error {
+		snapshot = accesspolicy.LoadWithValidation(evaluationCtx, r.deps.PolicySource, func(policy *v1alpha1.FacetAccessPolicy) error {
 			if issues := r.deps.BudgetValidator.ValidateAccessPolicy(policy); len(issues) != 0 {
 				return errors.New(issues[0].Path)
 			}
@@ -464,7 +464,7 @@ func allSourcesCompleted(completed []bool) bool {
 // every active or unstarted source a deterministic timeout error. The
 // publication context is the lease context, never a detached context, so a
 // stale or externally cancelled attempt cannot write status.
-func (r *Runtime) finishTimedOutEvaluation(lease Lease, leaseCtx context.Context, attempt *observability.Attempt, result v1alpha1.KubeseerResult, completed []bool, planned []plannedSource, snapshot accesspolicy.Snapshot, sources []v1alpha1.KubeseerSource) (reconcile.Result, error, observability.Terminal) {
+func (r *Runtime) finishTimedOutEvaluation(lease Lease, leaseCtx context.Context, attempt *observability.Attempt, result v1alpha1.FacetResult, completed []bool, planned []plannedSource, snapshot accesspolicy.Snapshot, sources []v1alpha1.FacetSource) (reconcile.Result, error, observability.Terminal) {
 	if leaseCtx != nil && leaseCtx.Err() != nil || r.deps.Tracker != nil && !r.deps.Tracker.IsLeaseCurrent(lease) {
 		return reconcile.Result{}, nil, skippedTerminal(leaseCtx)
 	}
@@ -494,11 +494,11 @@ func (r *Runtime) finishTimedOutEvaluation(lease Lease, leaseCtx context.Context
 	return reconcile.Result{}, timeoutErr, terminalForError(timeoutErr)
 }
 
-func evaluationTimedOutSourceResult(sourceID string) v1alpha1.KubeseerSourceResult {
-	return v1alpha1.KubeseerSourceResult{
+func evaluationTimedOutSourceResult(sourceID string) v1alpha1.FacetSourceResult {
+	return v1alpha1.FacetSourceResult{
 		ID:    sourceID,
 		State: v1alpha1.SourceStateError,
-		Error: &v1alpha1.KubeseerResultError{Reason: string(ReasonEvaluationTimedOut), Message: "evaluation deadline exceeded"},
+		Error: &v1alpha1.FacetResultError{Reason: string(ReasonEvaluationTimedOut), Message: "evaluation deadline exceeded"},
 	}
 }
 
@@ -554,7 +554,7 @@ func terminalForError(err error) observability.Terminal {
 	return observability.Terminal{Outcome: observability.OutcomeFailed, Reason: reason}
 }
 
-func terminalForResult(result v1alpha1.KubeseerResult) observability.Terminal {
+func terminalForResult(result v1alpha1.FacetResult) observability.Terminal {
 	if statuscontract.HasResultErrors(&result) {
 		return observability.Terminal{Outcome: observability.OutcomeDegraded, Reason: observability.ReasonEvaluationDegraded}
 	}
@@ -581,7 +581,7 @@ func reasonForRuntimeError(err error) observability.Reason {
 	return observability.ReasonInternalError
 }
 
-func observeRuntimeResult(ctx context.Context, observer *observability.Observer, profile limits.Profile, result v1alpha1.KubeseerResult, extracted []extraction.SourceOutcome) {
+func observeRuntimeResult(ctx context.Context, observer *observability.Observer, profile limits.Profile, result v1alpha1.FacetResult, extracted []extraction.SourceOutcome) {
 	if observer == nil {
 		return
 	}
@@ -624,7 +624,7 @@ func observeRuntimeResult(ctx context.Context, observer *observability.Observer,
 	}
 }
 
-func limitObservationForSource(profile limits.Profile, source v1alpha1.KubeseerSourceResult, reason string) (observability.LimitObservation, bool) {
+func limitObservationForSource(profile limits.Profile, source v1alpha1.FacetSourceResult, reason string) (observability.LimitObservation, bool) {
 	observation := observability.LimitObservation{
 		SourceID: source.ID,
 		Stage:    stageForResultReason(reason),
@@ -688,7 +688,7 @@ func limitObservationForSource(profile limits.Profile, source v1alpha1.KubeseerS
 	}
 }
 
-func sourceResultMessage(source v1alpha1.KubeseerSourceResult) string {
+func sourceResultMessage(source v1alpha1.FacetSourceResult) string {
 	if source.Error != nil {
 		return source.Error.Message
 	}
@@ -733,7 +733,7 @@ func observeExtractionError(ctx context.Context, observer *observability.Observe
 	}
 }
 
-func sourceHasResultFailure(source v1alpha1.KubeseerSourceResult) bool {
+func sourceHasResultFailure(source v1alpha1.FacetSourceResult) bool {
 	if source.State == v1alpha1.SourceStateError || source.Error != nil || len(source.FieldErrors) != 0 {
 		return true
 	}
@@ -755,7 +755,7 @@ func sourceHasResultFailure(source v1alpha1.KubeseerSourceResult) bool {
 	return false
 }
 
-func sourceResultReason(source v1alpha1.KubeseerSourceResult) string {
+func sourceResultReason(source v1alpha1.FacetSourceResult) string {
 	if source.Error != nil && source.Error.Reason != "" {
 		return source.Error.Reason
 	}
@@ -834,7 +834,7 @@ func retryableSelectionError(err error) bool {
 	}
 }
 
-func configurationOutcome(source v1alpha1.KubeseerSource, aggregationLimits aggregation.Limits) statuscontract.ConfigurationOutcome {
+func configurationOutcome(source v1alpha1.FacetSource, aggregationLimits aggregation.Limits) statuscontract.ConfigurationOutcome {
 	if _, err := extraction.CompileSource(source); err != nil {
 		return statuscontract.ConfigurationInvalidOutcome
 	}

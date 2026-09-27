@@ -26,13 +26,16 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/managerapp"
+	"github.com/steeltanuki/kubefacet/internal/purge"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,6 +54,15 @@ func TestModuleIntegration(t *testing.T) {
 	discoveryClient := newPolicyDiscoveryClient()
 	resolver := discovery.NewResolver(discoveryClient)
 
+	t.Run("ProjectIdentityAPI", func(t *testing.T) {
+		assertProjectIdentityAPI(t)
+	})
+	t.Run("ProjectIdentityRuntime", func(t *testing.T) {
+		assertProjectIdentityRuntime(t)
+	})
+	t.Run("ProjectIdentityObservability", func(t *testing.T) {
+		assertObservabilityCoreScenarios(t)
+	})
 	t.Run("compiler and evaluator use real discovery resolutions", func(t *testing.T) {
 		assertEvaluationScenarios(t, ctx, resolver)
 	})
@@ -346,6 +358,140 @@ func TestModuleIntegration(t *testing.T) {
 	t.Log("MODULE_INTEGRATION=packaging-uninstall-purge STATUS=passed")
 }
 
+func assertProjectIdentityAPI(t *testing.T) {
+	t.Helper()
+
+	if got, want := v1alpha1.GroupVersion.String(), "kubefacet.steeltanuki.it/v1alpha1"; got != want {
+		t.Fatalf("API group version = %q, want %q", got, want)
+	}
+	apiScheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(apiScheme); err != nil {
+		t.Fatalf("register Facet API scheme: %v", err)
+	}
+	registered := make(map[string]bool)
+	apiPackage := reflect.TypeOf(v1alpha1.Facet{}).PkgPath()
+	for gvk, objectType := range apiScheme.AllKnownTypes() {
+		if objectType.PkgPath() == apiPackage {
+			if gvk.Group != v1alpha1.GroupVersion.Group || gvk.Version != v1alpha1.GroupVersion.Version {
+				t.Errorf("Facet API type registered under unexpected identity: %s", gvk)
+			}
+			registered[gvk.Kind] = true
+		}
+	}
+	for _, kind := range []string{"Facet", "FacetList", "FacetAccessPolicy", "FacetAccessPolicyList"} {
+		if !registered[kind] {
+			t.Errorf("new API Kind %q is not registered", kind)
+		}
+	}
+	if len(registered) != 4 {
+		t.Errorf("registered KubeFacet API Kinds = %v, want exactly the four Facet and policy root/list types", registered)
+	}
+	for _, item := range []struct {
+		object runtime.Object
+		kind   string
+	}{
+		{object: &v1alpha1.Facet{}, kind: "Facet"},
+		{object: &v1alpha1.FacetAccessPolicy{}, kind: "FacetAccessPolicy"},
+	} {
+		gvks, _, err := apiScheme.ObjectKinds(item.object)
+		if err != nil {
+			t.Fatalf("resolve registered Kind %s: %v", item.kind, err)
+		}
+		if len(gvks) != 1 || gvks[0] != v1alpha1.GroupVersion.WithKind(item.kind) {
+			t.Errorf("scheme identity for %s = %v", item.kind, gvks)
+		}
+	}
+
+	policy := &v1alpha1.FacetAccessPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName},
+		Spec: v1alpha1.FacetAccessPolicySpec{
+			Namespaces: v1alpha1.NamespacePolicy{Mode: v1alpha1.NamespaceModeExplicit, Include: []string{"team-a"}},
+			Resources:  []v1alpha1.ResourceRule{{APIGroups: []string{"apps"}, Kinds: []string{"Deployment"}}},
+		},
+	}
+	compiled, err := accesspolicy.Compile(policy)
+	if err != nil {
+		t.Fatalf("compile registered FacetAccessPolicy: %v", err)
+	}
+	decision := compiled.Snapshot().Evaluate(accesspolicy.Request{
+		APIGroup: "apps", Kind: "Deployment", Namespace: "team-a", Scope: discovery.ScopeNamespaced,
+	})
+	if !decision.Allowed {
+		t.Fatalf("FacetAccessPolicy evaluation = %+v, want the declared Deployment to be allowed", decision)
+	}
+}
+
+func assertProjectIdentityRuntime(t *testing.T) {
+	t.Helper()
+
+	config := managerapp.DefaultConfig()
+	if err := config.Validate(); err != nil {
+		t.Fatalf("default KubeFacet manager configuration is invalid: %v", err)
+	}
+	wantDNSNames := []string{
+		"kubefacet-webhook",
+		"kubefacet-webhook.kubefacet-system",
+		"kubefacet-webhook.kubefacet-system.svc",
+		"kubefacet-webhook.kubefacet-system.svc.cluster.local",
+	}
+	if config.WebhookCertDir != "/var/run/secrets/kubefacet/webhook" || config.WebhookCAFile != "/var/run/secrets/kubefacet/ca/ca.crt" ||
+		config.LeaderElectionNamespace != "kubefacet-system" || config.LeaderElectionID != "kubefacet-controller" ||
+		!reflect.DeepEqual(config.WebhookDNSNames, wantDNSNames) {
+		t.Fatalf("manager runtime defaults do not carry the KubeFacet identity: %#v", config)
+	}
+	if managerapp.DefaultDeploymentName != "kubefacet" || managerapp.DefaultWebhookServiceName != "kubefacet-webhook" || managerapp.ValidatingWebhookName != "kubefacet-validating-webhook" {
+		t.Fatalf("lifecycle defaults do not carry the KubeFacet identity: deployment=%q service=%q webhook=%q",
+			managerapp.DefaultDeploymentName, managerapp.DefaultWebhookServiceName, managerapp.ValidatingWebhookName)
+	}
+
+	webhookPort := int32(443)
+	registration := admission.WebhookConfiguration(admissionregistrationv1.WebhookClientConfig{
+		Service: &admissionregistrationv1.ServiceReference{Name: "kubefacet-webhook", Namespace: "kubefacet-system", Port: &webhookPort},
+	})
+	if registration.Name != "kubefacet-validating-webhook" || len(registration.Webhooks) != 2 {
+		t.Fatalf("validating webhook registration identity = %#v", registration)
+	}
+	wantWebhookNames := []string{"facet.kubefacet.steeltanuki.it", "facetaccesspolicy.kubefacet.steeltanuki.it"}
+	wantPaths := []string{admission.FacetWebhookPath, admission.FacetAccessPolicyWebhookPath}
+	wantResources := []string{"facets", "facetaccesspolicies"}
+	wantScopes := []admissionregistrationv1.ScopeType{admissionregistrationv1.NamespacedScope, admissionregistrationv1.ClusterScope}
+	for index, webhook := range registration.Webhooks {
+		if webhook.Name != wantWebhookNames[index] || len(webhook.Rules) != 1 ||
+			!reflect.DeepEqual(webhook.Rules[0].APIGroups, []string{v1alpha1.GroupVersion.Group}) ||
+			!reflect.DeepEqual(webhook.Rules[0].APIVersions, []string{"v1alpha1"}) ||
+			!reflect.DeepEqual(webhook.Rules[0].Resources, []string{wantResources[index]}) ||
+			webhook.Rules[0].Scope == nil || *webhook.Rules[0].Scope != wantScopes[index] {
+			t.Errorf("webhook registration[%d] = %#v, want the new API identity with its established scope", index, webhook)
+		}
+		if webhook.ClientConfig.Service == nil || webhook.ClientConfig.Service.Name != "kubefacet-webhook" ||
+			webhook.ClientConfig.Service.Namespace != "kubefacet-system" || webhook.ClientConfig.Service.Path == nil ||
+			*webhook.ClientConfig.Service.Path != wantPaths[index] {
+			t.Errorf("webhook registration[%d] path = %#v, want %q", index, webhook.ClientConfig.Service, wantPaths[index])
+		}
+	}
+
+	if purge.ConfirmationToken != "purge-kubefacet-crds" || purge.FacetCRDName != "facets.kubefacet.steeltanuki.it" ||
+		purge.AccessPolicyCRDName != "facetaccesspolicies.kubefacet.steeltanuki.it" {
+		t.Fatalf("purge identities are incorrect: token=%q facet=%q policy=%q", purge.ConfirmationToken, purge.FacetCRDName, purge.AccessPolicyCRDName)
+	}
+	options := purge.Options{
+		KubeconfigPath: writePurgeKubeconfig(t),
+		ContextName:    "disposable",
+		ConfirmContext: "disposable",
+		ConfirmServer:  "https://127.0.0.1:6443",
+		Confirmation:   purge.ConfirmationToken,
+		Timeout:        time.Minute,
+	}
+	_, target, err := purge.ResolveTarget(options)
+	if err != nil || target.Context != options.ContextName || target.Server != options.ConfirmServer {
+		t.Fatalf("new-identity purge ownership check failed: target=%#v err=%v", target, err)
+	}
+	options.Confirmation = "incorrect-confirmation"
+	if _, _, err := purge.ResolveTarget(options); err == nil {
+		t.Fatal("purge accepted a confirmation other than the KubeFacet token")
+	}
+}
+
 func assertEvaluationScenarios(t *testing.T, ctx context.Context, resolver *discovery.Resolver) {
 	t.Helper()
 	policy := basePolicy()
@@ -371,7 +517,7 @@ func assertEvaluationScenarios(t *testing.T, ctx context.Context, resolver *disc
 		},
 		{
 			name:       "CRD-backed resource is matched exactly",
-			descriptor: discovery.SourceDescriptor{SourceID: "widgets", APIVersion: "widgets.kubeseer.io/v1", Kind: "Widget"},
+			descriptor: discovery.SourceDescriptor{SourceID: "widgets", APIVersion: "widgets.kubefacet.steeltanuki.it/v1", Kind: "Widget"},
 			namespace:  "team-a",
 			want:       allowedDecision(),
 		},
@@ -413,7 +559,7 @@ func assertEvaluationScenarios(t *testing.T, ctx context.Context, resolver *disc
 			{descriptor: discovery.SourceDescriptor{SourceID: "pods", APIVersion: "v1", Kind: "Pod"}, resource: "pods", scope: discovery.ScopeNamespaced},
 			{descriptor: discovery.SourceDescriptor{SourceID: "nodes", APIVersion: "v1", Kind: "Node"}, resource: "nodes", scope: discovery.ScopeCluster},
 			{descriptor: discovery.SourceDescriptor{SourceID: "deployments", APIVersion: "apps/v1", Kind: "Deployment"}, group: "apps", resource: "deployments", scope: discovery.ScopeNamespaced},
-			{descriptor: discovery.SourceDescriptor{SourceID: "widgets", APIVersion: "widgets.kubeseer.io/v1", Kind: "Widget"}, group: "widgets.kubeseer.io", resource: "widgets", scope: discovery.ScopeNamespaced},
+			{descriptor: discovery.SourceDescriptor{SourceID: "widgets", APIVersion: "widgets.kubefacet.steeltanuki.it/v1", Kind: "Widget"}, group: "widgets.kubefacet.steeltanuki.it", resource: "widgets", scope: discovery.ScopeNamespaced},
 		}
 		for _, test := range cases {
 			resolution, err := resolver.Resolve(ctx, test.descriptor)
@@ -500,30 +646,30 @@ func assertCompilerValidationScenarios(t *testing.T) {
 	t.Helper()
 	tests := []struct {
 		name      string
-		policy    *v1alpha1.KubeseerAccessPolicy
+		policy    *v1alpha1.FacetAccessPolicy
 		wantField string
 		contains  string
 	}{
 		{name: "nil policy", policy: nil, wantField: "policy", contains: "must not be nil"},
-		{name: "invalid active name", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) { policy.Name = "default" }), wantField: "metadata.name", contains: "installation-access-ceiling"},
-		{name: "invalid namespace mode", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) { policy.Spec.Namespaces.Mode = "Unknown" }), wantField: "spec.namespaces.mode", contains: "Explicit, All, or AllNonSystem"},
-		{name: "duplicate namespace entry", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		{name: "invalid active name", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) { policy.Name = "default" }), wantField: "metadata.name", contains: "installation-access-ceiling"},
+		{name: "invalid namespace mode", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) { policy.Spec.Namespaces.Mode = "Unknown" }), wantField: "spec.namespaces.mode", contains: "Explicit, All, or AllNonSystem"},
+		{name: "duplicate namespace entry", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.Namespaces.Include = []string{"team-a", "team-a"}
 		}), wantField: "spec.namespaces.include[1]", contains: "duplicates entry"},
-		{name: "invalid namespace entry", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		{name: "invalid namespace entry", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.Namespaces.Include = []string{"Invalid_Namespace"}
 		}), wantField: "spec.namespaces.include[0]", contains: "valid DNS-1123 namespace name"},
-		{name: "empty resource rule members", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) { policy.Spec.Resources = []v1alpha1.ResourceRule{{}} }), wantField: "spec.resources[0].apiGroups", contains: "at least one API group"},
-		{name: "duplicate resource entry", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		{name: "empty resource rule members", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) { policy.Spec.Resources = []v1alpha1.ResourceRule{{}} }), wantField: "spec.resources[0].apiGroups", contains: "at least one API group"},
+		{name: "duplicate resource entry", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{"apps", "apps"}, Kinds: []string{"Deployment"}}}
 		}), wantField: "spec.resources[0].apiGroups[1]", contains: "duplicates entry"},
-		{name: "malformed API group", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		{name: "malformed API group", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{"Apps"}, Kinds: []string{"Deployment"}}}
 		}), wantField: "spec.resources[0].apiGroups[0]", contains: "valid DNS-1123 subdomain"},
-		{name: "wildcard Kind", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		{name: "wildcard Kind", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{""}, Kinds: []string{"*"}}}
 		}), wantField: "spec.resources[0].kinds[0]", contains: "CamelCase Kubernetes Kind"},
-		{name: "malformed Kind", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		{name: "malformed Kind", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{""}, Kinds: []string{"deployment"}}}
 		}), wantField: "spec.resources[0].kinds[0]", contains: "CamelCase Kubernetes Kind"},
 	}
@@ -540,7 +686,7 @@ func assertCompilerValidationScenarios(t *testing.T) {
 		})
 	}
 
-	first := mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+	first := mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 		policy.Name = "default"
 		policy.Spec.Namespaces.Mode = "invalid"
 		policy.Spec.Resources = []v1alpha1.ResourceRule{{}}
@@ -557,8 +703,8 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 	t.Helper()
 
 	defaults := admission.DefaultLimits()
-	baseSource := func(id string) v1alpha1.KubeseerSource {
-		return v1alpha1.KubeseerSource{
+	baseSource := func(id string) v1alpha1.FacetSource {
+		return v1alpha1.FacetSource{
 			ID:       id,
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		}
@@ -566,15 +712,15 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 	builders := []struct {
 		name  string
 		limit func(admission.Limits) int
-		build func(int) *v1alpha1.Kubeseer
+		build func(int) *v1alpha1.Facet
 		path  string
 	}{
 		{
 			name:  "sources",
-			limit: func(limits admission.Limits) int { return limits.MaxKubeseerSources },
+			limit: func(limits admission.Limits) int { return limits.MaxFacetSources },
 			path:  "spec.sources[32]",
-			build: func(size int) *v1alpha1.Kubeseer {
-				object := &v1alpha1.Kubeseer{}
+			build: func(size int) *v1alpha1.Facet {
+				object := &v1alpha1.Facet{}
 				for index := 0; index < size; index++ {
 					object.Spec.Sources = append(object.Spec.Sources, baseSource(fmt.Sprintf("source-%03d", index)))
 				}
@@ -585,8 +731,8 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 			name:  "source namespaces",
 			limit: func(limits admission.Limits) int { return limits.MaxSourceNamespaces },
 			path:  "spec.sources[0].namespaces.names[64]",
-			build: func(size int) *v1alpha1.Kubeseer {
-				object := &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{baseSource("namespaces")}}}
+			build: func(size int) *v1alpha1.Facet {
+				object := &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{baseSource("namespaces")}}}
 				object.Spec.Sources[0].Namespaces = &v1alpha1.NamespaceSelection{}
 				for index := 0; index < size; index++ {
 					object.Spec.Sources[0].Namespaces.Names = append(object.Spec.Sources[0].Namespaces.Names, fmt.Sprintf("team-%03d", index))
@@ -598,10 +744,10 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 			name:  "source fields",
 			limit: func(limits admission.Limits) int { return limits.MaxSourceFields },
 			path:  "spec.sources[0].fields[64]",
-			build: func(size int) *v1alpha1.Kubeseer {
-				object := &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{baseSource("fields")}}}
+			build: func(size int) *v1alpha1.Facet {
+				object := &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{baseSource("fields")}}}
 				for index := 0; index < size; index++ {
-					object.Spec.Sources[0].Fields = append(object.Spec.Sources[0].Fields, v1alpha1.KubeseerField{Name: fmt.Sprintf("field-%03d", index), Path: "{.metadata.name}"})
+					object.Spec.Sources[0].Fields = append(object.Spec.Sources[0].Fields, v1alpha1.FacetField{Name: fmt.Sprintf("field-%03d", index), Path: "{.metadata.name}"})
 				}
 				return object
 			},
@@ -610,93 +756,93 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 			name:  "field operators",
 			limit: func(limits admission.Limits) int { return limits.MaxFieldOperators },
 			path:  "spec.sources[0].fields[0].operators[16]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("operators")
-				source.Fields = []v1alpha1.KubeseerField{{Name: "value", Path: "{.metadata.name}"}}
+				source.Fields = []v1alpha1.FacetField{{Name: "value", Path: "{.metadata.name}"}}
 				for index := 0; index < size; index++ {
-					source.Fields[0].Operators = append(source.Fields[0].Operators, v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorExists})
+					source.Fields[0].Operators = append(source.Fields[0].Operators, v1alpha1.FacetOperator{Operator: v1alpha1.OperatorExists})
 				}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 		{
 			name:  "operator values",
 			limit: func(limits admission.Limits) int { return limits.MaxOperatorValues },
 			path:  "spec.sources[0].fields[0].operators[0].values[128]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("operator-values")
-				operator := v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorIn}
+				operator := v1alpha1.FacetOperator{Operator: v1alpha1.OperatorIn}
 				for index := 0; index < size; index++ {
 					value := "value"
-					operator.Values = append(operator.Values, v1alpha1.KubeseerOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value})
+					operator.Values = append(operator.Values, v1alpha1.FacetOperatorOperand{State: v1alpha1.MatchStateValue, StringValue: &value})
 				}
-				source.Fields = []v1alpha1.KubeseerField{{Name: "value", Path: "{.metadata.name}", Operators: []v1alpha1.KubeseerOperator{operator}}}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				source.Fields = []v1alpha1.FacetField{{Name: "value", Path: "{.metadata.name}", Operators: []v1alpha1.FacetOperator{operator}}}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 		{
 			name:  "source aggregations",
 			limit: func(limits admission.Limits) int { return limits.MaxSourceAggregations },
 			path:  "spec.sources[0].aggregations[32]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("aggregations")
 				for index := 0; index < size; index++ {
-					source.Aggregations = append(source.Aggregations, v1alpha1.KubeseerAggregation{Name: fmt.Sprintf("aggregate-%03d", index), Function: v1alpha1.AggregationCount, Field: "value"})
+					source.Aggregations = append(source.Aggregations, v1alpha1.FacetAggregation{Name: fmt.Sprintf("aggregate-%03d", index), Function: v1alpha1.AggregationCount, Field: "value"})
 				}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 		{
 			name:  "aggregation groupBy",
 			limit: func(limits admission.Limits) int { return limits.MaxAggregationGroupBy },
 			path:  "spec.sources[0].aggregations[0].groupBy[16]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("group-by")
-				aggregate := v1alpha1.KubeseerAggregation{Name: "aggregate", Function: v1alpha1.AggregationCount, Field: "value"}
+				aggregate := v1alpha1.FacetAggregation{Name: "aggregate", Function: v1alpha1.AggregationCount, Field: "value"}
 				for index := 0; index < size; index++ {
 					aggregate.GroupBy = append(aggregate.GroupBy, fmt.Sprintf("field-%03d", index))
 				}
-				source.Aggregations = []v1alpha1.KubeseerAggregation{aggregate}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				source.Aggregations = []v1alpha1.FacetAggregation{aggregate}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 		{
 			name:  "selector match expressions",
 			limit: func(limits admission.Limits) int { return limits.MaxSelectorMatchExpressions },
 			path:  "spec.sources[0].selector.matchExpressions[64]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("expressions")
 				source.Selector = &v1alpha1.ResourceSelector{}
 				for index := 0; index < size; index++ {
 					source.Selector.MatchExpressions = append(source.Selector.MatchExpressions, metav1.LabelSelectorRequirement{Key: fmt.Sprintf("label-%03d", index), Operator: metav1.LabelSelectorOpIn, Values: []string{"backend"}})
 				}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 		{
 			name:  "selector expression values",
 			limit: func(limits admission.Limits) int { return limits.MaxSelectorExpressionValues },
 			path:  "spec.sources[0].selector.matchExpressions[0].values[64]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("expression-values")
 				source.Selector = &v1alpha1.ResourceSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "tier", Operator: metav1.LabelSelectorOpIn}}}
 				for index := 0; index < size; index++ {
 					source.Selector.MatchExpressions[0].Values = append(source.Selector.MatchExpressions[0].Values, fmt.Sprintf("value-%03d", index))
 				}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 		{
 			name:  "selector exact labels",
 			limit: func(limits admission.Limits) int { return limits.MaxSelectorMatchLabels },
 			path:  "spec.sources[0].selector.matchLabels[64]",
-			build: func(size int) *v1alpha1.Kubeseer {
+			build: func(size int) *v1alpha1.Facet {
 				source := baseSource("labels")
 				source.Selector = &v1alpha1.ResourceSelector{MatchLabels: make(map[string]string, size)}
 				for index := 0; index < size; index++ {
 					source.Selector.MatchLabels[fmt.Sprintf("label-%03d", index)] = "backend"
 				}
-				return &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{source}}}
+				return &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{source}}}
 			},
 		},
 	}
@@ -704,22 +850,22 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 	for _, test := range builders {
 		t.Run(test.name, func(t *testing.T) {
 			limit := test.limit(defaults)
-			assertKubeseerBudgetBoundary(t, test.build(limit), defaults, false, "")
-			assertKubeseerBudgetBoundary(t, test.build(limit+1), defaults, true, test.path)
+			assertFacetBudgetBoundary(t, test.build(limit), defaults, false, "")
+			assertFacetBudgetBoundary(t, test.build(limit+1), defaults, true, test.path)
 		})
 	}
 
 	policyBuilders := []struct {
 		name  string
 		limit func(admission.Limits) int
-		build func(int) *v1alpha1.KubeseerAccessPolicy
+		build func(int) *v1alpha1.FacetAccessPolicy
 		path  string
 	}{
 		{
 			name:  "policy namespace lists",
 			limit: func(limits admission.Limits) int { return limits.MaxPolicyNamespaceNames },
 			path:  "spec.namespaces.include[256]",
-			build: func(size int) *v1alpha1.KubeseerAccessPolicy {
+			build: func(size int) *v1alpha1.FacetAccessPolicy {
 				policy := basePolicy()
 				policy.Spec.Namespaces.Include = nil
 				for index := 0; index < size; index++ {
@@ -732,7 +878,7 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 			name:  "policy resource rules",
 			limit: func(limits admission.Limits) int { return limits.MaxPolicyResourceRules },
 			path:  "spec.resources[128]",
-			build: func(size int) *v1alpha1.KubeseerAccessPolicy {
+			build: func(size int) *v1alpha1.FacetAccessPolicy {
 				policy := basePolicy()
 				policy.Spec.Resources = nil
 				for index := 0; index < size; index++ {
@@ -745,7 +891,7 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 			name:  "policy API groups",
 			limit: func(limits admission.Limits) int { return limits.MaxPolicyAPIGroups },
 			path:  "spec.resources[0].apiGroups[64]",
-			build: func(size int) *v1alpha1.KubeseerAccessPolicy {
+			build: func(size int) *v1alpha1.FacetAccessPolicy {
 				policy := basePolicy()
 				policy.Spec.Resources = []v1alpha1.ResourceRule{{Kinds: []string{"Pod"}}}
 				for index := 0; index < size; index++ {
@@ -758,7 +904,7 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 			name:  "policy Kinds",
 			limit: func(limits admission.Limits) int { return limits.MaxPolicyKinds },
 			path:  "spec.resources[0].kinds[64]",
-			build: func(size int) *v1alpha1.KubeseerAccessPolicy {
+			build: func(size int) *v1alpha1.FacetAccessPolicy {
 				policy := basePolicy()
 				policy.Spec.Resources = []v1alpha1.ResourceRule{{APIGroups: []string{""}}}
 				for index := 0; index < size; index++ {
@@ -776,22 +922,22 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 		})
 	}
 
-	largeKubeseer := builders[2].build(defaults.MaxSourceFields)
-	for index := range largeKubeseer.Spec.Sources[0].Fields {
-		largeKubeseer.Spec.Sources[0].Fields[index].Path = strings.Repeat("x", 1024)
+	largeFacet := builders[2].build(defaults.MaxSourceFields)
+	for index := range largeFacet.Spec.Sources[0].Fields {
+		largeFacet.Spec.Sources[0].Fields[index].Path = strings.Repeat("x", 1024)
 	}
-	encodedKubeseer, err := json.Marshal(largeKubeseer.Spec)
+	encodedFacet, err := json.Marshal(largeFacet.Spec)
 	if err != nil {
-		t.Fatalf("encode large Kubeseer budget fixture: %v", err)
+		t.Fatalf("encode large Facet budget fixture: %v", err)
 	}
-	if len(encodedKubeseer) >= defaults.MaxKubeseerSpecBytes {
-		t.Fatalf("large Kubeseer fixture unexpectedly exceeds default budget before size scenario: %d", len(encodedKubeseer))
+	if len(encodedFacet) >= defaults.MaxFacetSpecBytes {
+		t.Fatalf("large Facet fixture unexpectedly exceeds default budget before size scenario: %d", len(encodedFacet))
 	}
 	sizeLimits := defaults
-	sizeLimits.MaxKubeseerSpecBytes = len(encodedKubeseer)
-	assertKubeseerBudgetBoundary(t, largeKubeseer, sizeLimits, false, "")
-	sizeLimits.MaxKubeseerSpecBytes--
-	assertKubeseerBudgetBoundary(t, largeKubeseer, sizeLimits, true, "spec")
+	sizeLimits.MaxFacetSpecBytes = len(encodedFacet)
+	assertFacetBudgetBoundary(t, largeFacet, sizeLimits, false, "")
+	sizeLimits.MaxFacetSpecBytes--
+	assertFacetBudgetBoundary(t, largeFacet, sizeLimits, true, "spec")
 
 	largePolicy := policyBuilders[2].build(defaults.MaxPolicyAPIGroups)
 	encodedPolicy, err := json.Marshal(largePolicy.Spec)
@@ -808,15 +954,15 @@ func assertAdmissionValidationBudgetScenarios(t *testing.T) {
 	assertAccessPolicyBudgetBoundary(t, largePolicy, sizeLimits, true, "spec")
 }
 
-func assertKubeseerBudgetBoundary(t *testing.T, object *v1alpha1.Kubeseer, limits admission.Limits, overBudget bool, wantPath string) {
+func assertFacetBudgetBoundary(t *testing.T, object *v1alpha1.Facet, limits admission.Limits, overBudget bool, wantPath string) {
 	t.Helper()
-	issues := admission.ValidateKubeseerBudgetsWithLimits(object, limits)
+	issues := admission.ValidateFacetBudgetsWithLimits(object, limits)
 	if overBudget {
 		if len(issues) == 0 {
-			t.Fatal("over-budget Kubeseer was accepted")
+			t.Fatal("over-budget Facet was accepted")
 		}
 		if wantPath != "" && !hasBudgetPath(issues, wantPath) {
-			t.Fatalf("over-budget Kubeseer paths = %#v, want %q", issues, wantPath)
+			t.Fatalf("over-budget Facet paths = %#v, want %q", issues, wantPath)
 		}
 		client := newPolicyDiscoveryClient()
 		resolver := discovery.NewResolver(client)
@@ -832,29 +978,29 @@ func assertKubeseerBudgetBoundary(t *testing.T, object *v1alpha1.Kubeseer, limit
 		}
 		validateThenRun()
 		if dynamicCalls != 0 || client.calls["v1"] != 0 || policyCalls != 0 {
-			t.Fatalf("over-budget Kubeseer reached dynamic work: planner=%d discovery=%d policy=%d", dynamicCalls, client.calls["v1"], policyCalls)
+			t.Fatalf("over-budget Facet reached dynamic work: planner=%d discovery=%d policy=%d", dynamicCalls, client.calls["v1"], policyCalls)
 		}
 		return
 	}
 	if len(issues) != 0 {
-		t.Fatalf("boundary Kubeseer was rejected: %#v", issues)
+		t.Fatalf("boundary Facet was rejected: %#v", issues)
 	}
 	client := newPolicyDiscoveryClient()
 	resolver := discovery.NewResolver(client)
 	if _, err := resolver.Resolve(context.Background(), discovery.SourceDescriptor{SourceID: "budget", APIVersion: "v1", Kind: "Pod"}); err != nil {
-		t.Fatalf("boundary Kubeseer could not reach discovery: %v", err)
+		t.Fatalf("boundary Facet could not reach discovery: %v", err)
 	}
 	policyCalls := 0
-	_ = accesspolicy.Load(context.Background(), accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+	_ = accesspolicy.Load(context.Background(), accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 		policyCalls++
 		return basePolicy(), nil
 	}))
 	if client.calls["v1"] == 0 || policyCalls != 1 {
-		t.Fatalf("boundary Kubeseer did not reach dynamic work: discovery=%d policy=%d", client.calls["v1"], policyCalls)
+		t.Fatalf("boundary Facet did not reach dynamic work: discovery=%d policy=%d", client.calls["v1"], policyCalls)
 	}
 }
 
-func assertAccessPolicyBudgetBoundary(t *testing.T, object *v1alpha1.KubeseerAccessPolicy, limits admission.Limits, overBudget bool, wantPath string) {
+func assertAccessPolicyBudgetBoundary(t *testing.T, object *v1alpha1.FacetAccessPolicy, limits admission.Limits, overBudget bool, wantPath string) {
 	t.Helper()
 	issues := admission.ValidateAccessPolicyBudgetsWithLimits(object, limits)
 	if overBudget {
@@ -898,29 +1044,29 @@ func hasBudgetPath(issues []admission.BudgetIssue, want string) bool {
 func assertAdmissionValidationSemanticScenarios(t *testing.T) {
 	t.Helper()
 
-	valid := &v1alpha1.Kubeseer{Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{{
+	valid := &v1alpha1.Facet{Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{{
 		ID:       "valid-source",
 		Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
-		Fields: []v1alpha1.KubeseerField{{
+		Fields: []v1alpha1.FacetField{{
 			Name: "value", Path: "{.metadata.name}", Type: v1alpha1.ValueTypeNumber,
 		}},
-		Aggregations: []v1alpha1.KubeseerAggregation{{
+		Aggregations: []v1alpha1.FacetAggregation{{
 			Name: "average", Function: v1alpha1.AggregationAverage, Field: "value",
 		}},
 	}}}}
 	original := valid.DeepCopy()
-	if result := admission.ValidateKubeseerSemantics(valid); !result.Valid() {
-		t.Fatalf("valid pure Kubeseer semantics produced issues: %#v", result.Issues)
+	if result := admission.ValidateFacetSemantics(valid); !result.Valid() {
+		t.Fatalf("valid pure Facet semantics produced issues: %#v", result.Issues)
 	}
 	if !reflect.DeepEqual(valid, original) {
-		t.Fatal("semantic validation mutated the submitted Kubeseer")
+		t.Fatal("semantic validation mutated the submitted Facet")
 	}
 
 	empty := valid.DeepCopy()
 	empty.Spec.Sources[0].Fields = nil
 	empty.Spec.Sources[0].Aggregations = nil
 	empty.Spec.Sources[0].Namespaces = &v1alpha1.NamespaceSelection{Names: []string{}}
-	if result := admission.ValidateKubeseerSemantics(empty); !result.Valid() {
+	if result := admission.ValidateFacetSemantics(empty); !result.Valid() {
 		t.Fatalf("omitted fields or explicit empty namespaces were rejected: %#v", result.Issues)
 	}
 
@@ -937,7 +1083,7 @@ func assertAdmissionValidationSemanticScenarios(t *testing.T) {
 
 	secret := "secret-operand-that-must-not-escape"
 	invalid := valid.DeepCopy()
-	invalid.Spec.Sources = []v1alpha1.KubeseerSource{
+	invalid.Spec.Sources = []v1alpha1.FacetSource{
 		{
 			ID:       "duplicate-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "malformed", Kind: "not-a-kind"},
@@ -945,14 +1091,14 @@ func assertAdmissionValidationSemanticScenarios(t *testing.T) {
 				"team-a", "team-a",
 			}},
 			Selector: &v1alpha1.ResourceSelector{Name: "bad/name", FieldSelector: "metadata.name=="},
-			Fields: []v1alpha1.KubeseerField{
-				{Name: "value", Path: "{.metadata.name}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.KubeseerOperator{{
+			Fields: []v1alpha1.FacetField{
+				{Name: "value", Path: "{.metadata.name}", Type: v1alpha1.ValueTypeString, Operators: []v1alpha1.FacetOperator{{
 					Operator: v1alpha1.OperatorEq,
 				}}},
-				{Name: "value", Path: "{.metadata.name}", Type: v1alpha1.KubeseerValueType(secret)},
+				{Name: "value", Path: "{.metadata.name}", Type: v1alpha1.FacetValueType(secret)},
 				{Name: "broken", Path: "{.metadata..name}", Type: v1alpha1.ValueTypeString},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "duplicate", Function: v1alpha1.AggregationCount, Field: "value"},
 				{Name: "duplicate", Function: v1alpha1.AggregationCount, Field: "missing"},
 			},
@@ -962,7 +1108,7 @@ func assertAdmissionValidationSemanticScenarios(t *testing.T) {
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		},
 	}
-	result := admission.ValidateKubeseerSemantics(invalid)
+	result := admission.ValidateFacetSemantics(invalid)
 	if result.Valid() || result.Class() != admission.Invalid || len(result.Issues) < 8 {
 		t.Fatalf("multi-defect semantic result = %#v", result)
 	}
@@ -984,14 +1130,14 @@ func assertAdmissionValidationSemanticScenarios(t *testing.T) {
 		t.Fatal("semantic diagnostics leaked an operand value")
 	}
 
-	badPath := v1alpha1.KubeseerSource{ID: "wrapper", Fields: []v1alpha1.KubeseerField{{Name: "field", Path: "{.metadata..name}"}}}
+	badPath := v1alpha1.FacetSource{ID: "wrapper", Fields: []v1alpha1.FacetField{{Name: "field", Path: "{.metadata..name}"}}}
 	allExtraction := extraction.ValidateSource(badPath)
 	_, firstExtraction := extraction.CompileSource(badPath)
 	if len(allExtraction) == 0 || firstExtraction == nil || firstExtraction.FieldIndex != allExtraction[0].FieldIndex || firstExtraction.Reason != allExtraction[0].Reason {
 		t.Fatalf("single-error extraction wrapper diverged from sorted multi-error result: all=%#v first=%#v", allExtraction, firstExtraction)
 	}
 
-	invalidPolicy := mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+	invalidPolicy := mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 		policy.Name = "default"
 		policy.Spec.Namespaces.Mode = "invalid"
 		policy.Spec.Resources = []v1alpha1.ResourceRule{{}}
@@ -1016,17 +1162,17 @@ func assertAdmissionValidationSemanticScenarios(t *testing.T) {
 func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 	t.Helper()
 
-	newObject := func(apiVersion, kind, sourceID string) *v1alpha1.Kubeseer {
-		return &v1alpha1.Kubeseer{
+	newObject := func(apiVersion, kind, sourceID string) *v1alpha1.Facet {
+		return &v1alpha1.Facet{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "team-a"},
-			Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{{
+			Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{{
 				ID:       sourceID,
 				Resource: v1alpha1.ResourceReference{APIVersion: apiVersion, Kind: kind},
 			}}},
 		}
 	}
-	newPolicySource := func(calls *int, policy *v1alpha1.KubeseerAccessPolicy, sourceErr error) accesspolicy.PolicySource {
-		return accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+	newPolicySource := func(calls *int, policy *v1alpha1.FacetAccessPolicy, sourceErr error) accesspolicy.PolicySource {
+		return accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			*calls++
 			if sourceErr != nil {
 				return nil, sourceErr
@@ -1060,7 +1206,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 			discovery.NewResolver(client),
 			newPolicySource(&policyCalls, basePolicy(), nil),
 		)
-		got := validator.ValidateKubeseer(context.Background(), newObject("v1", "Pod", "served-pods"))
+		got := validator.ValidateFacet(context.Background(), newObject("v1", "Pod", "served-pods"))
 		if !got.Valid() {
 			t.Fatalf("served namespaced object was rejected: %#v", got.Issues)
 		}
@@ -1078,7 +1224,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		policyCalls := 0
 		object := newObject("v1", "Pod", "explicit-pods")
 		object.Spec.Sources[0].Namespaces = &v1alpha1.NamespaceSelection{Names: []string{"team-a", "team-b"}}
-		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, policy, nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, policy, nil)).ValidateFacet(context.Background(), object)
 		assertResult(t, got, admission.Forbidden, "NamespaceDenied", 1)
 		if got.Issues[0].Path != "spec.sources[0].namespaces.names[1]" {
 			t.Fatalf("target denial path = %q, want submitted namespace index", got.Issues[0].Path)
@@ -1093,7 +1239,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		policyCalls := 0
 		object := newObject("v1", "Pod", "empty-pods")
 		object.Spec.Sources[0].Namespaces = &v1alpha1.NamespaceSelection{Names: []string{}}
-		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), object)
 		if !got.Valid() {
 			t.Fatalf("explicit empty namespaces were rejected: %#v", got.Issues)
 		}
@@ -1106,17 +1252,17 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		client := newPolicyDiscoveryClient()
 		policyCalls := 0
 		object := newObject("v1", "Node", "cluster-nodes")
-		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), object)
 		assertResult(t, got, admission.Forbidden, "ClusterScopeDenied", 1)
 		if policyCalls != 1 {
 			t.Fatalf("policy calls after cluster denial = %d, want one", policyCalls)
 		}
 
 		policyCalls = 0
-		allowedPolicy := mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) {
+		allowedPolicy := mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) {
 			policy.Spec.AllowClusterScoped = true
 		})
-		got = admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, allowedPolicy, nil)).ValidateKubeseer(context.Background(), object)
+		got = admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, allowedPolicy, nil)).ValidateFacet(context.Background(), object)
 		if !got.Valid() {
 			t.Fatalf("cluster-scoped object was rejected after enabling cluster scope: %#v", got.Issues)
 		}
@@ -1129,7 +1275,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		policyCalls := 0
 		object := newObject("v1", "Node", "invalid-cluster-nodes")
 		object.Spec.Sources[0].Namespaces = &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}
-		got := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), object)
 		assertResult(t, got, admission.Invalid, "InvalidNamespaceScope", 1)
 		if policyCalls != 0 {
 			t.Fatalf("policy calls after scope conflict = %d, want zero", policyCalls)
@@ -1140,7 +1286,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		client := newPolicyDiscoveryClient()
 		policyCalls := 0
 		object := newObject("v1", "Ghost", "unknown-resource")
-		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(discovery.NewResolver(client), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), object)
 		assertResult(t, got, admission.Invalid, "UnknownResource", 1)
 		if policyCalls != 0 {
 			t.Fatalf("policy calls after unknown resource = %d, want zero", policyCalls)
@@ -1155,7 +1301,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 				Message: "raw-discovery-secret",
 			}
 		})
-		got := admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), newObject("v1", "Pod", "unavailable-resource"))
+		got := admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), newObject("v1", "Pod", "unavailable-resource"))
 		assertResult(t, got, admission.Unavailable, "ValidationUnavailable", 1)
 		encoded, err := json.Marshal(got.Issues)
 		if err != nil {
@@ -1175,11 +1321,11 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 			return discovery.Resolution{}, discovery.NewResolutionError(descriptor.SourceID, discovery.ReasonDiscoveryUnavailable, "unavailable")
 		})
 		object := newObject("v1", "Pod", "unknown")
-		object.Spec.Sources = append(object.Spec.Sources, v1alpha1.KubeseerSource{
+		object.Spec.Sources = append(object.Spec.Sources, v1alpha1.FacetSource{
 			ID:       "unavailable",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		})
-		got := admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), object)
 		assertResult(t, got, admission.Invalid, "UnknownResource", 2)
 		if got.Issues[0].Path != "spec.sources[0]" || got.Issues[1].Path != "spec.sources[1]" {
 			t.Fatalf("mixed source paths = %#v, want submitted source order", got.Issues)
@@ -1190,23 +1336,23 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 	})
 
 	t.Run("all policy terminal states are fresh and classified", func(t *testing.T) {
-		missing := apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "kubeseeraccesspolicies"}, v1alpha1.InstallationAccessCeilingName)
+		missing := apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "facetaccesspolicies"}, v1alpha1.InstallationAccessCeilingName)
 		cases := []struct {
 			name      string
-			policy    *v1alpha1.KubeseerAccessPolicy
+			policy    *v1alpha1.FacetAccessPolicy
 			err       error
 			class     admission.Class
 			reason    string
 			confident string
 		}{
 			{name: "missing", err: missing, class: admission.Forbidden, reason: "PolicyMissing"},
-			{name: "invalid", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.KubeseerAccessPolicy) { policy.Name = "default" }), class: admission.Forbidden, reason: "PolicyInvalid"},
+			{name: "invalid", policy: mutatePolicy(basePolicy(), func(policy *v1alpha1.FacetAccessPolicy) { policy.Name = "default" }), class: admission.Forbidden, reason: "PolicyInvalid"},
 			{name: "unavailable", err: errors.New("raw-policy-secret"), class: admission.Unavailable, reason: "ValidationUnavailable", confident: "raw-policy-secret"},
 		}
 		for _, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
 				policyCalls := 0
-				got := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, test.policy, test.err)).ValidateKubeseer(context.Background(), newObject("v1", "Pod", "policy-"+test.name))
+				got := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, test.policy, test.err)).ValidateFacet(context.Background(), newObject("v1", "Pod", "policy-"+test.name))
 				assertResult(t, got, test.class, test.reason, 1)
 				if policyCalls != 1 {
 					t.Fatalf("policy calls = %d, want one fresh load", policyCalls)
@@ -1224,8 +1370,8 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 
 	t.Run("equivalent discovery state produces equivalent outcomes", func(t *testing.T) {
 		object := newObject("v1", "Pod", "equivalent")
-		first := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(new(int), basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
-		second := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(new(int), basePolicy(), nil)).ValidateKubeseer(context.Background(), object.DeepCopy())
+		first := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(new(int), basePolicy(), nil)).ValidateFacet(context.Background(), object)
+		second := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(new(int), basePolicy(), nil)).ValidateFacet(context.Background(), object.DeepCopy())
 		if !reflect.DeepEqual(first, second) {
 			t.Fatalf("equivalent dynamic outcomes differ: first=%#v second=%#v", first, second)
 		}
@@ -1235,7 +1381,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		policyCalls := 0
-		got := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(ctx, newObject("v1", "Pod", "cancelled"))
+		got := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(ctx, newObject("v1", "Pod", "cancelled"))
 		assertResult(t, got, admission.Unavailable, "ValidationUnavailable", 1)
 		if policyCalls != 0 {
 			t.Fatalf("policy calls after cancellation = %d, want zero", policyCalls)
@@ -1250,7 +1396,7 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		})
 		policyCalls := 0
 		object := newObject("bad/version/extra", "Pod", "static-invalid")
-		got := admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), object)
+		got := admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), object)
 		assertResult(t, got, admission.Invalid, "InvalidAPIVersion", 1)
 		if resolverCalls != 0 || policyCalls != 0 {
 			t.Fatalf("static semantic failure reached dynamic work: resolver=%d policy=%d", resolverCalls, policyCalls)
@@ -1260,9 +1406,9 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		policyCalls = 0
 		budgetObject := newObject("v1", "Pod", "budget-invalid")
 		for index := 0; index < admission.DefaultMaxSourceFields+1; index++ {
-			budgetObject.Spec.Sources[0].Fields = append(budgetObject.Spec.Sources[0].Fields, v1alpha1.KubeseerField{Name: fmt.Sprintf("field-%03d", index), Path: "{.metadata.name}"})
+			budgetObject.Spec.Sources[0].Fields = append(budgetObject.Spec.Sources[0].Fields, v1alpha1.FacetField{Name: fmt.Sprintf("field-%03d", index), Path: "{.metadata.name}"})
 		}
-		got = admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateKubeseer(context.Background(), budgetObject)
+		got = admission.NewValidator(resolver, newPolicySource(&policyCalls, basePolicy(), nil)).ValidateFacet(context.Background(), budgetObject)
 		assertResult(t, got, admission.Invalid, "ConfigurationBudgetExceeded", 1)
 		if resolverCalls != 0 || policyCalls != 0 {
 			t.Fatalf("static budget failure reached dynamic work: resolver=%d policy=%d", resolverCalls, policyCalls)
@@ -1273,10 +1419,10 @@ func assertAdmissionValidationDynamicScenarios(t *testing.T) {
 		policyCalls := 0
 		validator := admission.NewValidator(discovery.NewResolver(newPolicyDiscoveryClient()), newPolicySource(&policyCalls, basePolicy(), nil))
 		object := newObject("v1", "Pod", "fresh-load")
-		if got := validator.ValidateKubeseer(context.Background(), object); !got.Valid() {
+		if got := validator.ValidateFacet(context.Background(), object); !got.Valid() {
 			t.Fatalf("first fresh validation failed: %#v", got.Issues)
 		}
-		if got := validator.ValidateKubeseer(context.Background(), object.DeepCopy()); !got.Valid() {
+		if got := validator.ValidateFacet(context.Background(), object.DeepCopy()); !got.Valid() {
 			t.Fatalf("second fresh validation failed: %#v", got.Issues)
 		}
 		if policyCalls != 2 {
@@ -1303,29 +1449,29 @@ func (*admissionTestServer) Close() {}
 func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 	t.Helper()
 
-	newKubeseer := func(namespace, sourceID, apiVersion, kind string) *v1alpha1.Kubeseer {
-		return &v1alpha1.Kubeseer{
-			TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "Kubeseer"},
+	newFacet := func(namespace, sourceID, apiVersion, kind string) *v1alpha1.Facet {
+		return &v1alpha1.Facet{
+			TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "Facet"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "example",
 				Namespace: namespace,
 			},
-			Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{{
+			Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{{
 				ID:       sourceID,
 				Resource: v1alpha1.ResourceReference{APIVersion: apiVersion, Kind: kind},
 			}}},
 		}
 	}
-	newPolicy := func(name string) *v1alpha1.KubeseerAccessPolicy {
+	newPolicy := func(name string) *v1alpha1.FacetAccessPolicy {
 		policy := basePolicy()
-		policy.TypeMeta = metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "KubeseerAccessPolicy"}
+		policy.TypeMeta = metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "FacetAccessPolicy"}
 		policy.Name = name
 		return policy
 	}
 	newServer := func(validator *admission.Validator) *admissionTestServer {
 		scheme := runtime.NewScheme()
 		if err := v1alpha1.AddToScheme(scheme); err != nil {
-			t.Fatalf("add Kubeseer scheme: %v", err)
+			t.Fatalf("add Facet scheme: %v", err)
 		}
 		server := crwebhook.NewServer(crwebhook.Options{WebhookMux: http.NewServeMux()})
 		admission.Register(server, scheme, validator)
@@ -1419,12 +1565,12 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 		}
 	}
 
-	valid := newKubeseer("team-a", "pods", "v1", "Pod")
+	valid := newFacet("team-a", "pods", "v1", "Pod")
 	validPolicy := newPolicy(v1alpha1.InstallationAccessCeilingName)
 	policyCalls := 0
 	validator := admission.NewValidator(
 		discovery.NewResolver(newPolicyDiscoveryClient()),
-		accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			policyCalls++
 			return validPolicy.DeepCopy(), nil
 		}),
@@ -1432,8 +1578,8 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 	server := newServer(validator)
 	defer server.Close()
 
-	create := newReview(t, valid, "kubeseers", admissionv1.Create, nil, nil)
-	allowed := send(t, server, admission.KubeseerWebhookPath, create)
+	create := newReview(t, valid, "facets", admissionv1.Create, nil, nil)
+	allowed := send(t, server, admission.FacetWebhookPath, create)
 	assertResponse(t, allowed, true, http.StatusOK, "")
 	if allowed.Response.UID != create.Request.UID {
 		t.Fatalf("allowed response UID = %q, want %q", allowed.Response.UID, create.Request.UID)
@@ -1443,7 +1589,7 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 	}
 
 	dryRun := true
-	dryRunResponse := send(t, server, admission.KubeseerWebhookPath, newReview(t, valid, "kubeseers", admissionv1.Create, nil, &dryRun))
+	dryRunResponse := send(t, server, admission.FacetWebhookPath, newReview(t, valid, "facets", admissionv1.Create, nil, &dryRun))
 	if dryRunResponse.Response.Allowed != allowed.Response.Allowed || dryRunResponse.Response.Result.Code != allowed.Response.Result.Code || dryRunResponse.Response.Result.Reason != allowed.Response.Result.Reason {
 		t.Fatalf("dry-run response = %#v, want same decision as non-dry-run %#v", dryRunResponse.Response, allowed.Response)
 	}
@@ -1451,12 +1597,12 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 		t.Fatalf("policy calls after dry-run AdmissionReview = %d, want two independent loads", policyCalls)
 	}
 
-	invalid := newKubeseer("team-a", "same", "bad/version/extra", "Pod")
-	invalid.Spec.Sources = append(invalid.Spec.Sources, v1alpha1.KubeseerSource{
+	invalid := newFacet("team-a", "same", "bad/version/extra", "Pod")
+	invalid.Spec.Sources = append(invalid.Spec.Sources, v1alpha1.FacetSource{
 		ID:       "same",
 		Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 	})
-	invalidResponse := send(t, server, admission.KubeseerWebhookPath, newReview(t, invalid, "kubeseers", admissionv1.Create, nil, nil))
+	invalidResponse := send(t, server, admission.FacetWebhookPath, newReview(t, invalid, "facets", admissionv1.Create, nil, nil))
 	assertResponse(t, invalidResponse, false, http.StatusUnprocessableEntity, metav1.StatusReasonInvalid)
 	assertCauses(t, invalidResponse, []string{"spec.sources[0].resource.apiVersion", "spec.sources[1].id"})
 	if strings.Contains(invalidResponse.Response.Result.Message, "bad/version/extra") {
@@ -1464,46 +1610,46 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 	}
 
 	oldInvalid := invalid.DeepCopy()
-	updateAllowed := send(t, server, admission.KubeseerWebhookPath, newReview(t, valid, "kubeseers", admissionv1.Update, oldInvalid, nil))
+	updateAllowed := send(t, server, admission.FacetWebhookPath, newReview(t, valid, "facets", admissionv1.Update, oldInvalid, nil))
 	assertResponse(t, updateAllowed, true, http.StatusOK, "")
-	updateDenied := send(t, server, admission.KubeseerWebhookPath, newReview(t, invalid, "kubeseers", admissionv1.Update, valid, nil))
+	updateDenied := send(t, server, admission.FacetWebhookPath, newReview(t, invalid, "facets", admissionv1.Update, valid, nil))
 	assertResponse(t, updateDenied, false, http.StatusUnprocessableEntity, metav1.StatusReasonInvalid)
 
-	deleteAllowed := send(t, server, admission.KubeseerWebhookPath, newReview(t, valid, "kubeseers", admissionv1.Delete, valid, nil))
+	deleteAllowed := send(t, server, admission.FacetWebhookPath, newReview(t, valid, "facets", admissionv1.Delete, valid, nil))
 	assertResponse(t, deleteAllowed, true, http.StatusOK, "")
 
 	malformedSecret := "registration-malformed-secret"
 	malformedPayload := []byte("{\"apiVersion\":\"admission.k8s.io/v1\",\"kind\":\"AdmissionReview\",\"request\":{\"uid\":\"malformed\",\"object\":{\"secret\":\"" + malformedSecret)
-	malformedResponse := sendPayload(t, server, admission.KubeseerWebhookPath, malformedPayload)
+	malformedResponse := sendPayload(t, server, admission.FacetWebhookPath, malformedPayload)
 	assertResponse(t, malformedResponse, false, http.StatusBadRequest, "")
 	if strings.Contains(malformedResponse.Response.Result.Message, malformedSecret) || malformedResponse.Response.Result.Details != nil {
 		t.Fatalf("malformed response leaked payload or causes: %#v", malformedResponse.Response.Result)
 	}
 
-	forbiddenObject := newKubeseer("team-b", "forbidden-pods", "v1", "Pod")
-	forbiddenResponse := send(t, server, admission.KubeseerWebhookPath, newReview(t, forbiddenObject, "kubeseers", admissionv1.Create, nil, nil))
+	forbiddenObject := newFacet("team-b", "forbidden-pods", "v1", "Pod")
+	forbiddenResponse := send(t, server, admission.FacetWebhookPath, newReview(t, forbiddenObject, "facets", admissionv1.Create, nil, nil))
 	assertResponse(t, forbiddenResponse, false, http.StatusForbidden, metav1.StatusReasonForbidden)
 	assertCauses(t, forbiddenResponse, []string{"spec.sources[0].resource"})
 
 	policyObject := newPolicy(v1alpha1.InstallationAccessCeilingName)
-	policyResponse := send(t, server, admission.KubeseerAccessPolicyWebhookPath, newReview(t, policyObject, "kubeseeraccesspolicies", admissionv1.Create, nil, nil))
+	policyResponse := send(t, server, admission.FacetAccessPolicyWebhookPath, newReview(t, policyObject, "facetaccesspolicies", admissionv1.Create, nil, nil))
 	assertResponse(t, policyResponse, true, http.StatusOK, "")
-	policyInvalidResponse := send(t, server, admission.KubeseerAccessPolicyWebhookPath, newReview(t, newPolicy("default"), "kubeseeraccesspolicies", admissionv1.Update, policyObject, nil))
+	policyInvalidResponse := send(t, server, admission.FacetAccessPolicyWebhookPath, newReview(t, newPolicy("default"), "facetaccesspolicies", admissionv1.Update, policyObject, nil))
 	assertResponse(t, policyInvalidResponse, false, http.StatusUnprocessableEntity, metav1.StatusReasonInvalid)
 	assertCauses(t, policyInvalidResponse, []string{"metadata.name"})
-	policyDeleteResponse := send(t, server, admission.KubeseerAccessPolicyWebhookPath, newReview(t, policyObject, "kubeseeraccesspolicies", admissionv1.Delete, policyObject, nil))
+	policyDeleteResponse := send(t, server, admission.FacetAccessPolicyWebhookPath, newReview(t, policyObject, "facetaccesspolicies", admissionv1.Delete, policyObject, nil))
 	assertResponse(t, policyDeleteResponse, true, http.StatusOK, "")
 
 	unavailableServer := newServer(admission.NewValidator(
 		admissionResolverFunc(func(context.Context, discovery.SourceDescriptor) (discovery.Resolution, error) {
 			return discovery.Resolution{}, discovery.NewResolutionError("unavailable", discovery.ReasonDiscoveryUnavailable, "registration-raw-secret")
 		}),
-		accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			return validPolicy.DeepCopy(), nil
 		}),
 	))
 	defer unavailableServer.Close()
-	unavailableResponse := send(t, unavailableServer, admission.KubeseerWebhookPath, newReview(t, valid, "kubeseers", admissionv1.Create, nil, nil))
+	unavailableResponse := send(t, unavailableServer, admission.FacetWebhookPath, newReview(t, valid, "facets", admissionv1.Create, nil, nil))
 	assertResponse(t, unavailableResponse, false, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable)
 	if strings.Contains(unavailableResponse.Response.Result.Message, "registration-raw-secret") || unavailableResponse.Response.Result.Details == nil {
 		t.Fatalf("unavailable response was not sanitized or lacked a cause: %#v", unavailableResponse.Response.Result)
@@ -1515,11 +1661,11 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 	clientConfig := admissionregistrationv1.WebhookClientConfig{URL: &urlValue, CABundle: caBundle}
 	originalClientConfig := clientConfig.DeepCopy()
 	configuration := admission.WebhookConfiguration(clientConfig)
-	if configuration.Name != "kubeseer-validating-webhook" || len(configuration.Webhooks) != 2 {
+	if configuration.Name != "kubefacet-validating-webhook" || len(configuration.Webhooks) != 2 {
 		t.Fatalf("webhook configuration identity = %#v, want stable configuration with two webhooks", configuration)
 	}
-	wantPaths := []string{admission.KubeseerWebhookPath, admission.KubeseerAccessPolicyWebhookPath}
-	wantResources := []string{"kubeseers", "kubeseeraccesspolicies"}
+	wantPaths := []string{admission.FacetWebhookPath, admission.FacetAccessPolicyWebhookPath}
+	wantResources := []string{"facets", "facetaccesspolicies"}
 	wantScopes := []admissionregistrationv1.ScopeType{admissionregistrationv1.NamespacedScope, admissionregistrationv1.ClusterScope}
 	for index, webhook := range configuration.Webhooks {
 		if webhook.FailurePolicy == nil || *webhook.FailurePolicy != admissionregistrationv1.Fail || webhook.MatchPolicy == nil || *webhook.MatchPolicy != admissionregistrationv1.Exact || webhook.SideEffects == nil || *webhook.SideEffects != admissionregistrationv1.SideEffectClassNone || webhook.TimeoutSeconds == nil || *webhook.TimeoutSeconds != 10 || !reflect.DeepEqual(webhook.AdmissionReviewVersions, []string{"v1"}) {
@@ -1540,7 +1686,7 @@ func assertAdmissionValidationRegistrationScenarios(t *testing.T) {
 		t.Fatalf("WebhookConfiguration mutated input client config: got=%#v want=%#v", clientConfig, *originalClientConfig)
 	}
 	secondConfiguration := admission.WebhookConfiguration(clientConfig)
-	if secondConfiguration.Webhooks[0].Rules[0].Resources[0] != "kubeseers" || !strings.HasSuffix(*secondConfiguration.Webhooks[0].ClientConfig.URL, admission.KubeseerWebhookPath) {
+	if secondConfiguration.Webhooks[0].Rules[0].Resources[0] != "facets" || !strings.HasSuffix(*secondConfiguration.Webhooks[0].ClientConfig.URL, admission.FacetWebhookPath) {
 		t.Fatal("WebhookConfiguration output was not independent across calls")
 	}
 
@@ -1577,7 +1723,7 @@ func assertSnapshotStabilityScenarios(t *testing.T, ctx context.Context, resolve
 	second := first.DeepCopy()
 	second.Spec.Namespaces.Include = []string{"team-a", "team-c"}
 	second.Spec.Namespaces.Exclude = []string{"team-b", "team-d"}
-	second.Spec.Resources[0].APIGroups = []string{"widgets.kubeseer.io", "apps", ""}
+	second.Spec.Resources[0].APIGroups = []string{"widgets.kubefacet.steeltanuki.it", "apps", ""}
 	second.Spec.Resources[0].Kinds = []string{"Widget", "Deployment", "Pod"}
 	firstSnapshot := mustSnapshot(t, first)
 	secondSnapshot := mustSnapshot(t, second)
@@ -1587,7 +1733,7 @@ func assertSnapshotStabilityScenarios(t *testing.T, ctx context.Context, resolve
 	}{
 		{descriptor: discovery.SourceDescriptor{SourceID: "stable-pod", APIVersion: "v1", Kind: "Pod"}, namespace: "team-a"},
 		{descriptor: discovery.SourceDescriptor{SourceID: "stable-deployment", APIVersion: "apps/v1", Kind: "Deployment"}, namespace: "team-a"},
-		{descriptor: discovery.SourceDescriptor{SourceID: "stable-widget", APIVersion: "widgets.kubeseer.io/v1", Kind: "Widget"}, namespace: "team-b"},
+		{descriptor: discovery.SourceDescriptor{SourceID: "stable-widget", APIVersion: "widgets.kubefacet.steeltanuki.it/v1", Kind: "Widget"}, namespace: "team-b"},
 		{descriptor: discovery.SourceDescriptor{SourceID: "stable-job", APIVersion: "batch/v1", Kind: "Job"}, namespace: "team-a"},
 	} {
 		request := requestFromResolution(t, ctx, resolver, test.descriptor, test.namespace)
@@ -1601,7 +1747,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 	t.Helper()
 	request := requestFromResolution(t, ctx, resolver, discovery.SourceDescriptor{SourceID: "loader-pod", APIVersion: "v1", Kind: "Pod"}, "team-a")
 	valid := basePolicy()
-	missingError := apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "kubeseeraccesspolicies"}, v1alpha1.InstallationAccessCeilingName)
+	missingError := apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "facetaccesspolicies"}, v1alpha1.InstallationAccessCeilingName)
 
 	tests := []struct {
 		name       string
@@ -1612,7 +1758,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 	}{
 		{
 			name: "valid policy produces a logical allow",
-			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 				return valid.DeepCopy(), nil
 			}),
 			wantReason: accesspolicy.ReasonAllowed,
@@ -1621,7 +1767,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 		},
 		{
 			name: "missing policy produces deny all",
-			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 				return nil, missingError
 			}),
 			wantReason: accesspolicy.ReasonPolicyMissing,
@@ -1629,7 +1775,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 		},
 		{
 			name: "invalid policy produces deny all",
-			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 				invalid := valid.DeepCopy()
 				invalid.Name = "default"
 				return invalid, nil
@@ -1639,7 +1785,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 		},
 		{
 			name: "unavailable policy produces sanitized deny all",
-			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+			source: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 				return nil, errors.New("raw-secret-upstream-payload")
 			}),
 			wantReason: accesspolicy.ReasonPolicyUnavailable,
@@ -1660,7 +1806,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 
 	t.Run("a later failure cannot reuse a prior valid snapshot", func(t *testing.T) {
 		calls := 0
-		source := accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		source := accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			calls++
 			if calls == 1 {
 				return valid.DeepCopy(), nil
@@ -1682,7 +1828,7 @@ func assertLoaderScenarios(t *testing.T, ctx context.Context, resolver *discover
 
 	t.Run("evaluation never calls the policy source", func(t *testing.T) {
 		calls := 0
-		source := accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		source := accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			calls++
 			return valid.DeepCopy(), nil
 		})
@@ -1719,7 +1865,7 @@ func requestFromResolution(t *testing.T, ctx context.Context, resolver *discover
 	}
 }
 
-func mustSnapshot(t *testing.T, policy *v1alpha1.KubeseerAccessPolicy) accesspolicy.Snapshot {
+func mustSnapshot(t *testing.T, policy *v1alpha1.FacetAccessPolicy) accesspolicy.Snapshot {
 	t.Helper()
 	compiled, err := accesspolicy.Compile(policy)
 	if err != nil {
@@ -1728,23 +1874,23 @@ func mustSnapshot(t *testing.T, policy *v1alpha1.KubeseerAccessPolicy) accesspol
 	return compiled.Snapshot()
 }
 
-func mutatePolicy(policy *v1alpha1.KubeseerAccessPolicy, mutate func(*v1alpha1.KubeseerAccessPolicy)) *v1alpha1.KubeseerAccessPolicy {
+func mutatePolicy(policy *v1alpha1.FacetAccessPolicy, mutate func(*v1alpha1.FacetAccessPolicy)) *v1alpha1.FacetAccessPolicy {
 	copy := policy.DeepCopy()
 	mutate(copy)
 	return copy
 }
 
-func basePolicy() *v1alpha1.KubeseerAccessPolicy {
-	return &v1alpha1.KubeseerAccessPolicy{
+func basePolicy() *v1alpha1.FacetAccessPolicy {
+	return &v1alpha1.FacetAccessPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName},
-		Spec: v1alpha1.KubeseerAccessPolicySpec{
+		Spec: v1alpha1.FacetAccessPolicySpec{
 			Namespaces: v1alpha1.NamespacePolicy{
 				Mode:    v1alpha1.NamespaceModeAllNonSystem,
 				Include: []string{"team-a"},
 				Exclude: []string{"team-b"},
 			},
 			Resources: []v1alpha1.ResourceRule{
-				{APIGroups: []string{"", "apps", "widgets.kubeseer.io"}, Kinds: []string{"Pod", "Deployment", "Widget"}},
+				{APIGroups: []string{"", "apps", "widgets.kubefacet.steeltanuki.it"}, Kinds: []string{"Pod", "Deployment", "Widget"}},
 				{APIGroups: []string{""}, Kinds: []string{"Node"}},
 			},
 		},
@@ -1794,7 +1940,7 @@ func newPolicyDiscoveryClient() *policyDiscoveryClient {
 			"batch/v1": {GroupVersion: "batch/v1", APIResources: []metav1.APIResource{
 				{Name: "jobs", Kind: "Job", Namespaced: true},
 			}},
-			"widgets.kubeseer.io/v1": {GroupVersion: "widgets.kubeseer.io/v1", APIResources: []metav1.APIResource{
+			"widgets.kubefacet.steeltanuki.it/v1": {GroupVersion: "widgets.kubefacet.steeltanuki.it/v1", APIResources: []metav1.APIResource{
 				{Name: "widgets", Kind: "Widget", Namespaced: true},
 			}},
 		},

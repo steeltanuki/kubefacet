@@ -20,23 +20,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 )
 
 func assertCrossNamespaceAggregationStatusScenarios(t *testing.T) {
 	t.Helper()
 
 	t.Run("aggregate projection preserves raw results and declaration order", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "aggregate-source",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "group", Path: "{.data.group}", Type: v1alpha1.ValueTypeString},
 				{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "sum-by-group", Function: v1alpha1.AggregationSum, Field: "value", GroupBy: []string{"group"}, IncludeProvenance: true},
 				{Name: "average", Function: v1alpha1.AggregationAverage, Field: "value"},
 				{Name: "invalid", Function: v1alpha1.AggregationSum, Field: "missing"},
@@ -89,10 +89,10 @@ func assertCrossNamespaceAggregationStatusScenarios(t *testing.T) {
 			t.Fatalf("canonical projected group order = %#v", sum.Groups)
 		}
 
-		plainSource := v1alpha1.KubeseerSource{ID: "plain-source", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}}
+		plainSource := v1alpha1.FacetSource{ID: "plain-source", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}}}
 		emptySource := plainSource
 		emptySource.ID = "explicit-empty-source"
-		emptySource.Aggregations = []v1alpha1.KubeseerAggregation{}
+		emptySource.Aggregations = []v1alpha1.FacetAggregation{}
 		plainOperator, _ := evaluateOperatorSource(t, plainSource, resources[:1])
 		emptyOperator, _ := evaluateOperatorSource(t, emptySource, resources[:1])
 		plainOutcome := aggregation.EvaluateBatch(context.Background(), []aggregation.SourceInput{{Plan: aggregation.PlanSource(plainSource, aggregation.Limits{}), Operators: plainOperator}})[0]
@@ -108,12 +108,12 @@ func assertCrossNamespaceAggregationStatusScenarios(t *testing.T) {
 
 	t.Run("aggregate semantics participate in status derivation without changing raw counts", func(t *testing.T) {
 		value := int64(1)
-		base := &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{
+		base := &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{
 			ID:    "source",
 			State: v1alpha1.SourceStateValues,
-			Resources: []v1alpha1.KubeseerResourceResult{{
+			Resources: []v1alpha1.FacetResourceResult{{
 				APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "pod", UID: "pod-uid",
-				Fields: []v1alpha1.KubeseerFieldResult{{Name: "value", Type: v1alpha1.ValueTypeInteger, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.KubeseerTypedMatch{{State: v1alpha1.MatchStateValue, IntegerValue: &value}}}},
+				Fields: []v1alpha1.FacetFieldResult{{Name: "value", Type: v1alpha1.ValueTypeInteger, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.FacetTypedMatch{{State: v1alpha1.MatchStateValue, IntegerValue: &value}}}},
 			}},
 		}}}
 		withoutAggregate, err := statuscontract.DeriveResult(base)
@@ -121,9 +121,9 @@ func assertCrossNamespaceAggregationStatusScenarios(t *testing.T) {
 			t.Fatalf("derive raw result: %v", err)
 		}
 		withAggregate := base.DeepCopy()
-		withAggregate.Sources[0].Aggregates = []v1alpha1.KubeseerAggregateResult{{
+		withAggregate.Sources[0].Aggregates = []v1alpha1.FacetAggregateResult{{
 			Name: "sum", Function: v1alpha1.AggregationSum, Field: "value", State: v1alpha1.AggregateStateValues,
-			Groups: []v1alpha1.KubeseerAggregateGroup{{Value: v1alpha1.KubeseerAggregateValue{Type: v1alpha1.ValueTypeInteger, State: v1alpha1.AggregateValueValues, Matches: []v1alpha1.KubeseerAggregateMatch{{Value: v1alpha1.KubeseerTypedMatch{State: v1alpha1.MatchStateValue, IntegerValue: &value}}}}}},
+			Groups: []v1alpha1.FacetAggregateGroup{{Value: v1alpha1.FacetAggregateValue{Type: v1alpha1.ValueTypeInteger, State: v1alpha1.AggregateValueValues, Matches: []v1alpha1.FacetAggregateMatch{{Value: v1alpha1.FacetTypedMatch{State: v1alpha1.MatchStateValue, IntegerValue: &value}}}}}},
 		}}
 		withAggregateDerived, err := statuscontract.DeriveResult(withAggregate)
 		if err != nil {
@@ -145,7 +145,7 @@ func assertCrossNamespaceAggregationStatusScenarios(t *testing.T) {
 		nilCollections := withAggregate.DeepCopy()
 		nilCollections.Sources[0].Aggregates[0].Groups = nil
 		emptyCollections := withAggregate.DeepCopy()
-		emptyCollections.Sources[0].Aggregates[0].Groups = []v1alpha1.KubeseerAggregateGroup{}
+		emptyCollections.Sources[0].Aggregates[0].Groups = []v1alpha1.FacetAggregateGroup{}
 		if !statuscontract.SemanticResultEqual(nilCollections, emptyCollections) {
 			t.Fatal("nil and empty aggregate collections were not normalized equivalently")
 		}

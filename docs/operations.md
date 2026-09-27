@@ -22,14 +22,14 @@ SAN must exist, and the certificate must verify against the configured CA.
 Basic checks:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system \
-  rollout status deployment/kubeseer --timeout=5m
-kubectl --context my-cluster -n kubeseer-system \
-  get deployment kubeseer -o wide
-kubectl --context my-cluster -n kubeseer-system \
+kubectl --context my-cluster -n kubefacet-system \
+  rollout status deployment/kubefacet --timeout=5m
+kubectl --context my-cluster -n kubefacet-system \
+  get deployment kubefacet -o wide
+kubectl --context my-cluster -n kubefacet-system \
   get pods,service
-kubectl --context my-cluster -n kubeseer-system \
-  get endpointslice --selector kubernetes.io/service-name=kubeseer-webhook
+kubectl --context my-cluster -n kubefacet-system \
+  get endpointslice --selector kubernetes.io/service-name=kubefacet-webhook
 ```
 
 The last command inspects every controller-managed webhook backend through the
@@ -38,22 +38,22 @@ discovery/v1 EndpointSlice API and the standard Service-name selector.
 For direct endpoint inspection without exposing the Service externally:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system \
-  port-forward deployment/kubeseer 8081:8081 8080:8080
+kubectl --context my-cluster -n kubefacet-system \
+  port-forward deployment/kubefacet 8081:8081 8080:8080
 curl --fail http://127.0.0.1:8081/healthz
 curl --fail http://127.0.0.1:8081/readyz
 curl --fail http://127.0.0.1:8080/metrics
 ```
 
-## Read a Kubeseer outcome
+## Read a KubeFacet outcome
 
 Always compare `metadata.generation` with `status.observedGeneration`, then
 read conditions before inspecting the potentially larger result:
 
 ```sh
-kubectl --context my-cluster -n applications get kubeseer workload-view \
+kubectl --context my-cluster -n applications get facet workload-view \
   -o jsonpath='generation={.metadata.generation}{" observed="}{.status.observedGeneration}{"\n"}{range .status.conditions[*]}{.type}={.status} reason={.reason}{"\n"}{end}'
-kubectl --context my-cluster -n applications get kubeseer workload-view \
+kubectl --context my-cluster -n applications get facet workload-view \
   -o jsonpath='{.status.summary}{"\n"}{.status.resultHash}{"\n"}'
 ```
 
@@ -74,7 +74,7 @@ message text. Public reason codes are listed in the
 [API reference](api-reference.md#conditions).
 
 `status.resultHash` identifies the semantic result. A stable hash with repeated
-reconciliations is expected: Kubeseer suppresses status writes when only
+reconciliations is expected: KubeFacet suppresses status writes when only
 volatile processing details changed.
 
 ## Diagnose configuration-budget rejection
@@ -87,7 +87,7 @@ observation result is available, and `Degraded=True` carries
 payloads and selectors are not copied into tickets or logs:
 
 ```sh
-kubectl --context my-cluster -n applications get kubeseer workload-view -o json \
+kubectl --context my-cluster -n applications get facet workload-view -o json \
   | jq '{generation: .metadata.generation, observedGeneration: .status.observedGeneration, conditions: [.status.conditions[] | {type, status, reason}], resultPresent: (.status.result != null), summaryPresent: (.status.summary != null), resultHashPresent: (.status.resultHash != null)}'
 ```
 
@@ -105,7 +105,7 @@ denial clears the old result without restoring it, while an authorized success
 replaces the rejection with a fresh result. The prior result is removed only
 after a successful status write is accepted by the API. During a conflict, transient API
 failure, or forbidden status subresource, the old status can remain; retry and
-check the `kubeseer_status_updates_total` metric and Events rather than
+check the `kubefacet_status_updates_total` metric and Events rather than
 claiming deletion.
 
 See [the security boundary](security.md#budget-rejection-and-data-removal) for
@@ -123,12 +123,12 @@ available when no stream exists.
 Use identity and reason fields only when triaging an incident:
 
 ```sh
-kubectl --context my-cluster -n applications get kubeseer workload-view \
+kubectl --context my-cluster -n applications get facet workload-view \
   -o jsonpath='{.metadata.generation}{" "}{.status.observedGeneration}{"\n"}{range .status.conditions[*]}{.type}{"="}{.status}{" reason="}{.reason}{"\n"}{end}'
-kubectl --context my-cluster -n kubeseer-system logs deployment/kubeseer \
+kubectl --context my-cluster -n kubefacet-system logs deployment/kubefacet \
   --all-containers --tail=200 | grep -E 'SourceWatchStopped|SourceWatchRestarted'
-kubectl --context my-cluster -n kubeseer-system get --raw /metrics \
-  | grep kubeseer_source_watch_restarts_total
+kubectl --context my-cluster -n kubefacet-system get --raw /metrics \
+  | grep kubefacet_source_watch_restarts_total
 ```
 
 Read the signals in this order:
@@ -155,14 +155,14 @@ for the confidentiality boundary.
 
 ## Kubernetes Events
 
-Kubeseer emits one bounded Event after a semantic status write. A successful
+KubeFacet emits one bounded Event after a semantic status write. A successful
 evaluation emits a Normal Event; the first non-success condition in
 `Accepted`, `Authorized`, `SourcesResolved`, then `Ready` order determines a
 Warning Event.
 
 ```sh
 kubectl --context my-cluster -n applications get events \
-  --field-selector involvedObject.kind=Kubeseer,involvedObject.name=workload-view \
+  --field-selector involvedObject.kind=KubeFacet,involvedObject.name=workload-view \
   --sort-by=.lastTimestamp
 ```
 
@@ -175,15 +175,15 @@ The manager exports these stable metric families:
 
 | Metric | Labels | Purpose |
 | --- | --- | --- |
-| `kubeseer_reconciliations_total` | `outcome`, `reason` | Reconciliation terminal outcomes |
-| `kubeseer_reconciliation_duration_seconds` | `outcome` | Reconciliation latency |
-| `kubeseer_resources_read_total` | `scope` | Observed-resource read volume |
-| `kubeseer_source_failures_total` | `stage`, `reason` | Source failures by pipeline stage |
-| `kubeseer_results_produced_total` | `outcome` | Produced result outcomes |
-| `kubeseer_status_updates_total` | `outcome`, `reason` | Written versus suppressed status updates |
-| `kubeseer_authorization_decisions_total` | `kind`, `outcome`, `reason` | Logical and API authorization decisions |
-| `kubeseer_jsonpath_failures_total` | `reason` | Extraction failures |
-| `kubeseer_source_watch_restarts_total` | `reason` | Dynamic source-watch restarts |
+| `kubefacet_reconciliations_total` | `outcome`, `reason` | Reconciliation terminal outcomes |
+| `kubefacet_reconciliation_duration_seconds` | `outcome` | Reconciliation latency |
+| `kubefacet_resources_read_total` | `scope` | Observed-resource read volume |
+| `kubefacet_source_failures_total` | `stage`, `reason` | Source failures by pipeline stage |
+| `kubefacet_results_produced_total` | `outcome` | Produced result outcomes |
+| `kubefacet_status_updates_total` | `outcome`, `reason` | Written versus suppressed status updates |
+| `kubefacet_authorization_decisions_total` | `kind`, `outcome`, `reason` | Logical and API authorization decisions |
+| `kubefacet_jsonpath_failures_total` | `reason` | Extraction failures |
+| `kubefacet_source_watch_restarts_total` | `reason` | Dynamic source-watch restarts |
 
 Labels are finite and must not be augmented with names, UIDs, field paths, or
 user values. Useful alerts include sustained reconciliation failures,
@@ -206,8 +206,8 @@ Logs use stable event codes including:
 Inspect a bounded manager tail:
 
 ```sh
-kubectl --context my-cluster -n kubeseer-system logs \
-  deployment/kubeseer --all-containers --tail=200
+kubectl --context my-cluster -n kubefacet-system logs \
+  deployment/kubefacet --all-containers --tail=200
 ```
 
 Optional tracing is disabled by default. Enable it only with a reviewed OTLP
@@ -220,7 +220,7 @@ tracing:
 ```
 
 Logs and traces intentionally omit result values and confidential inputs. Use
-the `Kubeseer` status, subject to its RBAC, when value-level inspection is
+the `Facet` status, subject to its RBAC, when value-level inspection is
 required.
 
 ## Authorization diagnosis
@@ -238,10 +238,10 @@ outcomes:
 Inspect both controls:
 
 ```sh
-kubectl --context my-cluster get kubeseeraccesspolicy \
+kubectl --context my-cluster get facetaccesspolicy \
   installation-access-ceiling -o yaml
 kubectl --context my-cluster auth can-i list deployments.apps \
-  --as=system:serviceaccount:kubeseer-system:kubeseer \
+  --as=system:serviceaccount:kubefacet-system:kubefacet \
   --namespace applications
 ```
 

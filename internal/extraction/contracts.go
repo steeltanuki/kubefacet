@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // ExtractionErrorReason is the stable category of a planning or extraction

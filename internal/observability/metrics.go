@@ -35,15 +35,15 @@ type Metrics struct {
 }
 
 const (
-	metricReconciliations        = "kubeseer_reconciliations_total"
-	metricReconciliationDuration = "kubeseer_reconciliation_duration_seconds"
-	metricResourcesRead          = "kubeseer_resources_read_total"
-	metricSourceFailures         = "kubeseer_source_failures_total"
-	metricResultsProduced        = "kubeseer_results_produced_total"
-	metricStatusUpdates          = "kubeseer_status_updates_total"
-	metricAuthorization          = "kubeseer_authorization_decisions_total"
-	metricJSONPathFailures       = "kubeseer_jsonpath_failures_total"
-	metricWatchRestarts          = "kubeseer_source_watch_restarts_total"
+	metricReconciliations        = "kubefacet_reconciliations_total"
+	metricReconciliationDuration = "kubefacet_reconciliation_duration_seconds"
+	metricResourcesRead          = "kubefacet_resources_read_total"
+	metricSourceFailures         = "kubefacet_source_failures_total"
+	metricResultsProduced        = "kubefacet_results_produced_total"
+	metricStatusUpdates          = "kubefacet_status_updates_total"
+	metricAuthorization          = "kubefacet_authorization_decisions_total"
+	metricJSONPathFailures       = "kubefacet_jsonpath_failures_total"
+	metricWatchRestarts          = "kubefacet_source_watch_restarts_total"
 )
 
 func newMetrics(registerer prometheus.Registerer) (*Metrics, error) {
@@ -53,11 +53,11 @@ func newMetrics(registerer prometheus.Registerer) (*Metrics, error) {
 	metrics := &Metrics{
 		reconciliations: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: metricReconciliations,
-			Help: "Total Kubeseer reconciliation attempts by terminal outcome and reason.",
+			Help: "Total Facet reconciliation attempts by terminal outcome and reason.",
 		}, []string{"outcome", "reason"}),
 		reconciliationDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name: metricReconciliationDuration,
-			Help: "Kubeseer reconciliation duration in seconds by terminal outcome.",
+			Help: "Facet reconciliation duration in seconds by terminal outcome.",
 		}, []string{"outcome"}),
 		resourcesRead: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: metricResourcesRead,
@@ -69,11 +69,11 @@ func newMetrics(registerer prometheus.Registerer) (*Metrics, error) {
 		}, []string{"stage", "reason"}),
 		resultsProduced: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: metricResultsProduced,
-			Help: "Publishable Kubeseer result snapshots by outcome.",
+			Help: "Publishable Facet result snapshots by outcome.",
 		}, []string{"outcome"}),
 		statusUpdates: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: metricStatusUpdates,
-			Help: "Kubeseer status publication outcomes by stable reason.",
+			Help: "Facet status publication outcomes by stable reason.",
 		}, []string{"outcome", "reason"}),
 		authorization: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: metricAuthorization,

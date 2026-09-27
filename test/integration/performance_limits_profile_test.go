@@ -27,20 +27,20 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -62,7 +62,7 @@ func assertPerformanceLimitsProfileScenarios(t *testing.T) {
 
 	admissionDefaults := admission.DefaultLimits()
 	admissionView := profile.Admission()
-	if admissionDefaults.MaxKubeseerSources != admissionView.MaxKubeseerSources ||
+	if admissionDefaults.MaxFacetSources != admissionView.MaxFacetSources ||
 		admissionDefaults.MaxSourceNamespaces != admissionView.MaxSourceNamespaces ||
 		admissionDefaults.MaxSourceFields != admissionView.MaxSourceFields ||
 		admissionDefaults.MaxFieldOperators != admissionView.MaxFieldOperators ||
@@ -76,7 +76,7 @@ func assertPerformanceLimitsProfileScenarios(t *testing.T) {
 		admissionDefaults.MaxPolicyResourceRules != admissionView.MaxPolicyResourceRules ||
 		admissionDefaults.MaxPolicyAPIGroups != admissionView.MaxPolicyAPIGroups ||
 		admissionDefaults.MaxPolicyKinds != admissionView.MaxPolicyKinds ||
-		admissionDefaults.MaxKubeseerSpecBytes != admissionView.MaxKubeseerSpecBytes ||
+		admissionDefaults.MaxFacetSpecBytes != admissionView.MaxFacetSpecBytes ||
 		admissionDefaults.MaxAccessPolicySpecBytes != admissionView.MaxAccessPolicySpecBytes {
 		t.Fatal("admission default adapter changed the existing budget contract")
 	}
@@ -97,21 +97,21 @@ func assertPerformanceLimitsProfileScenarios(t *testing.T) {
 		PageSize:            &pageSize,
 		MaxMatchedResources: &resources,
 		Admission: limits.AdmissionOverrides{
-			MaxKubeseerSources: &admissionSources,
+			MaxFacetSources: &admissionSources,
 		},
 	}
 	custom, err := limits.Resolve(overrides)
 	if err != nil {
 		t.Fatalf("partial overrides rejected: %v", err)
 	}
-	if custom.PageSize() != pageSize || custom.MaxMatchedResources() != resources || custom.Admission().MaxKubeseerSources != admissionSources ||
+	if custom.PageSize() != pageSize || custom.MaxMatchedResources() != resources || custom.Admission().MaxFacetSources != admissionSources ||
 		custom.MaxSelectedInputBytes() != limits.DefaultSelectedInputBytes || custom.Aggregation().MaxGroups != limits.DefaultMaxAggregationGroups {
 		t.Fatalf("partial overrides did not preserve omitted defaults: %#v", custom)
 	}
 	pageSize = 29
 	resources = 31
 	admissionSources = 5
-	if custom.PageSize() != 17 || custom.MaxMatchedResources() != 19 || custom.Admission().MaxKubeseerSources != 3 {
+	if custom.PageSize() != 17 || custom.MaxMatchedResources() != 19 || custom.Admission().MaxFacetSources != 3 {
 		t.Fatal("resolved profile retained mutable override pointers")
 	}
 
@@ -121,7 +121,7 @@ func assertPerformanceLimitsProfileScenarios(t *testing.T) {
 		{PageSize: &zero},
 		{MaxMatchedResources: &negative},
 		{EvaluationTimeout: durationPointer(0)},
-		{Admission: limits.AdmissionOverrides{MaxKubeseerSources: intPointer(limits.DefaultMaxKubeseerSources + 1)}},
+		{Admission: limits.AdmissionOverrides{MaxFacetSources: intPointer(limits.DefaultMaxFacetSources + 1)}},
 	}
 	for index, bad := range badCases {
 		if _, err := limits.Resolve(bad); err == nil {
@@ -163,7 +163,7 @@ func assertPerformanceLimitsProfileScenarios(t *testing.T) {
 		t.Fatalf("integer overflow was not rejected: %v", err)
 	}
 
-	for _, typ := range []reflect.Type{reflect.TypeOf(v1alpha1.KubeseerSpec{}), reflect.TypeOf(v1alpha1.KubeseerAccessPolicySpec{})} {
+	for _, typ := range []reflect.Type{reflect.TypeOf(v1alpha1.FacetSpec{}), reflect.TypeOf(v1alpha1.FacetAccessPolicySpec{})} {
 		for index := 0; index < typ.NumField(); index++ {
 			if typ.Field(index).Name == "Limits" || typ.Field(index).Name == "Performance" {
 				t.Fatalf("public API unexpectedly exposes manager limit configuration: %s.%s", typ.Name(), typ.Field(index).Name)
@@ -184,12 +184,12 @@ func assertPerformanceLimitsConfigurationScenarios(t *testing.T) {
 	t.Helper()
 	maxSources := 1
 	profile, err := limits.Resolve(limits.Overrides{
-		Admission: limits.AdmissionOverrides{MaxKubeseerSources: &maxSources},
+		Admission: limits.AdmissionOverrides{MaxFacetSources: &maxSources},
 	})
 	if err != nil {
 		t.Fatalf("tight profile rejected: %v", err)
 	}
-	object := runtimePipelineKubeseer(
+	object := runtimePipelineFacet(
 		types.NamespacedName{Namespace: "team-a", Name: "budgeted"},
 		"budgeted-uid", 1,
 		runtimePipelineValuesSource("first"),
@@ -197,7 +197,7 @@ func assertPerformanceLimitsConfigurationScenarios(t *testing.T) {
 	)
 	policySource := &authorizationPipelinePolicySource{policy: basePolicy()}
 	validator := admission.NewValidatorWithProfile(discovery.NewResolver(newPolicyDiscoveryClient()), policySource, profile)
-	result := validator.ValidateKubeseer(context.Background(), object)
+	result := validator.ValidateFacet(context.Background(), object)
 	if result.Valid() || len(result.IssuesCopy()) != 1 || result.IssuesCopy()[0].Reason != "ConfigurationBudgetExceeded" || result.IssuesCopy()[0].Path != "spec.sources[1]" {
 		t.Fatalf("tight admission budget result = %#v", result.IssuesCopy())
 	}
@@ -211,7 +211,7 @@ func assertPerformanceLimitsConfigurationScenarios(t *testing.T) {
 		tooManyRules.Spec.Resources = append(tooManyRules.Spec.Resources, v1alpha1.ResourceRule{APIGroups: []string{""}, Kinds: []string{"Pod"}})
 	}
 	policyBudget := admission.NewBudgetValidatorFromProfile(profile)
-	loaded := accesspolicy.LoadWithValidation(context.Background(), &authorizationPipelinePolicySource{policy: tooManyRules}, func(policy *v1alpha1.KubeseerAccessPolicy) error {
+	loaded := accesspolicy.LoadWithValidation(context.Background(), &authorizationPipelinePolicySource{policy: tooManyRules}, func(policy *v1alpha1.FacetAccessPolicy) error {
 		if issues := policyBudget.ValidateAccessPolicy(policy); len(issues) != 0 {
 			return errors.New(issues[0].Path)
 		}
@@ -252,7 +252,7 @@ func assertPerformanceLimitsConfigurationScenarios(t *testing.T) {
 
 func assertPerformanceLimitsSelectionScenarios(t *testing.T, ctx context.Context, resolver *discovery.Resolver) {
 	t.Helper()
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID:         "bounded-selection",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
@@ -298,11 +298,11 @@ func assertPerformanceLimitsSelectionScenarios(t *testing.T, ctx context.Context
 
 func assertPerformanceLimitsValueScenarios(t *testing.T) {
 	t.Helper()
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID:           "bounded-values",
 		Resource:     v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
-		Fields:       []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
-		Aggregations: []v1alpha1.KubeseerAggregation{{Name: "count-values", Function: v1alpha1.AggregationCount, Field: "value"}},
+		Fields:       []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}},
+		Aggregations: []v1alpha1.FacetAggregation{{Name: "count-values", Function: v1alpha1.AggregationCount, Field: "value"}},
 	}
 	selected := selection.SelectionOutcome{SourceID: source.ID, Resources: []selection.SelectedResource{{
 		Object: &unstructured.Unstructured{Object: map[string]interface{}{
@@ -385,7 +385,7 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 		if err != nil {
 			t.Fatalf("gather limit metrics: %v", err)
 		}
-		if len(families) != 1 || families[0].GetName() != "kubeseer_source_failures_total" {
+		if len(families) != 1 || families[0].GetName() != "kubefacet_source_failures_total" {
 			t.Fatalf("limit metric families = %#v", families)
 		}
 		for _, metric := range families[0].Metric {
@@ -393,12 +393,12 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 				t.Fatalf("limit metric labels are not bounded to stage/reason: %#v", metric.Label)
 			}
 		}
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_failures_total", `reason="SelectionLimitExceeded",stage="read"`, 2)
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_failures_total", `reason="ValueLimitExceeded",stage="extract"`, 1)
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_failures_total", `reason="cardinality-exceeded",stage="aggregate"`, 1)
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_failures_total", `reason="EvaluationTimedOut",stage="compose"`, 1)
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_failures_total", `reason="ResultLimitExceeded",stage="compose"`, 1)
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_failures_total", `reason="StatusLimitInvalid",stage="compose"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_failures_total", `reason="SelectionLimitExceeded",stage="read"`, 2)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_failures_total", `reason="ValueLimitExceeded",stage="extract"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_failures_total", `reason="cardinality-exceeded",stage="aggregate"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_failures_total", `reason="EvaluationTimedOut",stage="compose"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_failures_total", `reason="ResultLimitExceeded",stage="compose"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_failures_total", `reason="StatusLimitInvalid",stage="compose"`, 1)
 	})
 
 	t.Run("real runtime value overflow emits one source limit observation", func(t *testing.T) {
@@ -415,7 +415,7 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "observability-limit-owner"}
 		source := runtimePipelineValuesSource("observability-limit-source")
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(key, "observability-limit-uid", 1, source))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(key, "observability-limit-uid", 1, source))
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, unstructuredListForPipeline(runtimePipelineResource("observability-limit-resource", "observability-limit-resource-uid", "value", "not-an-integer")))
 		publisher := &runtimePipelinePublisher{}
@@ -455,7 +455,7 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 		}
 		source := runtimePipelineValuesSource("observability-selection-source")
 		key := types.NamespacedName{Namespace: "team-a", Name: "observability-selection-owner"}
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(key, "observability-selection-uid", 1, source))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(key, "observability-selection-uid", 1, source))
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 			*runtimePipelineResource("observability-selection-a", "observability-selection-a-uid", "value-a", "1"),
@@ -488,15 +488,15 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 		if err != nil {
 			t.Fatalf("resolve runtime aggregation profile: %v", err)
 		}
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:           "observability-aggregation-source",
 			Resource:     v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces:   &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
-			Fields:       []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}},
-			Aggregations: []v1alpha1.KubeseerAggregation{{Name: "count-values", Function: v1alpha1.AggregationCount, Field: "value"}},
+			Fields:       []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}},
+			Aggregations: []v1alpha1.FacetAggregation{{Name: "count-values", Function: v1alpha1.AggregationCount, Field: "value"}},
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "observability-aggregation-owner"}
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(key, "observability-aggregation-uid", 1, source))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(key, "observability-aggregation-uid", 1, source))
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
 			*runtimePipelineAggregationResource("team-a", "observability-aggregation-a", "observability-aggregation-a-uid", "blue", "1"),
@@ -520,7 +520,7 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 	t.Run("status compaction and impossible compact status stay observable without writes changing", func(t *testing.T) {
 		assessment := statuscontract.SourceAssessment{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}
 		value := strings.Repeat("observable-status-value-", 512)
-		evaluation := statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "status-observable-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.KubeseerResourceResult{{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "status-observable-resource", UID: "status-observable-uid", Fields: []v1alpha1.KubeseerFieldResult{{Name: "value", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.KubeseerTypedMatch{{State: v1alpha1.MatchStateValue, StringValue: &value}}}}}}}}}, Sources: []statuscontract.SourceAssessment{assessment}}
+		evaluation := statuscontract.Evaluation{Result: &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "status-observable-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.FacetResourceResult{{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "status-observable-resource", UID: "status-observable-uid", Fields: []v1alpha1.FacetFieldResult{{Name: "value", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.FacetTypedMatch{{State: v1alpha1.MatchStateValue, StringValue: &value}}}}}}}}}, Sources: []statuscontract.SourceAssessment{assessment}}
 		compact, err := statuscontract.ComposeResultLimitExceeded(1, nil, evaluation)
 		if err != nil {
 			t.Fatalf("compose observable compact status: %v", err)
@@ -529,7 +529,7 @@ func assertPerformanceLimitsObservabilityScenarios(t *testing.T, ctx context.Con
 		if err != nil {
 			t.Fatalf("measure observable compact status: %v", err)
 		}
-		current := &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "observable-status", UID: "observable-status-uid", Generation: 1}}
+		current := &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "observable-status", UID: "observable-status-uid", Generation: 1}}
 		registry := prometheus.NewRegistry()
 		capture := &observabilityCapture{}
 		observer, err := observability.New(observability.Options{Registerer: registry, LogSink: capture})
@@ -587,7 +587,7 @@ func assertPerformanceLimitsDeadlineStatusScenarios(t *testing.T) {
 		active := runtimePipelineValuesSource("timeout-active")
 		unstarted := runtimePipelineValuesSource("timeout-unstarted")
 		key := types.NamespacedName{Namespace: "team-a", Name: "timeout-owner"}
-		object := runtimePipelineKubeseer(key, "timeout-owner-uid", 1, first, active, unstarted)
+		object := runtimePipelineFacet(key, "timeout-owner-uid", 1, first, active, unstarted)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		started := make(chan struct{})
@@ -661,7 +661,7 @@ func assertPerformanceLimitsDeadlineStatusScenarios(t *testing.T) {
 	t.Run("parent cancellation suppresses timeout publication", func(t *testing.T) {
 		source := runtimePipelineValuesSource("cancel-parent")
 		key := types.NamespacedName{Namespace: "team-a", Name: "cancel-parent-owner"}
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(key, "cancel-parent-uid", 1, source))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(key, "cancel-parent-uid", 1, source))
 		lister := newRuntimePipelineLister()
 		started := make(chan struct{})
 		var startedOnce sync.Once
@@ -707,7 +707,7 @@ func assertPerformanceLimitsDeadlineStatusScenarios(t *testing.T) {
 		key := types.NamespacedName{Namespace: "team-a", Name: "bounded-status"}
 		assessment := statuscontract.SourceAssessment{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}
 		hugeValue := strings.Repeat("status-value-", 2048)
-		hugeResult := v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "bounded-status-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.KubeseerResourceResult{{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "bounded-status-resource", UID: "bounded-status-uid", Fields: []v1alpha1.KubeseerFieldResult{{Name: "value", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.KubeseerTypedMatch{{State: v1alpha1.MatchStateValue, StringValue: &hugeValue}}}}}}}}}
+		hugeResult := v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "bounded-status-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.FacetResourceResult{{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "bounded-status-resource", UID: "bounded-status-uid", Fields: []v1alpha1.FacetFieldResult{{Name: "value", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateValues, Matches: []v1alpha1.FacetTypedMatch{{State: v1alpha1.MatchStateValue, StringValue: &hugeValue}}}}}}}}}
 		evaluation := statuscontract.Evaluation{Result: &hugeResult, Sources: []statuscontract.SourceAssessment{assessment}}
 		compact, err := statuscontract.ComposeResultLimitExceeded(1, nil, evaluation)
 		if err != nil {
@@ -725,7 +725,7 @@ func assertPerformanceLimitsDeadlineStatusScenarios(t *testing.T) {
 		if err != nil || normalSize <= compactSize {
 			t.Fatalf("normal status size = %d, compact size = %d, err=%v", normalSize, compactSize, err)
 		}
-		current := &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: "bounded-status-uid", Generation: 1}}
+		current := &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: "bounded-status-uid", Generation: 1}}
 		tracker := reconciliation.NewFreshnessTracker()
 		lease, release := runtimeStatusLease(t, tracker, current)
 		defer release()
@@ -767,7 +767,7 @@ func assertPerformanceLimitsDeadlineStatusScenarios(t *testing.T) {
 			t.Fatalf("invalid compact status = err=%v calls=%d", invalidErr, invalidWriter.Calls())
 		}
 
-		small := statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{}, Sources: []statuscontract.SourceAssessment{assessment}}
+		small := statuscontract.Evaluation{Result: &v1alpha1.FacetResult{}, Sources: []statuscontract.SourceAssessment{assessment}}
 		smallStatus, err := statuscontract.Compose(1, repeatCurrent.Status.Conditions, small)
 		if err != nil {
 			t.Fatalf("compose recovery status: %v", err)
@@ -795,7 +795,7 @@ func assertPerformanceLimitsDeadlineStatusScenarios(t *testing.T) {
 	t.Log("MODULE_INTEGRATION=performance-and-limits-deadline-status STATUS=passed")
 }
 
-func performanceStatusCondition(status v1alpha1.KubeseerStatus, conditionType string) metav1.Condition {
+func performanceStatusCondition(status v1alpha1.FacetStatus, conditionType string) metav1.Condition {
 	for _, condition := range status.Conditions {
 		if condition.Type == conditionType {
 			return condition
@@ -1213,9 +1213,9 @@ func assertPerformanceLimitsBackpressureScenarios(t *testing.T, ctx context.Cont
 		policy.Spec.Resources = append(policy.Spec.Resources, v1alpha1.ResourceRule{APIGroups: []string{"batch"}, Kinds: []string{"Job"}})
 		snapshot := mustSnapshot(t, policy)
 		planner := selection.NewPlanner(resolver)
-		appTarget := mustRuntimeTarget(t, ctx, planner, "team-a", v1alpha1.KubeseerSource{ID: "watch-capacity-app", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}})
-		podTarget := mustRuntimeTarget(t, ctx, planner, "team-a", v1alpha1.KubeseerSource{ID: "watch-capacity-pod", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}})
-		jobTarget := mustRuntimeTarget(t, ctx, planner, "team-a", v1alpha1.KubeseerSource{ID: "watch-capacity-job", Resource: v1alpha1.ResourceReference{APIVersion: "batch/v1", Kind: "Job"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}})
+		appTarget := mustRuntimeTarget(t, ctx, planner, "team-a", v1alpha1.FacetSource{ID: "watch-capacity-app", Resource: v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}})
+		podTarget := mustRuntimeTarget(t, ctx, planner, "team-a", v1alpha1.FacetSource{ID: "watch-capacity-pod", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}})
+		jobTarget := mustRuntimeTarget(t, ctx, planner, "team-a", v1alpha1.FacetSource{ID: "watch-capacity-job", Resource: v1alpha1.ResourceReference{APIVersion: "batch/v1", Kind: "Job"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}})
 		appPeerTarget := appTarget
 		appPeerTarget.SourceID = "watch-capacity-app-peer"
 
@@ -1224,7 +1224,7 @@ func assertPerformanceLimitsBackpressureScenarios(t *testing.T, ctx context.Cont
 		ownerB := types.NamespacedName{Namespace: "team-a", Name: "capacity-b"}
 		ownerC := types.NamespacedName{Namespace: "team-a", Name: "capacity-c"}
 		acquire := func(owner types.NamespacedName, uid types.UID) (reconciliation.Lease, func()) {
-			object := newRuntimeKubeseer(owner, uid, 1)
+			object := newRuntimeFacet(owner, uid, 1)
 			tracker.Observe(object)
 			lease, _, release, acquireErr := tracker.Acquire(ctx, owner, object.UID, object.Generation)
 			if acquireErr != nil {

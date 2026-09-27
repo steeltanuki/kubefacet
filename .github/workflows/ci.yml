@@ -52,9 +52,9 @@ jobs:
           echo "  head: $HEAD_SHA"
 
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
-            | tee /tmp/kubeseer-changed-files.txt
+            | tee /tmp/kubefacet-changed-files.txt
 
-          if [[ ! -s /tmp/kubeseer-changed-files.txt ]]; then
+          if [[ ! -s /tmp/kubefacet-changed-files.txt ]]; then
             echo "No changed files detected."
             echo "docs_only=false" >> "$GITHUB_OUTPUT"
             echo "release_related=false" >> "$GITHUB_OUTPUT"
@@ -68,7 +68,7 @@ jobs:
           # everything under docs/ are considered documentation.
           #
           if grep -qvE '(^|/)(README|CHANGELOG|CONTRIBUTING)(\.[^/]*)?$|\.md$|^docs/' \
-              /tmp/kubeseer-changed-files.txt; then
+            /tmp/kubefacet-changed-files.txt; then
             DOCS_ONLY=false
           else
             DOCS_ONLY=true
@@ -79,7 +79,7 @@ jobs:
           #
           if grep -qE \
               '(^\.github/workflows/|^charts/|^Dockerfile$|^hack/release-|^Makefile$|^go\.mod$|^go\.sum$)' \
-              /tmp/kubeseer-changed-files.txt; then
+              /tmp/kubefacet-changed-files.txt; then
             RELEASE_RELATED=true
           else
             RELEASE_RELATED=false
@@ -107,6 +107,7 @@ jobs:
           # Cheap but useful validation:
           # detects trailing whitespace and whitespace errors in patches.
           git diff --check
+          ./hack/verify-project-identity.sh audit
 
       # ---------------------------------------------------------------------
       # Normal project validation

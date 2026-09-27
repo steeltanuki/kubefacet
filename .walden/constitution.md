@@ -1,26 +1,27 @@
-# Kubeseer Project Constitution
+# KubeFacet Project Constitution
 
-This document records project-wide rules that apply to every Kubeseer feature. Feature-specific behavior belongs in `.walden/specs/<feature>/` and must pass the Walden requirements, design, tasks, and execution gates.
+This document records project-wide rules that apply to every KubeFacet feature. Feature-specific behavior belongs in `.walden/specs/<feature>/` and must pass the Walden requirements, design, tasks, and execution gates.
 
 ## Project Summary
 
-Kubeseer is a Kubernetes operator for declaratively observing built-in resources and Custom Resources. A `Kubeseer` resource selects authorized objects, extracts values with JSONPath, converts those values to explicit logical types, optionally filters or aggregates them, and publishes a deterministic result in status.
+KubeFacet is a Kubernetes operator for declaratively observing built-in resources and Custom Resources. A `Facet` resource selects authorized objects, extracts values with JSONPath, converts those values to explicit logical types, optionally filters or aggregates them, and publishes a deterministic result in status.
 
 The operator serves two roles:
 
 - cluster administrators define the maximum observable scope at installation time;
-- users define `Kubeseer` resources that may narrow, but never broaden, that scope.
+- users define `Facet` resources that may narrow, but never broaden, that scope.
 
 The first certified vertical slice reads one typed field from one authorized Kubernetes resource and updates status only when the semantic result changes.
 
 ## Terminology
 
-- **Kubeseer resource**: an instance of the `Kubeseer` Custom Resource configured by a user.
+- **Facet**: a namespaced custom resource configured by a user.
+- **FacetAccessPolicy**: cluster-scoped administrator configuration defining the maximum observation scope.
 - **Source**: a declaration that identifies a Kubernetes type and selects concrete resource instances.
 - **Installation access policy**: administrator-owned configuration defining the maximum namespaces and resource types the operator may observe.
-- **Effective observation scope**: the intersection of the installation access policy and the narrower scope requested by a Kubeseer resource.
+- **Effective observation scope**: the intersection of the installation access policy and the narrower scope requested by a Facet resource.
 - **Extracted value**: a native Kubernetes value returned by a supported JSONPath expression before conversion.
-- **Typed output**: a converted value whose logical type is preserved in Kubeseer status.
+- **Typed output**: a converted value whose logical type is preserved in Facet status.
 - **Provenance**: the API version, kind, namespace, name, and UID of a contributing resource.
 - **Semantic result**: the normalized, deterministically ordered output used to decide whether status has meaningfully changed.
 - **Partial or degraded result**: a result produced from successful sources while one or more other sources failed under an explicitly approved policy.
@@ -32,16 +33,16 @@ The first certified vertical slice reads one typed field from one authorized Kub
 - Kubernetes API interaction: typed clients for owned APIs and dynamic/discovery clients for observed built-in and custom resource types.
 - Initial extraction language: a declared and validated JSONPath subset. CEL and arbitrary scripting are out of scope for the first version.
 - Local Kubernetes provider: kind using Podman as the container engine.
-- API maturity: pre-stable APIs use Kubernetes versioning conventions and begin in an alpha version selected by the `kubeseer-api-foundation` feature.
-- Minimum supported Kubernetes version: not yet selected. The `kubeseer-api-foundation` requirements must make this an explicit, reviewed compatibility decision before implementation begins.
+- API identity: `Facet` and `FacetAccessPolicy` are served at `kubefacet.steeltanuki.it/v1alpha1`; the current identity overlay is in [current-identity.md](current-identity.md).
+- Kubernetes compatibility: the chart gate is `>=1.35.0-0 <1.37.0-0`; canonical verification covers Kubernetes `1.35.6` and `1.36.2`.
 - Go, controller-runtime, controller-tools, kind node image, kubectl, and Podman versions must be pinned or centrally declared when the project toolchain is bootstrapped.
 
 No feature may claim compatibility with an unrecorded version. Version changes that alter generated APIs, supported Kubernetes releases, or controller behavior require an approved specification update.
 
 ## Licensing And Copyright
 
-- Kubeseer-authored source code and generated code SHALL be distributed under the Apache License 2.0.
-- Unless a file or an approved specification explicitly states another applicable copyright holder or licensing obligation, copyright notices for Kubeseer-authored code SHALL identify Alessandro Rontani.
+- KubeFacet-authored source code and generated code SHALL be distributed under the Apache License 2.0.
+- Unless a file or an approved specification explicitly states another applicable copyright holder or licensing obligation, copyright notices for KubeFacet-authored code SHALL identify Alessandro Rontani.
 - New source files and generated artifacts SHALL carry the Apache 2.0 notice where a copyright header or license metadata is customary.
 - Third-party dependencies and copied material SHALL retain their upstream copyright notices and licenses; this constitution does not relicense them.
 
@@ -49,8 +50,8 @@ No feature may claim compatibility with an unrecorded version. Version changes t
 
 - Features are externally verifiable capabilities, not individual functions and not the whole product.
 - Resource discovery, selection, extraction, typing, operators, aggregation, authorization, reconciliation, and status remain explicit boundaries.
-- The installation access policy is administrative configuration separate from each Kubeseer resource.
-- A Kubeseer resource may narrow the installation policy but may never broaden it.
+- The installation access policy is administrative configuration separate from each Facet resource.
+- A Facet resource may narrow the installation policy but may never broaden it.
 - JSONPath evaluation preserves native Kubernetes values until typed conversion.
 - Operators are drawn from a controlled, validated set with explicit type compatibility.
 - Cross-namespace results preserve provenance and use deterministic ordering.
@@ -68,7 +69,7 @@ No feature may claim compatibility with an unrecorded version. Version changes t
 - Use Kubernetes-native types and semantics where they are part of the public contract, including `metav1.Condition`, quantities, durations, selectors, and API errors.
 - Use controller-runtime clients, caches, watches, predicates, and reconciliation results deliberately; direct API reads require a documented reason.
 - Pass `context.Context` through Kubernetes and reconciliation operations.
-- Use structured logging keyed by the relevant Kubeseer namespace/name and source identifier; do not log extracted sensitive values by default.
+- Use structured logging keyed by the relevant Facet namespace/name and source identifier; do not log extracted sensitive values by default.
 - Tests must not depend primarily on arbitrary sleeps. Use readiness checks, bounded polling, and deterministic assertions.
 - Cross-module integration is the lowest required automated test layer once a real production collaboration path exists; local envtest is the bootstrap layer before that point.
 - Do not maintain a dedicated unit-test layer. Existing package-local unit tests are transitional and may be removed only after their required observable behavior passes at a genuine cross-module, envtest, or end-to-end layer.
@@ -112,10 +113,10 @@ Until a command is implemented by an approved task, its absence is expected and 
 - `.walden/environment.md`: evidence environment probes.
 - `.walden/lessons.md`: reusable workflow lessons.
 - `.walden/specs/`: independently gated feature specifications.
-- `api/`: Kubeseer API types and generated deep-copy code once introduced.
+- `api/`: KubeFacet API types and generated deep-copy code once introduced.
 - `internal/`: non-public controller and domain packages once introduced.
 - `config/`: CRDs, RBAC, manager, webhook, and installation manifests once introduced.
-- `test/integration/`: in-process scenarios spanning real Kubeseer modules once a production collaboration path exists.
+- `test/integration/`: in-process scenarios spanning real KubeFacet modules once a production collaboration path exists.
 - `test/envtest/`: cross-module Kubernetes API scenarios using a disposable local control plane once introduced.
 - `test/e2e/`: executable cluster-level scenarios once introduced.
 - `examples/`: self-contained, documented examples once introduced.
@@ -137,12 +138,17 @@ Dependencies declared in `SPECIFICATIONS.md` constrain planning and execution. S
 - Operator ServiceAccount permissions, logical policy permissions, and user permissions SHALL remain distinct in specifications and implementation.
 - Broader ServiceAccount RBAC SHALL never substitute for logical policy enforcement.
 - A policy restriction SHALL invalidate or remove results that are no longer authorized without exposing the protected data through status, events, logs, or errors.
-- Users creating Kubeseer resources do not require direct read access to observed resources; this delegated observation model SHALL not enable privilege escalation.
+- Users creating Facet resources do not require direct read access to observed resources; this delegated observation model SHALL not enable privilege escalation.
 - Diagnostics and logs SHALL exclude Secrets and sensitive extracted values by default.
-- Local cleanup SHALL target only the Kubeseer-owned kind cluster and project-generated resources; it SHALL never remove unrelated Podman or Kubernetes state.
-- Failures in one Kubeseer instance or source SHALL be isolated according to the approved error policy and SHALL not block unrelated instances.
+- Local cleanup SHALL target only the KubeFacet-owned kind cluster and project-generated resources; it SHALL never remove unrelated Podman or Kubernetes state.
+- Failures in one Facet instance or source SHALL be isolated according to the approved error policy and SHALL not block unrelated instances.
 
 ## Specification Governance
+
+The current identity overlay in `.walden/current-identity.md` supersedes only
+identity clauses in the older approved feature documents. Their feature IDs
+and historical evidence remain unchanged; their behavioral contracts continue
+to apply under the current `Facet` and `FacetAccessPolicy` identities.
 
 - Every acceptance criterion uses EARS syntax and stable identifiers.
 - Every design traces all requirement and non-functional requirement identifiers.

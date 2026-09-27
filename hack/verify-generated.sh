@@ -52,10 +52,10 @@ compare_generated \
 	"$ROOT_DIR/api/v1alpha1/zz_generated.deepcopy.go" \
 	"$TEMP_DIR/api/v1alpha1/zz_generated.deepcopy.go"
 compare_generated \
-	"$ROOT_DIR/config/crd/bases/kubeseer.io_kubeseers.yaml" \
-	"$TEMP_DIR/config/crd/bases/kubeseer.io_kubeseers.yaml"
+	"$ROOT_DIR/config/crd/bases/kubefacet.steeltanuki.it_facets.yaml" \
+	"$TEMP_DIR/config/crd/bases/kubefacet.steeltanuki.it_facets.yaml"
 compare_generated \
-	"$ROOT_DIR/config/crd/bases/kubeseer.io_kubeseeraccesspolicies.yaml" \
-	"$TEMP_DIR/config/crd/bases/kubeseer.io_kubeseeraccesspolicies.yaml"
+	"$ROOT_DIR/config/crd/bases/kubefacet.steeltanuki.it_facetaccesspolicies.yaml" \
+	"$TEMP_DIR/config/crd/bases/kubefacet.steeltanuki.it_facetaccesspolicies.yaml"
 
 echo "generated artifacts are current"

@@ -30,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/internal/managerapp"
+	"github.com/steeltanuki/kubefacet/internal/managerapp"
 )
 
 func assertPackagingWebhookTLSScenarios(t *testing.T) {
@@ -45,11 +45,11 @@ func assertPackagingWebhookTLSScenarios(t *testing.T) {
 		"kind: Certificate",
 		"isCA: true",
 		"rotationPolicy: Always",
-		`cert-manager.io/inject-ca-from: "kubeseer-system/kubeseer-webhook-ca"`,
-		"dnsNames:\n    - kubeseer-webhook\n    - kubeseer-webhook.kubeseer-system\n    - kubeseer-webhook.kubeseer-system.svc\n    - kubeseer-webhook.kubeseer-system.svc.cluster.local",
+		`cert-manager.io/inject-ca-from: "kubefacet-system/kubefacet-webhook-ca"`,
+		"dnsNames:\n    - kubefacet-webhook\n    - kubefacet-webhook.kubefacet-system\n    - kubefacet-webhook.kubefacet-system.svc\n    - kubefacet-webhook.kubefacet-system.svc.cluster.local",
 		"failurePolicy: Fail",
-		"path: /validate-kubeseer-io-v1alpha1-kubeseer",
-		"path: /validate-kubeseer-io-v1alpha1-kubeseeraccesspolicy",
+		"path: /validate-kubefacet-steeltanuki-it-v1alpha1-facet",
+		"path: /validate-kubefacet-steeltanuki-it-v1alpha1-facetaccesspolicy",
 	} {
 		if !strings.Contains(certManagerText, fragment) {
 			t.Fatalf("cert-manager render lacks %q", fragment)
@@ -70,8 +70,8 @@ func assertPackagingWebhookTLSScenarios(t *testing.T) {
 		"PUBLIC-CA",
 		`caBundle: "UFVCTElDLUNB"`,
 		"failurePolicy: Fail",
-		"path: /validate-kubeseer-io-v1alpha1-kubeseer",
-		"path: /validate-kubeseer-io-v1alpha1-kubeseeraccesspolicy",
+		"path: /validate-kubefacet-steeltanuki-it-v1alpha1-facet",
+		"path: /validate-kubefacet-steeltanuki-it-v1alpha1-facetaccesspolicy",
 	} {
 		if !strings.Contains(externalText, fragment) {
 			t.Fatalf("external Secret render lacks %q", fragment)
@@ -91,7 +91,7 @@ func assertPackagingWebhookTLSInvalidValues(t *testing.T, chartDir string) {
 		{"--set", "certificate.mode=externalSecret"},
 		{"--set", "certificate.mode=externalSecret", "--set", "certificate.externalSecret.secretName=administrator-webhook-tls"},
 	} {
-		commandArgs := append([]string{"template", "kubeseer", chartDir, "--namespace", "kubeseer-system", "--kube-version", "1.35.6"}, values...)
+		commandArgs := append([]string{"template", "kubefacet", chartDir, "--namespace", "kubefacet-system", "--kube-version", "1.35.6"}, values...)
 		if output, err := exec.Command("helm", commandArgs...).CombinedOutput(); err == nil {
 			t.Fatalf("invalid certificate values unexpectedly rendered successfully: %v\n%s", values, output)
 		}
@@ -172,10 +172,10 @@ func newWebhookCertificateFixture(t *testing.T) *webhookCertificateFixture {
 		keyPath:  filepath.Join(rootDir, "tls.key"),
 		caPath:   filepath.Join(rootDir, "ca.crt"),
 		dnsNames: []string{
-			"kubeseer-webhook",
-			"kubeseer-webhook.kubeseer-system",
-			"kubeseer-webhook.kubeseer-system.svc",
-			"kubeseer-webhook.kubeseer-system.svc.cluster.local",
+			"kubefacet-webhook",
+			"kubefacet-webhook.kubefacet-system",
+			"kubefacet-webhook.kubefacet-system.svc",
+			"kubefacet-webhook.kubefacet-system.svc.cluster.local",
 		},
 	}
 	fixture.caCertificate, fixture.caKey = mustCreateCA(t, "primary-ca")
@@ -284,12 +284,12 @@ func packagingChartDir(t *testing.T) string {
 	if !ok {
 		t.Fatal("locate integration test source")
 	}
-	return filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubeseer")
+	return filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubefacet")
 }
 
 func renderPackagingChart(t *testing.T, chartDir string, values ...string) string {
 	t.Helper()
-	args := append([]string{"template", "kubeseer", chartDir, "--namespace", "kubeseer-system", "--kube-version", "1.35.6"}, values...)
+	args := append([]string{"template", "kubefacet", chartDir, "--namespace", "kubefacet-system", "--kube-version", "1.35.6"}, values...)
 	output, err := exec.Command("helm", args...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("render chart: %v\n%s", err, output)

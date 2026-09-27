@@ -45,7 +45,7 @@ import (
 )
 
 func TestEndToEnd(t *testing.T) {
-	expected := os.Getenv("KUBESEER_E2E_KUBECONFIG")
+	expected := os.Getenv("KUBEFACET_E2E_KUBECONFIG")
 	if expected == "" || os.Getenv("KUBECONFIG") != expected {
 		t.Fatalf("harness did not pass its owned kubeconfig explicitly: got %q, want %q", os.Getenv("KUBECONFIG"), expected)
 	}
@@ -71,16 +71,16 @@ if [[ "${1:-}" == version ]]; then
 	exit 0
 fi
 if [[ "${1:-}" == get && "${2:-}" == nodes ]]; then
-	printf '%s\n' 'kubeseer-e2e-control-plane' 'kubeseer-e2e-worker'
+	printf '%s\n' 'kubefacet-e2e-control-plane' 'kubefacet-e2e-worker'
 	exit 0
 fi
-if [[ "${KIND_FAIL_CREATE-}" == 1 && "${1:-}" == create ]]; then
+if [[ "${KUBEFACET_TEST_KIND_FAIL_CREATE-}" == 1 && "${1:-}" == create ]]; then
 	exit 41
 fi
-if [[ "${KIND_FAIL_DELETE-}" == 1 && "${1:-}" == delete ]]; then
+if [[ "${KUBEFACET_TEST_KIND_FAIL_DELETE-}" == 1 && "${1:-}" == delete ]]; then
 	exit 42
 fi
-if [[ "${KIND_FAIL_LOAD-}" == 1 && "${1:-}" == load ]]; then
+if [[ "${KUBEFACET_TEST_KIND_FAIL_LOAD-}" == 1 && "${1:-}" == load ]]; then
 	exit 43
 fi
 if [[ "${1:-}" != create && "${1:-}" != delete && "${1:-}" != load ]]; then
@@ -109,12 +109,12 @@ set -euo pipefail
 printf 'podman kubeconfig-env=%s aws=%s args=%s\n' \
 	"${KUBECONFIG-<unset>}" "${AWS_SECRET_ACCESS_KEY-<unset>}" "$*" >>"$TRACE_FILE"
 if [[ "${1:-}" == info ]]; then
-	exit "${PODMAN_FAIL_INFO:-0}"
+	exit "${KUBEFACET_TEST_PODMAN_FAIL_INFO:-0}"
 fi
-if [[ "${PODMAN_FAIL_BUILD-}" == 1 && "${1:-}" == build ]]; then
+if [[ "${KUBEFACET_TEST_PODMAN_FAIL_BUILD-}" == 1 && "${1:-}" == build ]]; then
 	exit 44
 fi
-if [[ "${PODMAN_FAIL_INSPECT-}" == 1 && "${1:-}" == image && "${2:-}" == inspect ]]; then
+if [[ "${KUBEFACET_TEST_PODMAN_FAIL_INSPECT-}" == 1 && "${1:-}" == image && "${2:-}" == inspect ]]; then
 	exit 45
 fi
 if [[ "${1:-}" == save ]]; then
@@ -145,7 +145,7 @@ while [[ "${1:-}" == --kubeconfig || "${1:-}" == --context || "${1:-}" == --name
 	shift 2
 done
 
-if [[ "${KUBESEER_FAIL_READINESS-}" == 1 && "${1:-}" == wait ]]; then
+if [[ "${KUBEFACET_FAIL_READINESS-}" == 1 && "${1:-}" == wait ]]; then
 	exit 46
 fi
 if [[ "${1:-}" == version ]]; then
@@ -154,10 +154,10 @@ if [[ "${1:-}" == version ]]; then
 fi
 if [[ "${1:-}" == port-forward ]]; then
 	if [[ "$*" == *'18081:8081'* ]]; then
-		if [[ "${KUBESEER_FAIL_READY_PORT_FORWARD-}" == 1 ]]; then
+		if [[ "${KUBEFACET_FAIL_READY_PORT_FORWARD-}" == 1 ]]; then
 			exit 51
 		fi
-		if [[ "${KUBESEER_DELAY_READY_PORT_FORWARD-}" == 1 ]]; then
+		if [[ "${KUBEFACET_DELAY_READY_PORT_FORWARD-}" == 1 ]]; then
 			sleep 2
 			printf '%s\n' 'readiness-forward-listening' >>"$TRACE_FILE"
 		fi
@@ -167,7 +167,7 @@ fi
 if [[ "${1:-}" == get ]]; then
 	joined="$*"
 	if [[ "${2:-}" == endpointslice ]]; then
-		expected_selector='kubernetes.io/service-name=kubeseer-webhook'
+		expected_selector='kubernetes.io/service-name=kubefacet-webhook'
 		selector=''
 		selector_count=0
 		namespace=''
@@ -192,7 +192,7 @@ if [[ "${1:-}" == get ]]; then
 			esac
 		done
 		if [[ "$selector_count" != 1 || "$selector" != "$expected_selector" || \
-			"$namespace_count" != 1 || "$namespace" != kubeseer-system ]]; then
+			"$namespace_count" != 1 || "$namespace" != kubefacet-system ]]; then
 			printf 'unexpected EndpointSlice scope or selector: %s\n' "$joined" >&2
 			exit 66
 		fi
@@ -201,7 +201,7 @@ if [[ "${1:-}" == get ]]; then
 			exit 66
 		fi
 		printf '%s\n' 'endpoint-slices=2 endpoint-records=3' >>"$TRACE_FILE"
-		if [[ "${KUBESEER_NO_READY_ENDPOINTSLICE-}" == 1 ]]; then
+		if [[ "${KUBEFACET_NO_READY_ENDPOINTSLICE-}" == 1 ]]; then
 			printf '%s\n' 'false|endpoint' 'false|endpoint'
 		else
 			printf '%s\n' 'true|endpoint' 'false|endpoint' '|endpoint'
@@ -213,15 +213,15 @@ if [[ "${1:-}" == get ]]; then
 		exit 67
 	fi
 	if [[ "$joined" == *validatingwebhookconfiguration* && "$joined" == *jsonpath* ]]; then
-		if [[ "${KUBESEER_EMPTY_CA-}" == 1 ]]; then
+		if [[ "${KUBEFACET_EMPTY_CA-}" == 1 ]]; then
 			printf '\n\n'
 		else
 			printf '%s\n' 'RUN-SCOPED-CA-BUNDLE'
 		fi
 		exit 0
 	fi
-	if [[ "$joined" == *kubeseeraccesspolicy* ]]; then
-		printf '%s\n' 'kubeseeraccesspolicy.kubeseer.io/installation-access-ceiling'
+	if [[ "$joined" == *facetaccesspolicy* ]]; then
+		printf '%s\n' 'facetaccesspolicy.kubefacet.steeltanuki.it/installation-access-ceiling'
 	fi
 	if [[ "$joined" == *nodes* || "$joined" == *deployment* || "$joined" == *events* ]]; then
 		printf '%s\n' 'stub'
@@ -229,7 +229,7 @@ if [[ "${1:-}" == get ]]; then
 	exit 0
 fi
 if [[ "${1:-}" == apply ]]; then
-	if [[ "${KUBESEER_FAIL_INSTALL-}" == 1 && "$*" == *cert-manager.yaml* ]]; then
+	if [[ "${KUBEFACET_FAIL_INSTALL-}" == 1 && "$*" == *cert-manager.yaml* ]]; then
 		exit 47
 	fi
 	if [[ "$*" == *'--dry-run=server'* && "$*" == *admission-invalid.yaml* ]]; then
@@ -256,7 +256,7 @@ if [[ "${1:-}" == version ]]; then
 	printf '%s\n' 'v3.17.0+stub'
 	exit 0
 fi
-if [[ "${HELM_FAIL_INSTALL-}" == 1 && "${1:-}" == upgrade ]]; then
+if [[ "${KUBEFACET_TEST_HELM_FAIL_INSTALL-}" == 1 && "${1:-}" == upgrade ]]; then
 	exit 49
 fi
 exit 0
@@ -284,16 +284,16 @@ done
 if [[ -n "$output" ]]; then
 	printf '%s\n' '# pinned cert-manager acceptance manifest' >"$output"
 elif [[ "$*" == *'/readyz'* ]]; then
-	if [[ "${KUBESEER_FAIL_READY_PORT_FORWARD-}" == 1 ]]; then
+	if [[ "${KUBEFACET_FAIL_READY_PORT_FORWARD-}" == 1 ]]; then
 		exit 7
 	fi
-	if [[ "${KUBESEER_DELAY_READY_PORT_FORWARD-}" == 1 ]] && \
+	if [[ "${KUBEFACET_DELAY_READY_PORT_FORWARD-}" == 1 ]] && \
 		! grep -q -x 'readiness-forward-listening' "$TRACE_FILE"; then
 		exit 7
 	fi
 	printf '%s\n' 'ok'
 elif [[ "$*" == *'/metrics'* ]]; then
-	printf '%s\n' '# HELP kubeseer_reconciliations_total reconciliations' 'kubeseer_reconciliations_total 1'
+	printf '%s\n' '# HELP kubefacet_reconciliations_total reconciliations' 'kubefacet_reconciliations_total 1'
 fi
 EOF
 
@@ -344,17 +344,17 @@ run_success() {
 run_output="$(run_success 2>&1)"
 assert_contains "$run_output" 'TEST_LAYER=end-to-end STATUS=passed'
 trace_output="$(<"$TRACE_PATH")"
-assert_contains "$trace_output" 'args=create cluster --name kubeseer-e2e-'
+assert_contains "$trace_output" 'args=create cluster --name kubefacet-e2e-'
 assert_contains "$trace_output" '--image kindest/node:v1.35.5'
 assert_contains "$trace_output" 'args=save --format oci-archive --output '
 assert_contains "$trace_output" 'args=cp '
 assert_contains "$trace_output" 'args=exec '
 assert_contains "$trace_output" 'ctr --namespace k8s.io images import'
-assert_contains "$trace_output" 'args=delete cluster --name kubeseer-e2e-'
-assert_contains "$trace_output" 'upgrade --install kubeseer'
+assert_contains "$trace_output" 'args=delete cluster --name kubefacet-e2e-'
+assert_contains "$trace_output" 'upgrade --install kubefacet'
 assert_contains "$trace_output" 'cert-manager/releases/download/v1.18.2/cert-manager.yaml'
-assert_contains "$trace_output" 'get endpointslice --namespace kubeseer-system'
-assert_contains "$trace_output" '--selector kubernetes.io/service-name=kubeseer-webhook'
+assert_contains "$trace_output" 'get endpointslice --namespace kubefacet-system'
+assert_contains "$trace_output" '--selector kubernetes.io/service-name=kubefacet-webhook'
 assert_contains "$trace_output" 'items[*].endpoints[*]'
 assert_contains "$trace_output" 'endpoint-slices=2 endpoint-records=3'
 assert_not_contains "$trace_output" 'get endpoints '
@@ -368,7 +368,7 @@ delete_line="$(grep -m 1 '^kind .* args=delete cluster ' "$TRACE_PATH" || true)"
 [[ -n "$create_line" && -n "$delete_line" ]] || { printf '%s\n' 'kind create/delete trace is incomplete' >&2; exit 1; }
 create_name="$(sed -n 's/.*args=create cluster --name \([^ ]*\).*/\1/p' <<<"$create_line")"
 delete_name="$(sed -n 's/.*args=delete cluster --name \([^ ]*\).*/\1/p' <<<"$delete_line")"
-[[ "$create_name" == "$delete_name" && "$create_name" != kubeseer-e2e ]] || {
+[[ "$create_name" == "$delete_name" && "$create_name" != kubefacet-e2e ]] || {
 	printf 'cluster name ownership mismatch: %q != %q\n' "$create_name" "$delete_name" >&2
 	exit 1
 }
@@ -382,7 +382,7 @@ second_name="$(sed -n 's/.*args=create cluster --name \([^ ]*\).*/\1/p' "$TRACE_
 delayed_forward_trace="$FIXTURE_DIR/delayed-forward.trace"
 : >"$delayed_forward_trace"
 delayed_forward_output="$(run_with_status 0 env PATH="$BIN_DIR:$ORIGINAL_PATH" TRACE_FILE="$delayed_forward_trace" \
-	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBESEER_DELAY_READY_PORT_FORWARD=1 \
+	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBEFACET_DELAY_READY_PORT_FORWARD=1 \
 	"$HARNESS" "$PACKAGE_DIR" '^TestEndToEnd$')"
 assert_contains "$delayed_forward_output" 'TEST_LAYER=end-to-end STATUS=passed'
 assert_contains "$(<"$delayed_forward_trace")" 'readiness-forward-listening'
@@ -390,44 +390,44 @@ assert_contains "$(<"$delayed_forward_trace")" 'readiness-forward-listening'
 failed_forward_trace="$FIXTURE_DIR/failed-forward.trace"
 : >"$failed_forward_trace"
 failed_forward_output="$(run_with_status 1 env PATH="$BIN_DIR:$ORIGINAL_PATH" TRACE_FILE="$failed_forward_trace" \
-	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBESEER_FAIL_READY_PORT_FORWARD=1 \
+	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBEFACET_FAIL_READY_PORT_FORWARD=1 \
 	"$HARNESS" "$PACKAGE_DIR" '^TestEndToEnd$')"
-assert_contains "$failed_forward_output" 'port-forward exited before HTTP readiness for deployment/kubeseer/readyz'
+assert_contains "$failed_forward_output" 'port-forward exited before HTTP readiness for deployment/kubefacet/readyz'
 assert_not_contains "$failed_forward_output" 'TEST_LAYER=end-to-end STATUS=passed'
 
 no_ready_trace="$FIXTURE_DIR/no-ready.trace"
 no_ready_output="$(run_with_status 1 env PATH="$BIN_DIR:$ORIGINAL_PATH" TRACE_FILE="$no_ready_trace" \
-	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBESEER_NO_READY_ENDPOINTSLICE=1 \
+	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBEFACET_NO_READY_ENDPOINTSLICE=1 \
 	"$HARNESS" "$PACKAGE_DIR" '^TestEndToEnd$')"
 assert_contains "$no_ready_output" 'webhook Service has no ready EndpointSlice endpoints'
 no_ready_trace_output="$(<"$no_ready_trace")"
-assert_contains "$no_ready_trace_output" 'get endpointslice --namespace kubeseer-system'
+assert_contains "$no_ready_trace_output" 'get endpointslice --namespace kubefacet-system'
 assert_not_contains "$no_ready_trace_output" 'get endpoints '
 
 negative_trace="$FIXTURE_DIR/negative.trace"
 negative_output="$(run_with_status 1 env PATH="$BIN_DIR:$ORIGINAL_PATH" TRACE_FILE="$negative_trace" \
-	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true PODMAN_FAIL_INFO=1 \
+	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBEFACET_TEST_PODMAN_FAIL_INFO=1 \
 	"$HARNESS" "$PACKAGE_DIR" '^TestEndToEnd$')"
 assert_contains "$negative_output" 'E2E prerequisite failed: podman info'
 assert_not_contains "$(<"$negative_trace")" 'args=create cluster'
 
 for failure_env in \
-	'KIND_FAIL_CREATE=1' \
-	'PODMAN_FAIL_BUILD=1' \
-	'HELM_FAIL_INSTALL=1' \
-	'KUBESEER_EMPTY_CA=1' \
+	'KUBEFACET_TEST_KIND_FAIL_CREATE=1' \
+	'KUBEFACET_TEST_PODMAN_FAIL_BUILD=1' \
+	'KUBEFACET_TEST_HELM_FAIL_INSTALL=1' \
+	'KUBEFACET_EMPTY_CA=1' \
 	'CURL_FAIL=1'; do
 	: >"$TRACE_PATH"
 	failure_output="$(run_with_status 1 env PATH="$BIN_DIR:$ORIGINAL_PATH" TRACE_FILE="$TRACE_PATH" \
 		KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true $failure_env \
 		"$HARNESS" "$PACKAGE_DIR" '^TestEndToEnd$')"
 	assert_not_contains "$failure_output" 'TEST_LAYER=end-to-end STATUS=passed'
-	assert_contains "$(<"$TRACE_PATH")" 'args=delete cluster --name kubeseer-e2e-'
+	assert_contains "$(<"$TRACE_PATH")" 'args=delete cluster --name kubefacet-e2e-'
 done
 
 : >"$TRACE_PATH"
 delete_output="$(run_with_status 42 env PATH="$BIN_DIR:$ORIGINAL_PATH" TRACE_FILE="$TRACE_PATH" \
-	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KIND_FAIL_DELETE=1 \
+	KUBECONFIG="$AMBIENT_KUBECONFIG" USE_EXISTING_CLUSTER=true KUBEFACET_TEST_KIND_FAIL_DELETE=1 \
 	"$HARNESS" "$PACKAGE_DIR" '^TestEndToEnd$')"
 assert_contains "$delete_output" 'kubeconfig retained at '
 retained_path="$(sed -n 's/.*kubeconfig retained at \(.*\)$/\1/p' <<<"$delete_output" | tail -n 1)"

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package admission owns bounded, side-effect-free validation of proposed
-// Kubeseer configuration. Dynamic validation is layered on these guards so an
+// Facet configuration. Dynamic validation is layered on these guards so an
 // over-budget request cannot reach discovery or policy evaluation.
 //
 // Responsibility: validate bounded, structural, semantic, and dynamic
@@ -27,12 +27,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
 )
 
 const (
-	DefaultMaxKubeseerSources          = 32
+	DefaultMaxFacetSources             = 32
 	DefaultMaxSourceNamespaces         = 64
 	DefaultMaxSourceFields             = 64
 	DefaultMaxFieldOperators           = 16
@@ -52,7 +52,7 @@ const (
 // Limits is the admission budget set. A validator retains a copy so callers
 // cannot mutate the active limits through the value passed to its constructor.
 type Limits struct {
-	MaxKubeseerSources          int
+	MaxFacetSources             int
 	MaxSourceNamespaces         int
 	MaxSourceFields             int
 	MaxFieldOperators           int
@@ -66,7 +66,7 @@ type Limits struct {
 	MaxPolicyResourceRules      int
 	MaxPolicyAPIGroups          int
 	MaxPolicyKinds              int
-	MaxKubeseerSpecBytes        int
+	MaxFacetSpecBytes           int
 	MaxAccessPolicySpecBytes    int
 }
 
@@ -80,7 +80,7 @@ func DefaultLimits() Limits {
 func LimitsFromProfile(profile limits.Profile) Limits {
 	values := profile.Admission()
 	return Limits{
-		MaxKubeseerSources:          values.MaxKubeseerSources,
+		MaxFacetSources:             values.MaxFacetSources,
 		MaxSourceNamespaces:         values.MaxSourceNamespaces,
 		MaxSourceFields:             values.MaxSourceFields,
 		MaxFieldOperators:           values.MaxFieldOperators,
@@ -94,7 +94,7 @@ func LimitsFromProfile(profile limits.Profile) Limits {
 		MaxPolicyResourceRules:      values.MaxPolicyResourceRules,
 		MaxPolicyAPIGroups:          values.MaxPolicyAPIGroups,
 		MaxPolicyKinds:              values.MaxPolicyKinds,
-		MaxKubeseerSpecBytes:        values.MaxKubeseerSpecBytes,
+		MaxFacetSpecBytes:           values.MaxFacetSpecBytes,
 		MaxAccessPolicySpecBytes:    values.MaxAccessPolicySpecBytes,
 	}
 }
@@ -135,39 +135,39 @@ func (v *BudgetValidator) Limits() Limits {
 	return v.limits
 }
 
-// ValidateKubeseer applies the common Kubeseer budget boundary.
-func (v *BudgetValidator) ValidateKubeseer(object *v1alpha1.Kubeseer) []BudgetIssue {
+// ValidateFacet applies the common Facet budget boundary.
+func (v *BudgetValidator) ValidateFacet(object *v1alpha1.Facet) []BudgetIssue {
 	if v == nil {
-		return ValidateKubeseerBudgets(object)
+		return ValidateFacetBudgets(object)
 	}
-	return ValidateKubeseerBudgetsWithLimits(object, v.limits)
+	return ValidateFacetBudgetsWithLimits(object, v.limits)
 }
 
 // ValidateAccessPolicy applies the common installation-policy budget
 // boundary before policy compilation.
-func (v *BudgetValidator) ValidateAccessPolicy(object *v1alpha1.KubeseerAccessPolicy) []BudgetIssue {
+func (v *BudgetValidator) ValidateAccessPolicy(object *v1alpha1.FacetAccessPolicy) []BudgetIssue {
 	if v == nil {
 		return ValidateAccessPolicyBudgets(object)
 	}
 	return ValidateAccessPolicyBudgetsWithLimits(object, v.limits)
 }
 
-// ValidateKubeseerBudgets applies every Kubeseer cardinality and serialized
+// ValidateFacetBudgets applies every Facet cardinality and serialized
 // Spec limit without contacting Kubernetes or another dependency.
-func ValidateKubeseerBudgets(object *v1alpha1.Kubeseer) []BudgetIssue {
-	return ValidateKubeseerBudgetsWithLimits(object, DefaultLimits())
+func ValidateFacetBudgets(object *v1alpha1.Facet) []BudgetIssue {
+	return ValidateFacetBudgetsWithLimits(object, DefaultLimits())
 }
 
-// ValidateKubeseerBudgetsWithLimits applies an explicit budget set. Non-
+// ValidateFacetBudgetsWithLimits applies an explicit budget set. Non-
 // positive values are replaced with the approved defaults to prevent a
 // caller from accidentally disabling a guard.
-func ValidateKubeseerBudgetsWithLimits(object *v1alpha1.Kubeseer, limits Limits) []BudgetIssue {
+func ValidateFacetBudgetsWithLimits(object *v1alpha1.Facet, limits Limits) []BudgetIssue {
 	if object == nil {
 		return nil
 	}
 	limits = normalizeLimits(limits)
 	issues := make([]BudgetIssue, 0)
-	issues = appendCardinalityIssue(issues, "spec.sources", len(object.Spec.Sources), limits.MaxKubeseerSources)
+	issues = appendCardinalityIssue(issues, "spec.sources", len(object.Spec.Sources), limits.MaxFacetSources)
 	for sourceIndex, source := range object.Spec.Sources {
 		prefix := fmt.Sprintf("spec.sources[%d]", sourceIndex)
 		if source.Namespaces != nil {
@@ -194,18 +194,18 @@ func ValidateKubeseerBudgetsWithLimits(object *v1alpha1.Kubeseer, limits Limits)
 			}
 		}
 	}
-	return appendSpecSizeIssue(issues, "spec", object.Spec, limits.MaxKubeseerSpecBytes)
+	return appendSpecSizeIssue(issues, "spec", object.Spec, limits.MaxFacetSpecBytes)
 }
 
 // ValidateAccessPolicyBudgets applies every policy cardinality and serialized
 // Spec limit without compiling the policy or contacting Kubernetes.
-func ValidateAccessPolicyBudgets(object *v1alpha1.KubeseerAccessPolicy) []BudgetIssue {
+func ValidateAccessPolicyBudgets(object *v1alpha1.FacetAccessPolicy) []BudgetIssue {
 	return ValidateAccessPolicyBudgetsWithLimits(object, DefaultLimits())
 }
 
 // ValidateAccessPolicyBudgetsWithLimits applies an explicit budget set while
 // retaining the submitted rule and member indexes in every list issue.
-func ValidateAccessPolicyBudgetsWithLimits(object *v1alpha1.KubeseerAccessPolicy, limits Limits) []BudgetIssue {
+func ValidateAccessPolicyBudgetsWithLimits(object *v1alpha1.FacetAccessPolicy, limits Limits) []BudgetIssue {
 	if object == nil {
 		return nil
 	}
@@ -225,8 +225,8 @@ func ValidateAccessPolicyBudgetsWithLimits(object *v1alpha1.KubeseerAccessPolicy
 
 func normalizeLimits(limits Limits) Limits {
 	defaults := DefaultLimits()
-	if limits.MaxKubeseerSources <= 0 {
-		limits.MaxKubeseerSources = defaults.MaxKubeseerSources
+	if limits.MaxFacetSources <= 0 {
+		limits.MaxFacetSources = defaults.MaxFacetSources
 	}
 	if limits.MaxSourceNamespaces <= 0 {
 		limits.MaxSourceNamespaces = defaults.MaxSourceNamespaces
@@ -267,8 +267,8 @@ func normalizeLimits(limits Limits) Limits {
 	if limits.MaxPolicyKinds <= 0 {
 		limits.MaxPolicyKinds = defaults.MaxPolicyKinds
 	}
-	if limits.MaxKubeseerSpecBytes <= 0 {
-		limits.MaxKubeseerSpecBytes = defaults.MaxKubeseerSpecBytes
+	if limits.MaxFacetSpecBytes <= 0 {
+		limits.MaxFacetSpecBytes = defaults.MaxFacetSpecBytes
 	}
 	if limits.MaxAccessPolicySpecBytes <= 0 {
 		limits.MaxAccessPolicySpecBytes = defaults.MaxAccessPolicySpecBytes

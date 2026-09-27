@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/internal/purge"
+	"github.com/steeltanuki/kubefacet/internal/purge"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -31,11 +31,11 @@ func assertPackagingUninstallPurgeScenarios(t *testing.T) {
 	chartDir := packagingChartDir(t)
 	render := renderPackagingChart(t, chartDir)
 	for _, fragment := range []string{
-		"name: kubeseer-pre-delete",
+		"name: kubefacet-pre-delete",
 		"helm.sh/hook: pre-delete",
 		"helm.sh/hook-weight: \"-20\"",
-		"name: kubeseer-validating-webhook",
-		"name: kubeseer-post-delete",
+		"name: kubefacet-validating-webhook",
+		"name: kubefacet-post-delete",
 		"helm.sh/hook: post-delete",
 		"helm.sh/hook-weight: \"10\"",
 		"PACKAGE_ACTION=pre-delete",
@@ -63,11 +63,11 @@ func assertPackagingUninstallPurgeScenarios(t *testing.T) {
 	if !strings.Contains(render, "helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded") {
 		t.Fatal("uninstall hooks do not converge on repeated invocation")
 	}
-	uninstallScript, err := os.ReadFile(filepath.Join(chartDir, "..", "..", "hack", "uninstall-kubeseer.sh"))
+	uninstallScript, err := os.ReadFile(filepath.Join(chartDir, "..", "..", "hack", "uninstall-kubefacet.sh"))
 	if err != nil {
 		t.Fatalf("read uninstall wrapper: %v", err)
 	}
-	for _, fragment := range []string{"helm uninstall", "--ignore-not-found", "--wait", "kubeseers.kubeseer.io", "installation-access-ceiling"} {
+	for _, fragment := range []string{"helm uninstall", "--ignore-not-found", "--wait", "facets.kubefacet.steeltanuki.it", "installation-access-ceiling"} {
 		if !strings.Contains(string(uninstallScript), fragment) {
 			t.Fatalf("uninstall wrapper lacks %q", fragment)
 		}
@@ -76,7 +76,7 @@ func assertPackagingUninstallPurgeScenarios(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read purge implementation: %v", err)
 	}
-	for _, fragment := range []string{"purge-kubeseer-crds", "waitCollectionEmpty", "KubeseerCRDName", "AccessPolicyCRDName"} {
+	for _, fragment := range []string{"purge-kubefacet-crds", "waitCollectionEmpty", "FacetCRDName", "AccessPolicyCRDName"} {
 		if !strings.Contains(string(purgeSource), fragment) {
 			t.Fatalf("purge implementation lacks %q", fragment)
 		}

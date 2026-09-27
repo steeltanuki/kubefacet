@@ -1,0 +1,15 @@
+# Copyright 2026 Alessandro Rontani
+# Licensed under the Apache License, Version 2.0.
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
+metadata:
+  name: denied
+  namespace: kubefacet-example-denial
+  labels: {kubefacet.steeltanuki.it/example: authorization-denial}
+spec:
+  sources:
+    - id: outside-policy
+      resource: {apiVersion: v1, kind: Service}
+      namespaces: {names: [kubefacet-example-denial]}
+      selector: {name: denied}
+      fields: [{name: port, path: "{.spec.ports[0].port}", type: integer}]

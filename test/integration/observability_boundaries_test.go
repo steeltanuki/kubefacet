@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +42,7 @@ func assertObservabilityBoundaryScenarios(t *testing.T, ctx context.Context, res
 		t.Fatalf("construct boundary observer: %v", err)
 	}
 
-	planSource := v1alpha1.KubeseerSource{
+	planSource := v1alpha1.FacetSource{
 		ID:         "observability-page-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
@@ -89,8 +89,8 @@ func assertObservabilityBoundaryScenarios(t *testing.T, ctx context.Context, res
 	if outcome.Err != nil || len(outcome.Resources) != 1 || len(pageLister.calls) != 2 {
 		t.Fatalf("observable page outcome = %#v calls=%d", outcome, len(pageLister.calls))
 	}
-	assertObservabilityMetricValue(t, registry, "kubeseer_resources_read_total", `scope="namespaced"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_authorization_decisions_total", `kind="PolicyDecision",outcome="allowed",reason="Allowed"`, 2)
+	assertObservabilityMetricValue(t, registry, "kubefacet_resources_read_total", `scope="namespaced"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_authorization_decisions_total", `kind="PolicyDecision",outcome="allowed",reason="Allowed"`, 2)
 
 	forbiddenCapture := &observabilityCapture{err: errors.New("forbidden capture unavailable")}
 	forbiddenObserver, err := observability.New(observability.Options{Registerer: prometheus.NewRegistry(), LogSink: forbiddenCapture})

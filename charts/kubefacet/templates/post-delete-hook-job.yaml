@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kubefacet.fullname" . }}-post-delete
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+    helm.sh/hook: post-delete
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        {{- include "kubefacet.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubefacet.fullname" . }}-post-delete-hook
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: post-delete
+          image: {{ include "kubefacet.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/kubefacet"]
+          args:
+            - package
+            - post-delete
+            - --timeout=90s
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

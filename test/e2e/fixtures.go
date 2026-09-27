@@ -37,7 +37,7 @@ import (
 var fixtureFiles embed.FS
 
 const (
-	fixtureAPIGroup   = "fixtures.kubeseer.io"
+	fixtureAPIGroup   = "fixtures.kubefacet.steeltanuki.it"
 	fixtureAPIVersion = "v1alpha1"
 	fixtureResource   = "widgets"
 	fixtureKind       = "Widget"
@@ -70,8 +70,8 @@ func NewFixtureSet(session *ClusterSession, scenarioID string) (*FixtureSet, err
 		return nil, errors.New("fixture set requires a scenario ID")
 	}
 	labels := map[string]string{
-		"kubeseer.io/e2e-cluster":  session.Metadata.ClusterName,
-		"kubeseer.io/e2e-scenario": scenarioID,
+		"kubefacet.steeltanuki.it/e2e-cluster":  session.Metadata.ClusterName,
+		"kubefacet.steeltanuki.it/e2e-scenario": scenarioID,
 	}
 	return &FixtureSet{Session: session, ScenarioID: scenarioID, Namespace: session.Metadata.Namespace, Labels: labels}, nil
 }
@@ -100,7 +100,7 @@ func (f *FixtureSet) EnsureNamespace(ctx context.Context) (string, error) {
 		if getErr != nil {
 			return "", getErr
 		}
-		if current.Labels["kubeseer.io/e2e-cluster"] != f.Session.Metadata.ClusterName {
+		if current.Labels["kubefacet.steeltanuki.it/e2e-cluster"] != f.Session.Metadata.ClusterName {
 			return "", fmt.Errorf("namespace %q is not owned by this E2E run", name)
 		}
 		f.Namespace = name
@@ -276,22 +276,22 @@ func (f *FixtureSet) CreateWidget(ctx context.Context, name, namespace string, s
 	return created, nil
 }
 
-// CreateKubeseer writes a public API object and registers status-safe cleanup.
-func (f *FixtureSet) CreateKubeseer(ctx context.Context, name string, spec map[string]interface{}) (*unstructured.Unstructured, error) {
+// CreateFacet writes a public API object and registers status-safe cleanup.
+func (f *FixtureSet) CreateFacet(ctx context.Context, name string, spec map[string]interface{}) (*unstructured.Unstructured, error) {
 	if name == "" {
-		name = f.scopedName("kubeseer")
+		name = f.scopedName("kubefacet")
 	}
 	object := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "kubeseer.io/v1alpha1", "kind": "Kubeseer",
+		"apiVersion": "kubefacet.steeltanuki.it/v1alpha1", "kind": "Facet",
 		"metadata": map[string]interface{}{"name": name, "namespace": f.Namespace, "labels": f.Labels},
 		"spec":     spec,
 	}}
-	created, err := f.Session.Dynamic.Resource(KubeseerResource).Namespace(f.Namespace).Create(ctx, object, metav1.CreateOptions{})
+	created, err := f.Session.Dynamic.Resource(FacetResource).Namespace(f.Namespace).Create(ctx, object, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
-	f.register("kubeseer/"+f.Namespace+"/"+name, func(cleanupCtx context.Context) error {
-		err := f.Session.Dynamic.Resource(KubeseerResource).Namespace(f.Namespace).Delete(cleanupCtx, name, metav1.DeleteOptions{})
+	f.register("kubefacet/"+f.Namespace+"/"+name, func(cleanupCtx context.Context) error {
+		err := f.Session.Dynamic.Resource(FacetResource).Namespace(f.Namespace).Delete(cleanupCtx, name, metav1.DeleteOptions{})
 		if apierrors.IsNotFound(err) {
 			return nil
 		}

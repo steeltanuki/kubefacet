@@ -17,14 +17,14 @@ package typedoutput
 import (
 	"context"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
 )
 
 // SourceInput joins one public source declaration with its completed native
 // extraction outcome.
 type SourceInput struct {
-	Source     v1alpha1.KubeseerSource
+	Source     v1alpha1.FacetSource
 	Extraction extraction.SourceOutcome
 }
 
@@ -42,7 +42,7 @@ func ConvertBatchWithLimit(ctx context.Context, inputs []SourceInput, maxBytes i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	sources := make([]v1alpha1.KubeseerSource, len(inputs))
+	sources := make([]v1alpha1.FacetSource, len(inputs))
 	for index, input := range inputs {
 		sources[index] = input.Source
 	}

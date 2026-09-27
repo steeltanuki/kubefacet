@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package status owns pure semantic composition primitives for the public
-// Kubeseer status contract.
+// Facet status contract.
 //
 // Responsibility: normalize, hash, compare, and project deterministic status
 // snapshots and condition assessments from completed runtime outcomes.

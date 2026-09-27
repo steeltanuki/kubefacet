@@ -12,13 +12,13 @@ The [README](../README.md) is the documentation entry point. Use
 
 ## Fixed identities and versions
 
-The environment owns exactly kind cluster `kubeseer-local`, kubeconfig context
-`kind-kubeseer-local`, Helm release `kubeseer`, namespace `kubeseer-system`,
+The environment owns exactly kind cluster `kubefacet-local`, kubeconfig context
+`kind-kubefacet-local`, Helm release `kubefacet`, namespace `kubefacet-system`,
 and policy singleton `installation-access-ceiling`. Mutable state is outside
-the worktree at `${XDG_STATE_HOME:-$HOME/.local/state}/kubeseer/local`; image,
+the worktree at `${XDG_STATE_HOME:-$HOME/.local/state}/kubefacet/local`; image,
 Helm, module, and pinned-manifest caches are at
-`${XDG_CACHE_HOME:-$HOME/.cache}/kubeseer/local`. CI may set the absolute
-`KUBESEER_LOCAL_STATE_DIR` and `KUBESEER_LOCAL_CACHE_DIR` overrides. Both roots
+`${XDG_CACHE_HOME:-$HOME/.cache}/kubefacet/local`. CI may set the absolute
+`KUBEFACET_LOCAL_STATE_DIR` and `KUBEFACET_LOCAL_CACHE_DIR` overrides. Both roots
 must be private, normalized, and outside this repository.
 
 The compatibility matrix, kind node-image mapping, cert-manager pin, and tool
@@ -42,8 +42,8 @@ minimums are declared in [`hack/toolchain.mk`](../hack/toolchain.mk):
 
 First-time setup needs network access for the pinned Go modules, cert-manager
 manifest, kind node image, and any workload images used by an example. The
-Kubeseer image itself is built by Podman and imported into every kind node; no
-Kubeseer registry push or external registry credential is used. The supported
+KubeFacet image itself is built by Podman and imported into every kind node; no
+KubeFacet registry push or external registry credential is used. The supported
 profile uses rootless Podman, which must be operational for the current user,
 and kind must select it explicitly. Existing or cloud clusters are never
 adopted.
@@ -58,7 +58,7 @@ make local-examples
 make local-verify
 make local-diagnostics
 make local-examples-down
-make local-down                 # deletes only kind cluster kubeseer-local
+make local-down                 # deletes only kind cluster kubefacet-local
 ```
 
 Every successful phase prints one `LOCAL_ENVIRONMENT=<phase>
@@ -75,8 +75,8 @@ shutdown. The next explicit `make local-up` checks its saved ownership metadata,
 kind node, container labels, and kubeconfig API port. If the control-plane node
 is stopped, `local-up` starts it and waits for the API before continuing the usual
 image, package, and readiness checks. The API wait defaults to 120 seconds;
-override it with `KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS` using an integer from 1
-through 600, for example `KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS=240 make local-up`.
+override it with `KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS` using an integer from 1
+through 600, for example `KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS=240 make local-up`.
 
 If Podman cannot start the node, the API wait expires, or identity checks
 conflict, the command reports the failure and retains the owned metadata and
@@ -92,16 +92,16 @@ policy, and example readiness. For direct public inspection, always pass the
 owned credentials explicitly:
 
 ```bash
-STATE="${KUBESEER_LOCAL_STATE_DIR:-$HOME/.local/state/kubeseer/local}"
-kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubeseer-local \
-  -n kubeseer-system get kubeseer -o json
-kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubeseer-local \
-  -n kubeseer-system get events
-kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubeseer-local \
-  -n kubeseer-system get endpointslice \
-  --selector kubernetes.io/service-name=kubeseer-webhook
-kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubeseer-local \
-  -n kubeseer-system logs deployment/kubeseer --all-containers --tail=200
+STATE="${KUBEFACET_LOCAL_STATE_DIR:-$HOME/.local/state/kubefacet/local}"
+kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubefacet-local \
+  -n kubefacet-system get facet -o json
+kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubefacet-local \
+  -n kubefacet-system get events
+kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubefacet-local \
+  -n kubefacet-system get endpointslice \
+  --selector kubernetes.io/service-name=kubefacet-webhook
+kubectl --kubeconfig "$STATE/kubeconfig" --context kind-kubefacet-local \
+  -n kubefacet-system logs deployment/kubefacet --all-containers --tail=200
 ```
 
 The EndpointSlice command lists all ready and non-ready backends associated
@@ -115,7 +115,7 @@ kubeconfig bytes, tokens, Secret bodies, extracted values, result bodies,
 selector operands, or Event messages.
 
 If creation fails before ownership promotion, only a partial
-`kubeseer-local` target is removed. If an owned upgrade or readiness check
+`kubefacet-local` target is removed. If an owned upgrade or readiness check
 fails, the cluster, metadata, kubeconfig, and prior Helm revision are retained
 for diagnosis. If deletion fails, retry `make local-down`; the exact cluster
 and metadata paths are reported. Caches and local image archives are retained
@@ -126,8 +126,8 @@ or invokes the destructive CRD purge client against an external cluster.
 
 The ordered catalog in [`examples/catalog.txt`](../examples/catalog.txt) is the
 single source for application, verification, documentation, and cleanup. Each
-example has an Apache-2.0 README, workload, Kubeseer manifest, stable
-`kubeseer.io/example` identity, expected public outcome, and constrained
+example has an Apache-2.0 README, workload, Facet manifest, stable
+`kubefacet.steeltanuki.it/example` identity, expected public outcome, and constrained
 commands:
 
 ```bash
@@ -158,7 +158,7 @@ release and access policy.
 
 ## Persistent exploration versus certification
 
-`kubeseer-local` is a persistent development aid. `make e2e` remains the
+`kubefacet-local` is a persistent development aid. `make e2e` remains the
 authoritative full-product certification path: it creates a separate
 run-unique kind cluster, kubeconfig, image tag, diagnostics directory, and
 cleanup boundary. Local verification is not a replacement, alias, or shortcut

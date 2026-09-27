@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertNativeScalarDocumentation(t *testing.T) {
@@ -87,7 +87,7 @@ func assertNativeScalarDocumentation(t *testing.T) {
 	tests := []struct {
 		name         string
 		input        string
-		typeName     v1alpha1.KubeseerValueType
+		typeName     v1alpha1.FacetValueType
 		wantQuantity string
 		wantDuration time.Duration
 	}{
@@ -124,7 +124,7 @@ func assertNativeScalarDocumentation(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		input    string
-		typeName v1alpha1.KubeseerValueType
+		typeName v1alpha1.FacetValueType
 	}{
 		{name: "quantity-rounding", input: "0.0000000001", typeName: v1alpha1.ValueTypeQuantity},
 		{name: "duration-rounding", input: "0.1ns", typeName: v1alpha1.ValueTypeDuration},
@@ -137,9 +137,9 @@ func assertNativeScalarDocumentation(t *testing.T) {
 		})
 	}
 
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID: "native-scalar-documentation",
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "quantityNano", Path: "{.data.quantityNano}", Type: v1alpha1.ValueTypeQuantity},
 			{Name: "quantityMicro", Path: "{.data.quantityMicro}", Type: v1alpha1.ValueTypeQuantity},
 			{Name: "durationZero", Path: "{.data.durationZero}", Type: v1alpha1.ValueTypeDuration},

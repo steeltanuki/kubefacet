@@ -1,0 +1,15 @@
+# Copyright 2026 Alessandro Rontani
+# Licensed under the Apache License, Version 2.0.
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
+metadata:
+  name: custom
+  namespace: kubefacet-example-custom
+  labels: {kubefacet.steeltanuki.it/example: custom-resource}
+spec:
+  sources:
+    - id: widget
+      resource: {apiVersion: fixtures.kubefacet.steeltanuki.it/v1alpha1, kind: Widget}
+      namespaces: {names: [kubefacet-example-custom]}
+      selector: {name: widget}
+      fields: [{name: size, path: "{.spec.size}", type: integer}]

@@ -1,0 +1,2368 @@
+// Copyright 2026 Alessandro Rontani
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package v1alpha1_test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	. "github.com/steeltanuki/kubefacet/api/v1alpha1"
+	accesspolicy "github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	harness "github.com/steeltanuki/kubefacet/test/envtest"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
+)
+
+const (
+	facetResource        = "facets"
+	facetCRDName         = "facets.kubefacet.steeltanuki.it"
+	accessPolicyResource = "facetaccesspolicies"
+	accessPolicyCRDName  = "facetaccesspolicies.kubefacet.steeltanuki.it"
+	unservedAPIVersion   = "kubefacet.steeltanuki.it/v1beta1"
+	apiRequestTimeout    = 30 * time.Second
+	crdInstallMaxWait    = 20 * time.Second
+	crdInstallPollDelay  = 100 * time.Millisecond
+)
+
+var facetResourceGVR = schema.GroupVersionResource{
+	Group:    GroupVersion.Group,
+	Version:  GroupVersion.Version,
+	Resource: facetResource,
+}
+
+var accessPolicyResourceGVR = schema.GroupVersionResource{
+	Group:    GroupVersion.Group,
+	Version:  GroupVersion.Version,
+	Resource: accessPolicyResource,
+}
+
+func TestAPIContract(t *testing.T) {
+	crdPath, err := filepath.Abs(filepath.Join("..", "..", "config", "crd", "bases"))
+	if err != nil {
+		t.Fatalf("resolve generated CRD path: %v", err)
+	}
+
+	environment, err := harness.New(t, harness.Options{
+		CRDDirectoryPaths:     []string{crdPath},
+		ErrorIfCRDPathMissing: true,
+		CRDMaxWait:            crdInstallMaxWait,
+		CRDPollInterval:       crdInstallPollDelay,
+	})
+	if err != nil {
+		t.Fatalf("create envtest harness: %v", err)
+	}
+	if _, err := environment.Start(); err != nil {
+		t.Fatalf("start Kubernetes API server: %v", err)
+	}
+
+	clients, err := environment.Clients()
+	if err != nil {
+		t.Fatalf("create envtest clients: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), apiRequestTimeout)
+	defer cancel()
+
+	assertCRDEstablished(t, ctx, clients.APIExtensions, facetCRDName)
+	assertCRDEstablished(t, ctx, clients.APIExtensions, accessPolicyCRDName)
+	assertInstalledCRDContract(t, ctx, clients.APIExtensions)
+	assertInstalledAccessPolicyCRDContract(t, ctx, clients.APIExtensions)
+	assertResourceRegistered(t, clients.Discovery, facetResource, true)
+	assertResourceRegistered(t, clients.Discovery, accessPolicyResource, false)
+	namespace := environment.Scope().Namespace
+	resources := clients.Dynamic.Resource(facetResourceGVR).Namespace(namespace)
+	accessPolicies := clients.Dynamic.Resource(accessPolicyResourceGVR)
+	environment.AddCleanup("delete Facet API contract fixtures", func(ctx context.Context) error {
+		for _, name := range []string{"minimal", "valid-source", "negative-generation", "status-isolation", "typed-persistence", "untyped-field-compatible", "invalid-field-type", "typed-result-persistence", "native-scalar-persistence", "operator-persistence", "operator-empty", "invalid-operator-name", "duplicate-source-ids", "missing-resource", "invalid-namespace", "duplicate-namespaces", "missing-field-name", "missing-field-path", "invalid-field-name", "overlong-field-path", "duplicate-field-names", "aggregation-persistence", "aggregation-empty", "invalid-aggregation-function", "invalid-aggregation-rounding", "invalid-aggregation-precision"} {
+			err := resources.Delete(ctx, name, metav1.DeleteOptions{})
+			if err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	})
+	environment.AddCleanup("delete FacetAccessPolicy API contract fixture", func(ctx context.Context) error {
+		err := accessPolicies.Delete(ctx, InstallationAccessCeilingName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		return nil
+	})
+
+	assertTypedSchemeAndClient(t, ctx, resources, namespace, environment.Config())
+	assertTypedOutputAPIScenarios(t, ctx, resources, namespace)
+	t.Run("NativeScalarPersistence", func(t *testing.T) {
+		assertNativeScalarPersistence(t, ctx, resources, namespace)
+	})
+	assertValueOperatorsAPIScenarios(t, ctx, resources, namespace)
+	assertCrossNamespaceAggregationAPIScenarios(t, ctx, resources, namespace)
+	createMinimalResource(t, ctx, resources, namespace)
+	createValidSourceResource(t, ctx, resources, namespace)
+	assertMissingSpecRejected(t, ctx, resources, namespace)
+	assertInvalidSourceRejected(t, ctx, resources, namespace)
+	assertNonListSourcesRejected(t, ctx, resources, namespace)
+	assertSelectionSourceAdmissionRejected(t, ctx, resources, namespace)
+	assertNegativeObservedGenerationRejected(t, ctx, resources, namespace)
+	assertStatusUpdatePreservesSpec(t, ctx, resources, namespace)
+	assertAdmissionValidationStructureRejected(t, ctx, resources, accessPolicies, namespace)
+	assertUnservedVersionRejected(t, ctx, clients.Dynamic, namespace)
+	assertAccessPolicyDefaultingAndEmptyOverride(t, ctx, accessPolicies)
+	assertAccessPolicyValidation(t, ctx, accessPolicies)
+	assertAccessPolicyClientSource(t, ctx, environment.Config())
+
+	t.Logf("API contract passed with Kubernetes assets %s", environment.AssetsDirectory())
+	t.Log("API_CONTRACT=facet-v1alpha1 STATUS=passed")
+	t.Log("API_CONTRACT=field-extraction-types STATUS=passed")
+	t.Log("API_CONTRACT=resource-selection-types STATUS=passed")
+	t.Log("API_CONTRACT=facet-access-policy STATUS=passed")
+	t.Log("API_CONTRACT=facet-access-policy-admission STATUS=passed")
+	t.Log("API_CONTRACT=typed-output-model-types STATUS=passed")
+	t.Log("API_CONTRACT=value-operators-types STATUS=passed")
+	t.Log("API_CONTRACT=status-and-conditions-api STATUS=passed")
+	t.Log("API_CONTRACT=cross-namespace-aggregation-types STATUS=passed")
+	t.Log("API_CONTRACT=admission-validation-structure STATUS=passed")
+}
+
+func assertTypedSchemeAndClient(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string, config *rest.Config) {
+	t.Helper()
+	operatorPrefix := "demo"
+	operatorMember := "demo"
+
+	typeScheme := runtime.NewScheme()
+	if err := AddToScheme(typeScheme); err != nil {
+		t.Fatalf("register Facet typed scheme: %v", err)
+	}
+	for _, object := range []runtime.Object{&Facet{}, &FacetList{}} {
+		gvks, _, err := typeScheme.ObjectKinds(object)
+		if err != nil {
+			t.Fatalf("resolve typed GVK for %T: %v", object, err)
+		}
+		if len(gvks) != 1 || gvks[0].GroupVersion() != GroupVersion {
+			t.Fatalf("unexpected typed GVK for %T: %v", object, gvks)
+		}
+	}
+	if object, err := typeScheme.New(GroupVersion.WithKind("Facet")); err != nil || object == nil {
+		t.Fatalf("construct Facet from the registered scheme: object=%T err=%v", object, err)
+	}
+
+	original := &Facet{
+		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "Facet"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "typed-persistence",
+			Namespace: namespace,
+			Labels:    map[string]string{"contract": "typed"},
+		},
+		Spec: FacetSpec{Sources: []FacetSource{{
+			ID:         "typed-source",
+			Resource:   ResourceReference{APIVersion: "v1", Kind: "Pod"},
+			Namespaces: &NamespaceSelection{Names: []string{"team-a"}},
+			Selector: &ResourceSelector{
+				Name:        "demo",
+				MatchLabels: map[string]string{"app": "demo"},
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      "tier",
+					Operator: metav1.LabelSelectorOpIn,
+					Values:   []string{"backend"},
+				}},
+				FieldSelector: "metadata.namespace=team-a",
+			},
+			Fields: []FacetField{
+				{Name: "resourceName", Path: "{.metadata.name}", Type: ValueTypeString, Operators: []FacetOperator{
+					{Operator: OperatorStartsWith, Value: &FacetOperatorOperand{State: MatchStateValue, StringValue: &operatorPrefix}},
+					{Operator: OperatorIn, Values: []FacetOperatorOperand{{State: MatchStateValue, StringValue: &operatorMember}}},
+				}},
+				{Name: "display-key", Path: "{.data['display-name']}", Type: ValueTypeString},
+			},
+		}}},
+		Status: FacetStatus{
+			ObservedGeneration: 7,
+			Conditions: []metav1.Condition{{
+				Type:               "Ready",
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: 7,
+				LastTransitionTime: metav1.Time{Time: time.Date(2026, time.August, 1, 11, 30, 0, 0, time.UTC)},
+				Reason:             "Available",
+				Message:            "API contract is available",
+			}},
+			Summary: &FacetSummary{
+				SuccessfulSources: 2,
+				FailedSources:     1,
+				MatchedResources:  3,
+			},
+			ResultHash: "sha256:" + strings.Repeat("a", 64),
+			Result:     &FacetResult{},
+		},
+	}
+
+	encoded, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("serialize typed Facet: %v", err)
+	}
+	var decoded Facet
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("deserialize typed Facet: %v", err)
+	}
+	if decoded.TypeMeta != original.TypeMeta || decoded.Name != original.Name || decoded.Namespace != original.Namespace || !reflect.DeepEqual(original.Labels, decoded.Labels) || !reflect.DeepEqual(original.Spec, decoded.Spec) {
+		t.Fatalf("typed JSON round-trip changed identity, metadata, or spec: original=%#v decoded=%#v", original, decoded)
+	}
+	if decoded.Status.ObservedGeneration != original.Status.ObservedGeneration || decoded.Status.Result == nil || decoded.Status.Summary == nil || !reflect.DeepEqual(decoded.Status.Summary, original.Status.Summary) || decoded.Status.ResultHash != original.Status.ResultHash || len(decoded.Status.Conditions) != len(original.Status.Conditions) {
+		t.Fatalf("typed JSON round-trip changed the status envelope: original=%#v decoded=%#v", original.Status, decoded.Status)
+	}
+	if decoded.Spec.Sources[0].Resource != original.Spec.Sources[0].Resource || decoded.Spec.Sources[0].Namespaces == nil || !reflect.DeepEqual(decoded.Spec.Sources[0].Namespaces.Names, original.Spec.Sources[0].Namespaces.Names) || decoded.Spec.Sources[0].Selector == nil || !reflect.DeepEqual(decoded.Spec.Sources[0].Selector, original.Spec.Sources[0].Selector) {
+		t.Fatalf("typed JSON round-trip changed source selection fields: original=%#v decoded=%#v", original.Spec.Sources[0], decoded.Spec.Sources[0])
+	}
+	if !reflect.DeepEqual(decoded.Spec.Sources[0].Fields, original.Spec.Sources[0].Fields) {
+		t.Fatalf("typed JSON round-trip changed source fields: original=%#v decoded=%#v", original.Spec.Sources[0].Fields, decoded.Spec.Sources[0].Fields)
+	}
+
+	emptyNamespaces := &Facet{Spec: FacetSpec{Sources: []FacetSource{{ID: "empty-namespaces", Resource: ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &NamespaceSelection{Names: []string{}}}}}}
+	emptyJSON, err := json.Marshal(emptyNamespaces)
+	if err != nil {
+		t.Fatalf("serialize explicit empty namespaces: %v", err)
+	}
+	var decodedEmpty Facet
+	if err := json.Unmarshal(emptyJSON, &decodedEmpty); err != nil {
+		t.Fatalf("deserialize explicit empty namespaces: %v", err)
+	}
+	if decodedEmpty.Spec.Sources[0].Namespaces == nil || decodedEmpty.Spec.Sources[0].Namespaces.Names == nil || len(decodedEmpty.Spec.Sources[0].Namespaces.Names) != 0 {
+		t.Fatalf("explicit empty namespaces lost pointer/list semantics: %#v", decodedEmpty.Spec.Sources[0])
+	}
+	omittedNamespaces := &Facet{Spec: FacetSpec{Sources: []FacetSource{{ID: "omitted-namespaces", Resource: ResourceReference{APIVersion: "v1", Kind: "Pod"}}}}}
+	omittedJSON, err := json.Marshal(omittedNamespaces)
+	if err != nil {
+		t.Fatalf("serialize omitted namespaces: %v", err)
+	}
+	var decodedOmitted Facet
+	if err := json.Unmarshal(omittedJSON, &decodedOmitted); err != nil {
+		t.Fatalf("deserialize omitted namespaces: %v", err)
+	}
+	if decodedOmitted.Spec.Sources[0].Namespaces != nil {
+		t.Fatalf("omitted namespaces synthesized a selection block: %#v", decodedOmitted.Spec.Sources[0])
+	}
+	for index, condition := range original.Status.Conditions {
+		decodedCondition := decoded.Status.Conditions[index]
+		if decodedCondition.Type != condition.Type || decodedCondition.Status != condition.Status || decodedCondition.ObservedGeneration != condition.ObservedGeneration || decodedCondition.Reason != condition.Reason || decodedCondition.Message != condition.Message || !decodedCondition.LastTransitionTime.Time.Equal(condition.LastTransitionTime.Time) {
+			t.Fatalf("typed JSON round-trip changed condition %d: original=%#v decoded=%#v", index, condition, decodedCondition)
+		}
+	}
+
+	withoutSources := &Facet{TypeMeta: original.TypeMeta, Spec: FacetSpec{}}
+	withoutSourcesJSON, err := json.Marshal(withoutSources)
+	if err != nil {
+		t.Fatalf("serialize typed Facet without sources: %v", err)
+	}
+	var serializedFields map[string]json.RawMessage
+	if err := json.Unmarshal(withoutSourcesJSON, &serializedFields); err != nil {
+		t.Fatalf("inspect typed empty spec: %v", err)
+	}
+	var specFields map[string]json.RawMessage
+	if err := json.Unmarshal(serializedFields["spec"], &specFields); err != nil {
+		t.Fatalf("decode typed empty spec: %v", err)
+	}
+	if _, found := specFields["sources"]; found {
+		t.Fatalf("typed empty sources field was synthesized: %s", withoutSourcesJSON)
+	}
+
+	apiObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Facet{
+		TypeMeta: original.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      original.Name,
+			Namespace: original.Namespace,
+			Labels:    original.Labels,
+		},
+		Spec: original.Spec,
+	})
+	if err != nil {
+		t.Fatalf("convert typed Facet for API persistence: %v", err)
+	}
+	apiObject["apiVersion"] = GroupVersion.String()
+	apiObject["kind"] = "Facet"
+	created, err := resources.Create(ctx, &unstructured.Unstructured{Object: apiObject}, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("persist typed Facet through the API server: %v", err)
+	}
+	var persisted Facet
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &persisted); err != nil {
+		t.Fatalf("decode persisted Facet into typed object: %v", err)
+	}
+	if persisted.Name != original.Name || persisted.Namespace != namespace || !reflect.DeepEqual(persisted.Spec, original.Spec) {
+		t.Fatalf("typed API persistence changed identity or spec: original=%#v persisted=%#v", original, persisted)
+	}
+
+	persisted.Status = original.Status
+	copy := persisted.DeepCopy()
+	if copy == &persisted || copy.Status.Result == nil {
+		t.Fatal("generated typed DeepCopy did not return an isolated result envelope")
+	}
+	copy.Labels["contract"] = "changed"
+	copy.Spec.Sources[0].ID = "changed"
+	copy.Spec.Sources[0].Namespaces.Names[0] = "changed"
+	copy.Spec.Sources[0].Selector.MatchLabels["app"] = "changed"
+	copy.Spec.Sources[0].Selector.MatchExpressions[0].Values[0] = "changed"
+	copy.Spec.Sources[0].Selector.FieldSelector = "changed"
+	copy.Spec.Sources[0].Fields[0].Name = "changed"
+	copy.Spec.Sources[0].Fields[1].Path = "{.changed}"
+	copy.Spec.Sources[0].Fields[0].Type = ValueTypeInteger
+	*copy.Spec.Sources[0].Fields[0].Operators[0].Value.StringValue = "changed"
+	*copy.Spec.Sources[0].Fields[0].Operators[1].Values[0].StringValue = "changed"
+	copy.Status.Conditions[0].Reason = "Changed"
+	copy.Status.Summary.SuccessfulSources = 99
+	if persisted.Labels["contract"] != "typed" || persisted.Spec.Sources[0].ID != "typed-source" || persisted.Spec.Sources[0].Namespaces.Names[0] != "team-a" || persisted.Spec.Sources[0].Selector.MatchLabels["app"] != "demo" || persisted.Spec.Sources[0].Selector.MatchExpressions[0].Values[0] != "backend" || persisted.Spec.Sources[0].Selector.FieldSelector != "metadata.namespace=team-a" || persisted.Spec.Sources[0].Fields[0].Name != "resourceName" || persisted.Spec.Sources[0].Fields[0].Type != ValueTypeString || len(persisted.Spec.Sources[0].Fields[0].Operators) != 2 || persisted.Spec.Sources[0].Fields[0].Operators[0].Operator != OperatorStartsWith || persisted.Spec.Sources[0].Fields[0].Operators[1].Operator != OperatorIn || persisted.Spec.Sources[0].Fields[0].Operators[0].Value == nil || persisted.Spec.Sources[0].Fields[0].Operators[0].Value.StringValue == nil || *persisted.Spec.Sources[0].Fields[0].Operators[0].Value.StringValue != "demo" || persisted.Spec.Sources[0].Fields[1].Path != "{.data['display-name']}" || persisted.Status.Conditions[0].Reason != "Available" || persisted.Status.Summary == nil || persisted.Status.Summary.SuccessfulSources != 2 {
+		t.Fatalf("generated typed DeepCopy aliases the API-derived object: %#v", persisted)
+	}
+	if persisted.Spec.Sources[0].Fields[0].Operators[1].Values == nil || len(persisted.Spec.Sources[0].Fields[0].Operators[1].Values) != 1 || persisted.Spec.Sources[0].Fields[0].Operators[1].Values[0].StringValue == nil || *persisted.Spec.Sources[0].Fields[0].Operators[1].Values[0].StringValue != "demo" {
+		t.Fatalf("generated typed DeepCopy aliases operator operands: %#v", persisted.Spec.Sources[0].Fields[0].Operators)
+	}
+
+	assertAccessPolicyTypedContract(t, ctx, config)
+}
+
+func assertTypedOutputAPIScenarios(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	untyped := newFacet("untyped-field-compatible", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "untyped-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"fields": []interface{}{map[string]interface{}{
+				"name": "resourceName",
+				"path": "{.metadata.name}",
+			}},
+		}},
+	})
+	created, err := resources.Create(ctx, untyped, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create otherwise-valid field without type: %v", err)
+	}
+	sources, found, err := unstructured.NestedSlice(created.Object, "spec", "sources")
+	if err != nil || !found || len(sources) != 1 {
+		t.Fatalf("read persisted untyped source: found=%t err=%v object=%#v", found, err, created.Object)
+	}
+	source, ok := sources[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("persisted untyped source has unexpected shape: %#v", sources[0])
+	}
+	fields, ok := source["fields"].([]interface{})
+	if !ok || len(fields) != 1 {
+		t.Fatalf("persisted untyped field has unexpected shape: %#v", source["fields"])
+	}
+	field, ok := fields[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("persisted untyped field has unexpected shape: %#v", fields[0])
+	}
+	if _, found := field["type"]; found {
+		t.Fatalf("omitted field type received an API default: %#v", field)
+	}
+
+	invalid := newFacet("invalid-field-type", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "invalid-type-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"fields": []interface{}{map[string]interface{}{
+				"name": "resourceName",
+				"path": "{.metadata.name}",
+				"type": "decimal",
+			}},
+		}},
+	})
+	assertInvalidCreate(t, ctx, resources, invalid, "unsupported typed-output field type")
+	assertNotPersisted(t, ctx, resources, invalid.GetName())
+
+	result := typedResultFixture()
+	encodedJSON, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("serialize typed result as JSON: %v", err)
+	}
+	var decodedJSON FacetResult
+	if err := json.Unmarshal(encodedJSON, &decodedJSON); err != nil {
+		t.Fatalf("deserialize typed result JSON: %v", err)
+	}
+	if !typedResultSemanticallyEqual(result, decodedJSON) {
+		t.Fatalf("typed result JSON round-trip changed semantics: original=%#v decoded=%#v", result, decodedJSON)
+	}
+
+	encodedYAML, err := yaml.Marshal(result)
+	if err != nil {
+		t.Fatalf("serialize typed result as YAML: %v", err)
+	}
+	var decodedYAML FacetResult
+	if err := yaml.Unmarshal(encodedYAML, &decodedYAML); err != nil {
+		t.Fatalf("deserialize typed result YAML: %v", err)
+	}
+	if !typedResultSemanticallyEqual(result, decodedYAML) {
+		t.Fatalf("typed result YAML round-trip changed semantics: original=%#v decoded=%#v", result, decodedYAML)
+	}
+	if !strings.Contains(string(encodedJSON), `"fieldErrors"`) || !strings.Contains(string(encodedJSON), `"stringValue"`) || !strings.Contains(string(encodedJSON), `"timestampValue"`) {
+		t.Fatalf("typed result JSON did not expose lower-camel-case structural payloads: %s", encodedJSON)
+	}
+
+	copy := result.DeepCopy()
+	if copy == &result || copy.Sources[0].Resources[0].Fields[1].Matches[0].StringValue == result.Sources[0].Resources[0].Fields[1].Matches[0].StringValue {
+		t.Fatal("generated typed-result DeepCopy did not isolate nested pointers")
+	}
+	copy.Sources[0].FieldErrors[0].Name = "changed"
+	*copy.Sources[0].Resources[0].Fields[1].Matches[0].StringValue = "changed"
+	copy.Sources[0].Resources[0].Fields[8].Error.Message = "changed"
+	copy.Sources[0].Resources[0].Fields[9].Matches[0].DurationValue.Canonical = "changed"
+	if result.Sources[0].FieldErrors[0].Name != "planning" || *result.Sources[0].Resources[0].Fields[1].Matches[0].StringValue != "" || result.Sources[0].Resources[0].Fields[8].Error.Message != "invalid number" || result.Sources[0].Resources[0].Fields[9].Matches[0].DurationValue.Canonical != "1.5s" {
+		t.Fatalf("generated typed-result DeepCopy aliases mutable nested fields: %#v", result)
+	}
+
+	assertTypedResultStatusPersistence(t, ctx, resources, namespace, result)
+
+	empty := newFacet("typed-empty-result", namespace, map[string]interface{}{})
+	emptyCreated, err := resources.Create(ctx, empty, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create empty typed-result fixture: %v", err)
+	}
+	emptyStatus := emptyCreated.DeepCopy()
+	emptyStatus.Object["status"] = map[string]interface{}{"result": map[string]interface{}{}}
+	if _, err := resources.UpdateStatus(ctx, emptyStatus, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("persist explicitly empty typed result: %v", err)
+	}
+	storedEmpty, err := resources.Get(ctx, empty.GetName(), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get explicitly empty typed result: %v", err)
+	}
+	if _, found, err := unstructured.NestedMap(storedEmpty.Object, "status", "result"); err != nil || !found {
+		t.Fatalf("explicitly present empty status.result was not persisted: found=%t err=%v object=%#v", found, err, storedEmpty.Object)
+	}
+}
+
+func assertValueOperatorsAPIScenarios(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	operatorResource := newFacet("operator-persistence", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "operator-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"fields": []interface{}{map[string]interface{}{
+				"name": "resourceName",
+				"path": "{.metadata.name}",
+				"type": "string",
+				"operators": []interface{}{
+					map[string]interface{}{
+						"operator": "startsWith",
+						"value": map[string]interface{}{
+							"state":       "value",
+							"stringValue": "demo",
+						},
+					},
+					map[string]interface{}{
+						"operator": "in",
+						"values": []interface{}{map[string]interface{}{
+							"state":       "value",
+							"stringValue": "demo",
+						}},
+					},
+				},
+			}},
+		}},
+	})
+	created, err := resources.Create(ctx, operatorResource, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create operator persistence fixture: %v", err)
+	}
+	sources, found, err := unstructured.NestedSlice(created.Object, "spec", "sources")
+	if err != nil || !found || len(sources) != 1 {
+		t.Fatalf("read persisted operator source: found=%t err=%v object=%#v", found, err, created.Object)
+	}
+	source, ok := sources[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("persisted operator source has unexpected shape: %#v", sources[0])
+	}
+	fields, ok := source["fields"].([]interface{})
+	if !ok || len(fields) != 1 {
+		t.Fatalf("persisted operator field has unexpected shape: %#v", source["fields"])
+	}
+	field, ok := fields[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("persisted operator field has unexpected shape: %#v", fields[0])
+	}
+	operators, ok := field["operators"].([]interface{})
+	if !ok || len(operators) != 2 {
+		t.Fatalf("persisted operator list lost order or values: %#v", field["operators"])
+	}
+	first, ok := operators[0].(map[string]interface{})
+	if !ok || first["operator"] != "startsWith" {
+		t.Fatalf("first persisted operator changed: %#v", operators[0])
+	}
+	firstValue, ok := first["value"].(map[string]interface{})
+	if !ok || firstValue["state"] != "value" || firstValue["stringValue"] != "demo" {
+		t.Fatalf("first persisted operator operand changed: %#v", first["value"])
+	}
+	second, ok := operators[1].(map[string]interface{})
+	if !ok || second["operator"] != "in" {
+		t.Fatalf("second persisted operator changed: %#v", operators[1])
+	}
+	secondValues, ok := second["values"].([]interface{})
+	if !ok || len(secondValues) != 1 {
+		t.Fatalf("second persisted operator values changed: %#v", second["values"])
+	}
+	secondValue, ok := secondValues[0].(map[string]interface{})
+	if !ok || secondValue["state"] != "value" || secondValue["stringValue"] != "demo" {
+		t.Fatalf("second persisted operator operand changed: %#v", secondValues[0])
+	}
+
+	empty := newFacet("operator-empty", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "empty-operator-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"fields": []interface{}{map[string]interface{}{
+				"name":      "resourceName",
+				"path":      "{.metadata.name}",
+				"type":      "string",
+				"operators": []interface{}{},
+			}},
+		}},
+	})
+	emptyCreated, err := resources.Create(ctx, empty, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create explicit-empty operator fixture: %v", err)
+	}
+	emptySources, found, err := unstructured.NestedSlice(emptyCreated.Object, "spec", "sources")
+	if err != nil || !found || len(emptySources) != 1 {
+		t.Fatalf("read explicit-empty operator source: found=%t err=%v object=%#v", found, err, emptyCreated.Object)
+	}
+	emptySource := emptySources[0].(map[string]interface{})
+	emptyFields := emptySource["fields"].([]interface{})
+	emptyField := emptyFields[0].(map[string]interface{})
+	if persistedOperators, found := emptyField["operators"]; found && persistedOperators != nil {
+		if values, ok := persistedOperators.([]interface{}); !ok || len(values) != 0 {
+			t.Fatalf("explicit-empty operator list received a default: %#v", persistedOperators)
+		}
+	}
+
+	invalid := newFacet("invalid-operator-name", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "invalid-operator-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"fields": []interface{}{map[string]interface{}{
+				"name": "resourceName",
+				"path": "{.metadata.name}",
+				"type": "string",
+				"operators": []interface{}{map[string]interface{}{
+					"operator": "<",
+				}},
+			}},
+		}},
+	})
+	assertInvalidCreate(t, ctx, resources, invalid, "unsupported operator name")
+	assertNotPersisted(t, ctx, resources, invalid.GetName())
+}
+
+func assertCrossNamespaceAggregationAPIScenarios(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	aggregationResource := newFacet("aggregation-persistence", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "aggregation-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"fields": []interface{}{
+				map[string]interface{}{"name": "team", "path": "{.metadata.labels.team}", "type": "string"},
+				map[string]interface{}{"name": "replicas", "path": "{.spec.replicas}", "type": "integer"},
+			},
+			"aggregations": []interface{}{
+				map[string]interface{}{
+					"name":              "average-replicas",
+					"function":          "average",
+					"field":             "replicas",
+					"groupBy":           []interface{}{"team"},
+					"includeProvenance": true,
+					"precision":         int64(3),
+					"roundingMode":      "halfAwayFromZero",
+				},
+				map[string]interface{}{
+					"name":     "count-replicas",
+					"function": "count",
+					"field":    "replicas",
+				},
+			},
+		}},
+	})
+	created, err := resources.Create(ctx, aggregationResource, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create aggregation persistence fixture: %v", err)
+	}
+	sources, found, err := unstructured.NestedSlice(created.Object, "spec", "sources")
+	if err != nil || !found || len(sources) != 1 {
+		t.Fatalf("read persisted aggregation source: found=%t err=%v object=%#v", found, err, created.Object)
+	}
+	source, ok := sources[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("persisted aggregation source has unexpected shape: %#v", sources[0])
+	}
+	aggregations, ok := source["aggregations"].([]interface{})
+	if !ok || len(aggregations) != 2 {
+		t.Fatalf("persisted aggregation list changed: %#v", source["aggregations"])
+	}
+	byName := make(map[string]map[string]interface{}, len(aggregations))
+	for _, item := range aggregations {
+		declaration, ok := item.(map[string]interface{})
+		if !ok {
+			t.Fatalf("persisted aggregation has unexpected shape: %#v", item)
+		}
+		name, ok := declaration["name"].(string)
+		if !ok {
+			t.Fatalf("persisted aggregation has no name: %#v", declaration)
+		}
+		byName[name] = declaration
+	}
+	average := byName["average-replicas"]
+	if average["function"] != "average" || average["field"] != "replicas" || average["includeProvenance"] != true || average["precision"] != int64(3) || average["roundingMode"] != "halfAwayFromZero" {
+		t.Fatalf("persisted average aggregation changed declaration: %#v", average)
+	}
+	groupBy, ok := average["groupBy"].([]interface{})
+	if !ok || len(groupBy) != 1 || groupBy[0] != "team" {
+		t.Fatalf("persisted aggregation groupBy changed: %#v", average["groupBy"])
+	}
+	if count := byName["count-replicas"]; count["function"] != "count" || count["field"] != "replicas" {
+		t.Fatalf("persisted count aggregation changed declaration: %#v", count)
+	}
+	if _, found := byName["count-replicas"]["precision"]; found {
+		t.Fatalf("omitted precision received an API default: %#v", byName["count-replicas"])
+	}
+
+	empty := newFacet("aggregation-empty", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":           "empty-aggregation-source",
+			"resource":     map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"aggregations": []interface{}{},
+		}},
+	})
+	emptyCreated, err := resources.Create(ctx, empty, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create explicit-empty aggregation fixture: %v", err)
+	}
+	emptySources, found, err := unstructured.NestedSlice(emptyCreated.Object, "spec", "sources")
+	if err != nil || !found || len(emptySources) != 1 {
+		t.Fatalf("read explicit-empty aggregation source: found=%t err=%v object=%#v", found, err, emptyCreated.Object)
+	}
+	emptySource := emptySources[0].(map[string]interface{})
+	if persisted, found := emptySource["aggregations"]; found && persisted != nil {
+		values, ok := persisted.([]interface{})
+		if !ok || len(values) != 0 {
+			t.Fatalf("explicit-empty aggregation list received a default: %#v", persisted)
+		}
+	}
+
+	invalidFunction := newFacet("invalid-aggregation-function", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "invalid-aggregation-function-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"aggregations": []interface{}{map[string]interface{}{
+				"name": "invalid", "function": "median", "field": "replicas",
+			}},
+		}},
+	})
+	assertInvalidCreate(t, ctx, resources, invalidFunction, "unsupported aggregation function")
+	assertNotPersisted(t, ctx, resources, invalidFunction.GetName())
+
+	invalidRounding := newFacet("invalid-aggregation-rounding", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "invalid-aggregation-rounding-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"aggregations": []interface{}{map[string]interface{}{
+				"name": "invalid", "function": "average", "field": "replicas", "roundingMode": "nearest",
+			}},
+		}},
+	})
+	assertInvalidCreate(t, ctx, resources, invalidRounding, "unsupported aggregation rounding mode")
+	assertNotPersisted(t, ctx, resources, invalidRounding.GetName())
+
+	invalidPrecision := newFacet("invalid-aggregation-precision", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "invalid-aggregation-precision-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+			"aggregations": []interface{}{map[string]interface{}{
+				"name": "invalid", "function": "average", "field": "replicas", "precision": int64(19),
+			}},
+		}},
+	})
+	assertInvalidCreate(t, ctx, resources, invalidPrecision, "out-of-range aggregation precision")
+	assertNotPersisted(t, ctx, resources, invalidPrecision.GetName())
+}
+
+func typedResultSemanticallyEqual(left, right FacetResult) bool {
+	leftCopy := *left.DeepCopy()
+	rightCopy := *right.DeepCopy()
+	for _, result := range []*FacetResult{&leftCopy, &rightCopy} {
+		for sourceIndex := range result.Sources {
+			for resourceIndex := range result.Sources[sourceIndex].Resources {
+				for fieldIndex := range result.Sources[sourceIndex].Resources[resourceIndex].Fields {
+					for matchIndex := range result.Sources[sourceIndex].Resources[resourceIndex].Fields[fieldIndex].Matches {
+						timestamp := result.Sources[sourceIndex].Resources[resourceIndex].Fields[fieldIndex].Matches[matchIndex].TimestampValue
+						if timestamp != nil {
+							timestamp.Time = timestamp.Time.UTC()
+						}
+					}
+				}
+			}
+		}
+	}
+	return reflect.DeepEqual(leftCopy, rightCopy)
+}
+
+func typedResultFixture() FacetResult {
+	emptyString := ""
+	zero := int64(0)
+	falseValue := false
+	timestamp := metav1.NewTime(time.Date(2026, time.August, 26, 14, 0, 0, 0, time.UTC))
+	number := "42.5"
+	object := `{"name":"demo"}`
+	list := `["first",2]`
+
+	return FacetResult{
+		Sources: []FacetSourceResult{
+			{
+				ID:    "typed-source",
+				State: SourceStateValues,
+				FieldErrors: []FacetFieldError{{
+					Name:   "planning",
+					Reason: "MissingType",
+				}},
+				Resources: []FacetResourceResult{{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Namespace:  "team-a",
+					Name:       "demo",
+					UID:        types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout001"),
+					Fields: []FacetFieldResult{
+						{Name: "absent", Type: ValueTypeString, State: FieldStateAbsent},
+						{Name: "empty-string", Type: ValueTypeString, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, StringValue: &emptyString}}},
+						{Name: "zero", Type: ValueTypeInteger, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, IntegerValue: &zero}}},
+						{Name: "false", Type: ValueTypeBoolean, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, BooleanValue: &falseValue}}},
+						{Name: "null", Type: ValueTypeObject, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateNull}}},
+						{Name: "number", Type: ValueTypeNumber, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, NumberValue: &number}}},
+						{Name: "timestamp", Type: ValueTypeTimestamp, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, TimestampValue: &timestamp}}},
+						{Name: "quantity", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, QuantityValue: &FacetQuantityValue{Canonical: "1.5", BaseUnits: "1.5"}}}},
+						{Name: "error", Type: ValueTypeNumber, State: FieldStateError, Error: &FacetResultError{Reason: "InvalidValue", Message: "invalid number"}},
+						{Name: "duration", Type: ValueTypeDuration, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, DurationValue: &FacetDurationValue{Canonical: "1.5s", Nanoseconds: 1500000000}}}},
+						{Name: "object", Type: ValueTypeObject, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, ObjectValue: &object}}},
+						{Name: "list", Type: ValueTypeList, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, ListValue: &list}}},
+					},
+				},
+					{
+						APIVersion: "v1",
+						Kind:       "Pod",
+						Namespace:  "team-a",
+						Name:       "failed",
+						UID:        types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout002"),
+						Error:      &FacetResultError{Reason: "OperatorFailed", Message: "operator evaluation failed"},
+					},
+				},
+				Aggregates: []FacetAggregateResult{{
+					Name:     "replica-average",
+					Function: AggregationAverage,
+					Field:    "replicas",
+					State:    AggregateStateDegraded,
+					Groups: []FacetAggregateGroup{{
+						Keys: []FacetAggregateKey{{
+							Field: "team",
+							Type:  ValueTypeString,
+							Value: FacetTypedMatch{State: MatchStateValue, StringValue: &emptyString},
+						}},
+						Value: FacetAggregateValue{
+							Type:  ValueTypeNumber,
+							State: AggregateValueValues,
+							Matches: []FacetAggregateMatch{{
+								Value: FacetTypedMatch{State: MatchStateValue, NumberValue: &number},
+								Contributors: []FacetResourceProvenance{{
+									APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "demo", UID: types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout001"),
+								}},
+							}},
+						},
+					}},
+					Failures: []FacetAggregateResourceFailure{{
+						Provenance: FacetResourceProvenance{APIVersion: "v1", Kind: "Pod", Namespace: "team-a", Name: "failed", UID: types.UID("9e7d5e6b-4f7b-4c34-8ef6-typedout002")},
+						Error:      FacetResultError{Reason: "target-field-error", Message: "field evaluation failed"},
+					}},
+				}},
+			},
+			{
+				ID:    "failed-source",
+				State: SourceStateError,
+				Error: &FacetResultError{Reason: "ReadUnavailable", Message: "source unavailable"},
+			},
+		},
+	}
+}
+
+func assertTypedResultStatusPersistence(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string, result FacetResult) {
+	t.Helper()
+
+	object := newFacet("typed-result-persistence", namespace, map[string]interface{}{})
+	created, err := resources.Create(ctx, object, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create typed result persistence fixture: %v", err)
+	}
+	statusObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Facet{Status: FacetStatus{Result: &result}})
+	if err != nil {
+		t.Fatalf("convert typed result status for API persistence: %v", err)
+	}
+	status, ok := statusObject["status"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("converted typed result status has unexpected shape: %#v", statusObject["status"])
+	}
+	statusUpdate := created.DeepCopy()
+	statusUpdate.Object["status"] = status
+	if _, err := resources.UpdateStatus(ctx, statusUpdate, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("persist typed result through status subresource: %v", err)
+	}
+	stored, err := resources.Get(ctx, object.GetName(), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get typed result status fixture: %v", err)
+	}
+	var decoded Facet
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(stored.Object, &decoded); err != nil {
+		t.Fatalf("decode persisted typed result: %v", err)
+	}
+	if decoded.Status.Result == nil || !typedResultSemanticallyEqual(result, *decoded.Status.Result) {
+		t.Fatalf("status subresource changed typed result semantics: expected=%#v actual=%#v", result, decoded.Status.Result)
+	}
+}
+
+func assertNativeScalarPersistence(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	quantityNano := FacetQuantityValue{Canonical: "100n", BaseUnits: "0.0000001"}
+	quantityMicro := FacetQuantityValue{Canonical: "100u", BaseUnits: "0.0001"}
+	durationZero := FacetDurationValue{Canonical: "0s", Nanoseconds: 0}
+	durationMicro := FacetDurationValue{Canonical: "1µs", Nanoseconds: 1000}
+	result := FacetResult{
+		Sources: []FacetSourceResult{{
+			ID:    "native-scalar-persisted-source",
+			State: SourceStateValues,
+			Resources: []FacetResourceResult{{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Namespace:  namespace,
+				Name:       "native-scalar-persisted-resource",
+				UID:        types.UID("native-scalar-persisted-uid"),
+				Fields: []FacetFieldResult{
+					{Name: "duration-micro", Type: ValueTypeDuration, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, DurationValue: &durationMicro}}},
+					{Name: "duration-zero", Type: ValueTypeDuration, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, DurationValue: &durationZero}}},
+					{Name: "absent-duration", Type: ValueTypeDuration, State: FieldStateAbsent},
+					{Name: "null-quantity", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateNull}}},
+					{Name: "quantity-micro", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, QuantityValue: &quantityMicro}}},
+					{Name: "quantity-nano", Type: ValueTypeQuantity, State: FieldStateValues, Matches: []FacetTypedMatch{{State: MatchStateValue, QuantityValue: &quantityNano}}},
+				},
+			}},
+		}},
+	}
+
+	object := newFacet("native-scalar-persistence", namespace, map[string]interface{}{})
+	created, err := resources.Create(ctx, object, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create native scalar persistence fixture: %v", err)
+	}
+	statusObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&Facet{Status: FacetStatus{Result: &result}})
+	if err != nil {
+		t.Fatalf("convert native scalar result for API persistence: %v", err)
+	}
+	status, ok := statusObject["status"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("converted native scalar status has unexpected shape: %#v", statusObject["status"])
+	}
+	statusUpdate := created.DeepCopy()
+	statusUpdate.Object["status"] = status
+	if _, err := resources.UpdateStatus(ctx, statusUpdate, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("persist native scalar result through status subresource: %v", err)
+	}
+	stored, err := resources.Get(ctx, object.GetName(), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get native scalar persistence fixture: %v", err)
+	}
+	var decoded Facet
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(stored.Object, &decoded); err != nil {
+		t.Fatalf("decode persisted native scalar result: %v", err)
+	}
+	if decoded.Status.Result == nil || !typedResultSemanticallyEqual(result, *decoded.Status.Result) {
+		t.Fatalf("status subresource changed native scalar semantics: expected=%#v actual=%#v", result, decoded.Status.Result)
+	}
+	if len(decoded.Status.Result.Sources) != 1 || len(decoded.Status.Result.Sources[0].Resources) != 1 {
+		t.Fatalf("decoded native scalar result envelope = %#v", decoded.Status.Result)
+	}
+	fields := make(map[string]FacetFieldResult, len(decoded.Status.Result.Sources[0].Resources[0].Fields))
+	for _, field := range decoded.Status.Result.Sources[0].Resources[0].Fields {
+		fields[field.Name] = field
+	}
+	if fields["quantity-nano"].Type != ValueTypeQuantity || fields["quantity-nano"].State != FieldStateValues || len(fields["quantity-nano"].Matches) != 1 || fields["quantity-nano"].Matches[0].QuantityValue == nil || fields["quantity-nano"].Matches[0].QuantityValue.Canonical != "100n" || fields["quantity-nano"].Matches[0].QuantityValue.BaseUnits != "0.0000001" {
+		t.Fatalf("decoded nano quantity payload = %#v", fields["quantity-nano"])
+	}
+	if fields["quantity-micro"].Type != ValueTypeQuantity || fields["quantity-micro"].Matches[0].QuantityValue == nil || fields["quantity-micro"].Matches[0].QuantityValue.Canonical != "100u" || fields["quantity-micro"].Matches[0].QuantityValue.BaseUnits != "0.0001" {
+		t.Fatalf("decoded micro quantity payload = %#v", fields["quantity-micro"])
+	}
+	if fields["duration-zero"].Type != ValueTypeDuration || fields["duration-zero"].Matches[0].DurationValue == nil || fields["duration-zero"].Matches[0].DurationValue.Canonical != "0s" || fields["duration-zero"].Matches[0].DurationValue.Nanoseconds != 0 {
+		t.Fatalf("decoded zero duration payload = %#v", fields["duration-zero"])
+	}
+	if fields["duration-micro"].Type != ValueTypeDuration || fields["duration-micro"].Matches[0].DurationValue == nil || fields["duration-micro"].Matches[0].DurationValue.Canonical != "1µs" || fields["duration-micro"].Matches[0].DurationValue.Nanoseconds != 1000 {
+		t.Fatalf("decoded micro duration payload = %#v", fields["duration-micro"])
+	}
+	if fields["absent-duration"].Type != ValueTypeDuration || fields["absent-duration"].State != FieldStateAbsent || len(fields["absent-duration"].Matches) != 0 {
+		t.Fatalf("decoded absent duration semantics = %#v", fields["absent-duration"])
+	}
+	if fields["null-quantity"].Type != ValueTypeQuantity || fields["null-quantity"].State != FieldStateValues || len(fields["null-quantity"].Matches) != 1 || fields["null-quantity"].Matches[0].State != MatchStateNull || fields["null-quantity"].Matches[0].QuantityValue != nil {
+		t.Fatalf("decoded null quantity semantics = %#v", fields["null-quantity"])
+	}
+}
+
+func assertAccessPolicyTypedContract(t *testing.T, ctx context.Context, config *rest.Config) {
+	t.Helper()
+	if config == nil {
+		t.Fatal("envtest returned a nil REST config for the typed policy contract")
+	}
+
+	scheme := runtime.NewScheme()
+	if err := AddToScheme(scheme); err != nil {
+		t.Fatalf("register FacetAccessPolicy scheme: %v", err)
+	}
+	for _, object := range []runtime.Object{&FacetAccessPolicy{}, &FacetAccessPolicyList{}} {
+		gvks, _, err := scheme.ObjectKinds(object)
+		if err != nil {
+			t.Fatalf("resolve policy GVK for %T: %v", object, err)
+		}
+		if len(gvks) != 1 || gvks[0].GroupVersion() != GroupVersion {
+			t.Fatalf("unexpected policy GVKs for %T: %v", object, gvks)
+		}
+	}
+	for _, kind := range []string{"FacetAccessPolicy", "FacetAccessPolicyList"} {
+		if object, err := scheme.New(GroupVersion.WithKind(kind)); err != nil || object == nil {
+			t.Fatalf("construct %s from policy scheme: object=%T err=%v", kind, object, err)
+		}
+	}
+	if InstallationAccessCeilingName != "installation-access-ceiling" {
+		t.Fatalf("unexpected active policy name: %q", InstallationAccessCeilingName)
+	}
+
+	original := &FacetAccessPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "FacetAccessPolicy"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   InstallationAccessCeilingName,
+			Labels: map[string]string{"contract": "typed-policy"},
+		},
+		Spec: FacetAccessPolicySpec{
+			Namespaces: NamespacePolicy{
+				Mode:             NamespaceModeAllNonSystem,
+				Include:          []string{"observability"},
+				Exclude:          []string{"restricted"},
+				SystemNamespaces: []string{},
+			},
+			Resources: []ResourceRule{{
+				APIGroups: []string{""},
+				Kinds:     []string{"Pod", "Service"},
+			}},
+		},
+	}
+
+	encoded, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("serialize typed access policy: %v", err)
+	}
+	var decoded FacetAccessPolicy
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("deserialize typed access policy: %v", err)
+	}
+	if !reflect.DeepEqual(*original, decoded) {
+		t.Fatalf("typed policy JSON round-trip changed the contract: original=%#v decoded=%#v", *original, decoded)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatalf("inspect typed access policy JSON: %v", err)
+	}
+	var specFields map[string]json.RawMessage
+	if err := json.Unmarshal(fields["spec"], &specFields); err != nil {
+		t.Fatalf("inspect typed access policy spec JSON: %v", err)
+	}
+	var namespaceFields map[string]json.RawMessage
+	if err := json.Unmarshal(specFields["namespaces"], &namespaceFields); err != nil {
+		t.Fatalf("inspect typed namespace policy JSON: %v", err)
+	}
+	if string(namespaceFields["systemNamespaces"]) != "[]" {
+		t.Fatalf("explicit empty systemNamespaces was not preserved as []: %s", namespaceFields["systemNamespaces"])
+	}
+
+	withoutOverride := &FacetAccessPolicy{Spec: FacetAccessPolicySpec{Namespaces: NamespacePolicy{Mode: NamespaceModeAllNonSystem}}}
+	withoutOverrideJSON, err := json.Marshal(withoutOverride)
+	if err != nil {
+		t.Fatalf("serialize policy without system namespace override: %v", err)
+	}
+	var withoutOverrideFields map[string]json.RawMessage
+	if err := json.Unmarshal(withoutOverrideJSON, &withoutOverrideFields); err != nil {
+		t.Fatalf("inspect policy without system namespace override: %v", err)
+	}
+	var withoutOverrideSpec map[string]json.RawMessage
+	if err := json.Unmarshal(withoutOverrideFields["spec"], &withoutOverrideSpec); err != nil {
+		t.Fatalf("inspect spec without system namespace override: %v", err)
+	}
+	var withoutOverrideNamespaces map[string]json.RawMessage
+	if err := json.Unmarshal(withoutOverrideSpec["namespaces"], &withoutOverrideNamespaces); err != nil {
+		t.Fatalf("inspect namespaces without system namespace override: %v", err)
+	}
+	if string(withoutOverrideNamespaces["systemNamespaces"]) != "null" {
+		t.Fatalf("omitted systemNamespaces was not preserved as null: %s", withoutOverrideNamespaces["systemNamespaces"])
+	}
+
+	typedClient, err := crclient.New(config, crclient.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatalf("create controller-runtime policy client: %v", err)
+	}
+	if err := typedClient.Create(ctx, original.DeepCopy()); err != nil {
+		t.Fatalf("persist typed access policy through controller-runtime: %v", err)
+	}
+	var persisted FacetAccessPolicy
+	if err := typedClient.Get(ctx, crclient.ObjectKey{Name: InstallationAccessCeilingName}, &persisted); err != nil {
+		t.Fatalf("get typed access policy through controller-runtime: %v", err)
+	}
+	if persisted.Name != InstallationAccessCeilingName || !reflect.DeepEqual(persisted.Spec.Namespaces.Include, original.Spec.Namespaces.Include) || !reflect.DeepEqual(persisted.Spec.Namespaces.SystemNamespaces, original.Spec.Namespaces.SystemNamespaces) || !reflect.DeepEqual(persisted.Spec.Resources, original.Spec.Resources) {
+		t.Fatalf("typed controller-runtime persistence changed the policy contract: original=%#v persisted=%#v", original, persisted)
+	}
+
+	copy := original.DeepCopy()
+	if copy == original {
+		t.Fatal("policy DeepCopy returned the original pointer")
+	}
+	copy.Labels["contract"] = "changed"
+	copy.Spec.Namespaces.Include[0] = "changed"
+	copy.Spec.Namespaces.Exclude[0] = "changed"
+	copy.Spec.Resources[0].APIGroups[0] = "apps"
+	copy.Spec.Resources[0].Kinds[0] = "Deployment"
+	if original.Labels["contract"] != "typed-policy" || original.Spec.Namespaces.Include[0] != "observability" || original.Spec.Namespaces.Exclude[0] != "restricted" || original.Spec.Resources[0].APIGroups[0] != "" || original.Spec.Resources[0].Kinds[0] != "Pod" {
+		t.Fatalf("policy DeepCopy aliases mutable fields: %#v", original)
+	}
+	if err := typedClient.Delete(ctx, &persisted); err != nil {
+		t.Fatalf("delete typed access policy fixture: %v", err)
+	}
+
+	t.Log("API_CONTRACT=facet-access-policy-types STATUS=passed")
+}
+
+func assertAccessPolicyClientSource(t *testing.T, ctx context.Context, config *rest.Config) {
+	t.Helper()
+	if config == nil {
+		t.Fatal("envtest returned a nil REST config for the policy source adapter")
+	}
+
+	scheme := runtime.NewScheme()
+	if err := AddToScheme(scheme); err != nil {
+		t.Fatalf("register policy source scheme: %v", err)
+	}
+	typedClient, err := crclient.New(config, crclient.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatalf("create controller-runtime policy source client: %v", err)
+	}
+	policy := &FacetAccessPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "FacetAccessPolicy"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: InstallationAccessCeilingName,
+		},
+		Spec: FacetAccessPolicySpec{
+			Namespaces: NamespacePolicy{
+				Mode:             NamespaceModeExplicit,
+				Include:          []string{"team-a"},
+				SystemNamespaces: []string{},
+			},
+			Resources: []ResourceRule{{
+				APIGroups: []string{""},
+				Kinds:     []string{"Pod"},
+			}},
+		},
+	}
+	if err := typedClient.Create(ctx, policy); err != nil {
+		t.Fatalf("create policy source fixture: %v", err)
+	}
+	defer func() {
+		if err := typedClient.Delete(ctx, policy); err != nil && !apierrors.IsNotFound(err) {
+			t.Errorf("delete policy source fixture: %v", err)
+		}
+	}()
+
+	source := accesspolicy.NewClientPolicySource(typedClient)
+	loaded, err := source.Get(ctx)
+	if err != nil {
+		t.Fatalf("load active policy through ClientPolicySource: %v", err)
+	}
+	if loaded.Name != InstallationAccessCeilingName || loaded.Namespace != "" || !reflect.DeepEqual(loaded.Spec.Namespaces.Include, policy.Spec.Namespaces.Include) || !reflect.DeepEqual(loaded.Spec.Resources, policy.Spec.Resources) {
+		t.Fatalf("ClientPolicySource returned the wrong active policy: expected=%#v actual=%#v", policy, loaded)
+	}
+}
+
+func assertInstalledCRDContract(t *testing.T, ctx context.Context, client apiextensionsclient.Interface) {
+	t.Helper()
+
+	crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, facetCRDName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get installed CRD contract: %v", err)
+	}
+	if crd.Spec.Group != GroupVersion.Group || crd.Spec.Scope != apiextensionsv1.NamespaceScoped {
+		t.Fatalf("installed CRD identity or scope is incorrect: %#v", crd.Spec)
+	}
+	if crd.Spec.Names.Kind != "Facet" || crd.Spec.Names.ListKind != "FacetList" || crd.Spec.Names.Plural != facetResource || crd.Spec.Names.Singular != "facet" {
+		t.Fatalf("installed CRD names are incorrect: %#v", crd.Spec.Names)
+	}
+	if len(crd.Spec.Versions) != 1 {
+		t.Fatalf("installed CRD has %d versions, expected one", len(crd.Spec.Versions))
+	}
+	version := crd.Spec.Versions[0]
+	if version.Name != GroupVersion.Version || !version.Served || !version.Storage || version.Subresources == nil || version.Subresources.Status == nil {
+		t.Fatalf("installed CRD version or status subresource is incorrect: %#v", version)
+	}
+	if version.Schema == nil || version.Schema.OpenAPIV3Schema == nil {
+		t.Fatal("installed CRD has no structural OpenAPI schema")
+	}
+
+	root := version.Schema.OpenAPIV3Schema
+	if root.Type != "object" {
+		t.Fatalf("installed CRD root schema is not an object: %q", root.Type)
+	}
+	for _, property := range []string{"apiVersion", "kind", "metadata", "spec", "status"} {
+		if _, found := root.Properties[property]; !found {
+			t.Fatalf("installed CRD schema does not expose %q", property)
+		}
+	}
+	spec, found := root.Properties["spec"]
+	if !found || spec.Type != "object" || len(spec.Properties) != 1 {
+		t.Fatalf("installed CRD spec schema is incorrect: %#v", spec)
+	}
+	sources, found := spec.Properties["sources"]
+	if !found || sources.Type != "array" || sources.Items == nil || sources.Items.Schema == nil || sources.XListType == nil || *sources.XListType != "map" || len(sources.XListMapKeys) != 1 || sources.XListMapKeys[0] != "id" {
+		t.Fatalf("installed CRD sources schema is incorrect: %#v", sources)
+	}
+	assertSchemaMaxItems(t, sources, "sources", 32)
+	source := sources.Items.Schema
+	idSchema, found := source.Properties["id"]
+	if !found || source.Type != "object" || !apiContractContains(source.Required, "id") || !apiContractContains(source.Required, "resource") || idSchema.Type != "string" || idSchema.MaxLength == nil || *idSchema.MaxLength != 63 || idSchema.Pattern != `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` {
+		t.Fatalf("installed CRD source ID schema is incorrect: %#v", source)
+	}
+	resource, found := source.Properties["resource"]
+	if !found || resource.Type != "object" || !apiContractContains(resource.Required, "apiVersion") || !apiContractContains(resource.Required, "kind") {
+		t.Fatalf("installed CRD resource reference schema is incorrect: %#v", resource)
+	}
+	for _, field := range []string{"apiVersion", "kind"} {
+		value, found := resource.Properties[field]
+		if !found || value.Type != "string" || value.MinLength == nil || *value.MinLength != 1 {
+			t.Fatalf("installed CRD resource reference field %q is incorrect: %#v", field, value)
+		}
+	}
+	namespaces, found := source.Properties["namespaces"]
+	if !found || namespaces.Type != "object" || !apiContractContains(namespaces.Required, "names") {
+		t.Fatalf("installed CRD namespace selection schema is incorrect: %#v", namespaces)
+	}
+	names, found := namespaces.Properties["names"]
+	if !found || names.Type != "array" || names.XListType == nil || *names.XListType != "set" || names.Items == nil || names.Items.Schema == nil || names.Items.Schema.MaxLength == nil || *names.Items.Schema.MaxLength != 63 || names.Items.Schema.Pattern != `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` {
+		t.Fatalf("installed CRD namespace names schema is incorrect: %#v", names)
+	}
+	assertSchemaMaxItems(t, names, "source namespaces", 64)
+	selector, found := source.Properties["selector"]
+	if !found || selector.Type != "object" {
+		t.Fatalf("installed CRD selector schema is incorrect: %#v", selector)
+	}
+	for _, field := range []string{"name", "fieldSelector"} {
+		value, found := selector.Properties[field]
+		if !found || value.Type != "string" {
+			t.Fatalf("installed CRD selector field %q is incorrect: %#v", field, value)
+		}
+	}
+	if labels, found := selector.Properties["matchLabels"]; !found || labels.Type != "object" || labels.AdditionalProperties == nil || labels.AdditionalProperties.Schema == nil || labels.AdditionalProperties.Schema.Type != "string" {
+		t.Fatalf("installed CRD matchLabels schema is incorrect: %#v", selector.Properties["matchLabels"])
+	} else {
+		assertSchemaMaxProperties(t, labels, "matchLabels", 64)
+	}
+	if expressions, found := selector.Properties["matchExpressions"]; !found || expressions.Type != "array" || expressions.Items == nil || expressions.Items.Schema == nil || expressions.XListType == nil || *expressions.XListType != "atomic" {
+		t.Fatalf("installed CRD matchExpressions schema is incorrect: %#v", selector.Properties["matchExpressions"])
+	} else {
+		assertSchemaMaxItems(t, expressions, "matchExpressions", 64)
+	}
+	fields, found := source.Properties["fields"]
+	if !found || fields.Type != "array" || fields.Items == nil || fields.Items.Schema == nil || fields.XListType == nil || *fields.XListType != "map" || len(fields.XListMapKeys) != 1 || fields.XListMapKeys[0] != "name" {
+		t.Fatalf("installed CRD fields schema is incorrect: %#v", fields)
+	}
+	assertSchemaMaxItems(t, fields, "fields", 64)
+	field := fields.Items.Schema
+	if field.Type != "object" || !apiContractContains(field.Required, "name") || !apiContractContains(field.Required, "path") {
+		t.Fatalf("installed CRD field declaration schema is incorrect: %#v", field)
+	}
+	fieldName, found := field.Properties["name"]
+	if !found || fieldName.Type != "string" || fieldName.MaxLength == nil || *fieldName.MaxLength != 63 || fieldName.Pattern != `^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$` {
+		t.Fatalf("installed CRD field name schema is incorrect: %#v", fieldName)
+	}
+	fieldPath, found := field.Properties["path"]
+	if !found || fieldPath.Type != "string" || fieldPath.MinLength == nil || *fieldPath.MinLength != 1 || fieldPath.MaxLength == nil || *fieldPath.MaxLength != 1024 {
+		t.Fatalf("installed CRD field path schema is incorrect: %#v", fieldPath)
+	}
+	fieldType, found := field.Properties["type"]
+	if !found || fieldType.Type != "string" || !equalJSONValues(fieldType.Enum, []string{"string", "integer", "number", "boolean", "timestamp", "duration", "quantity", "object", "list"}) || fieldType.Default != nil {
+		t.Fatalf("installed CRD field type schema is incorrect: %#v", fieldType)
+	}
+	operators, found := field.Properties["operators"]
+	if !found || operators.Type != "array" || operators.Items == nil || operators.Items.Schema == nil || operators.XListType == nil || *operators.XListType != "atomic" {
+		t.Fatalf("installed CRD field operators schema is incorrect: %#v", operators)
+	}
+	assertSchemaMaxItems(t, operators, "operators", 16)
+	operator := operators.Items.Schema
+	if operator.Type != "object" || !apiContractContains(operator.Required, "operator") {
+		t.Fatalf("installed CRD operator entry schema is incorrect: %#v", operator)
+	}
+	operatorName, found := operator.Properties["operator"]
+	if !found || operatorName.Type != "string" || !equalJSONValues(operatorName.Enum, []string{"eq", "ne", "gt", "gte", "lt", "lte", "contains", "startsWith", "endsWith", "matches", "exists", "notExists", "in", "notIn", "default", "coalesce"}) || operatorName.Default != nil {
+		t.Fatalf("installed CRD operator name schema is incorrect: %#v", operatorName)
+	}
+	operatorValues, found := operator.Properties["values"]
+	if !found || operatorValues.Type != "array" || operatorValues.Items == nil || operatorValues.Items.Schema == nil || operatorValues.XListType == nil || *operatorValues.XListType != "atomic" {
+		t.Fatalf("installed CRD operator values schema is incorrect: %#v", operatorValues)
+	}
+	assertSchemaMaxItems(t, operatorValues, "operator values", 128)
+	operatorOperand := operatorValues.Items.Schema
+	if operatorOperand.Type != "object" || !apiContractContains(operatorOperand.Required, "state") || operatorOperand.AdditionalProperties != nil || operatorOperand.XPreserveUnknownFields != nil {
+		t.Fatalf("installed CRD operator operand schema is incorrect: %#v", operatorOperand)
+	}
+	operandState, found := operatorOperand.Properties["state"]
+	if !found || operandState.Type != "string" || !equalJSONValues(operandState.Enum, []string{"value", "null"}) {
+		t.Fatalf("installed CRD operator operand state schema is incorrect: %#v", operandState)
+	}
+	for _, payload := range []string{"stringValue", "numberValue", "timestampValue", "durationValue", "quantityValue", "objectValue", "listValue"} {
+		value, found := operatorOperand.Properties[payload]
+		if !found || value.Type != "string" {
+			t.Fatalf("installed CRD operator operand string payload %q schema is incorrect: %#v", payload, value)
+		}
+	}
+	for _, payload := range []string{"integerValue", "booleanValue"} {
+		_, found := operatorOperand.Properties[payload]
+		if !found {
+			t.Fatalf("installed CRD operator operand payload %q schema is missing: %#v", payload, operatorOperand)
+		}
+	}
+	aggregations, found := source.Properties["aggregations"]
+	if !found || aggregations.Type != "array" || aggregations.Items == nil || aggregations.Items.Schema == nil || aggregations.XListType == nil || *aggregations.XListType != "map" || len(aggregations.XListMapKeys) != 1 || aggregations.XListMapKeys[0] != "name" {
+		t.Fatalf("installed CRD aggregation declaration schema is incorrect: %#v", aggregations)
+	}
+	assertSchemaMaxItems(t, aggregations, "aggregations", 32)
+	aggregation := aggregations.Items.Schema
+	if aggregation.Type != "object" || !apiContractContains(aggregation.Required, "name") || !apiContractContains(aggregation.Required, "function") || !apiContractContains(aggregation.Required, "field") {
+		t.Fatalf("installed CRD aggregation declaration required fields are incorrect: %#v", aggregation)
+	}
+	aggregationName, found := aggregation.Properties["name"]
+	if !found || aggregationName.Type != "string" || aggregationName.MaxLength == nil || *aggregationName.MaxLength != 63 || aggregationName.Pattern != `^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$` {
+		t.Fatalf("installed CRD aggregation name schema is incorrect: %#v", aggregationName)
+	}
+	aggregationFunction, found := aggregation.Properties["function"]
+	if !found || aggregationFunction.Type != "string" || !equalJSONValues(aggregationFunction.Enum, []string{"collect", "count", "sum", "min", "max", "average", "first", "last", "distinct"}) || aggregationFunction.Default != nil {
+		t.Fatalf("installed CRD aggregation function schema is incorrect: %#v", aggregationFunction)
+	}
+	aggregationField, found := aggregation.Properties["field"]
+	if !found || aggregationField.Type != "string" || aggregationField.MaxLength == nil || *aggregationField.MaxLength != 63 || aggregationField.Pattern != `^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$` {
+		t.Fatalf("installed CRD aggregation field schema is incorrect: %#v", aggregationField)
+	}
+	aggregationGroupBy, found := aggregation.Properties["groupBy"]
+	if !found || aggregationGroupBy.Type != "array" || aggregationGroupBy.XListType == nil || *aggregationGroupBy.XListType != "atomic" || aggregationGroupBy.Items == nil || aggregationGroupBy.Items.Schema == nil || aggregationGroupBy.Items.Schema.Type != "string" {
+		t.Fatalf("installed CRD aggregation groupBy schema is incorrect: %#v", aggregationGroupBy)
+	}
+	assertSchemaMaxItems(t, aggregationGroupBy, "aggregation groupBy", 16)
+	aggregationProvenance, found := aggregation.Properties["includeProvenance"]
+	if !found || aggregationProvenance.Type != "boolean" || aggregationProvenance.Default != nil {
+		t.Fatalf("installed CRD aggregation provenance schema is incorrect: %#v", aggregationProvenance)
+	}
+	aggregationPrecision, found := aggregation.Properties["precision"]
+	if !found || aggregationPrecision.Type != "integer" || aggregationPrecision.Format != "int32" || aggregationPrecision.Minimum == nil || *aggregationPrecision.Minimum != 0 || aggregationPrecision.Maximum == nil || *aggregationPrecision.Maximum != 18 || aggregationPrecision.Default != nil {
+		t.Fatalf("installed CRD aggregation precision schema is incorrect: %#v", aggregationPrecision)
+	}
+	aggregationRounding, found := aggregation.Properties["roundingMode"]
+	if !found || aggregationRounding.Type != "string" || !equalJSONValues(aggregationRounding.Enum, []string{"halfEven", "halfAwayFromZero", "towardZero", "awayFromZero"}) || aggregationRounding.Default != nil {
+		t.Fatalf("installed CRD aggregation rounding schema is incorrect: %#v", aggregationRounding)
+	}
+	status, found := root.Properties["status"]
+	if !found || status.Type != "object" {
+		t.Fatalf("installed CRD status schema is incorrect: %#v", status)
+	}
+	observedGeneration, found := status.Properties["observedGeneration"]
+	if !found || observedGeneration.Type != "integer" || observedGeneration.Format != "int64" || observedGeneration.Minimum == nil || *observedGeneration.Minimum != 0 {
+		t.Fatalf("installed CRD observedGeneration schema is incorrect: %#v", observedGeneration)
+	}
+	summary, found := status.Properties["summary"]
+	if !found || summary.Type != "object" || summary.AdditionalProperties != nil || len(summary.Properties) != 3 {
+		t.Fatalf("installed CRD summary schema is incorrect: %#v", summary)
+	}
+	for _, field := range []string{"successfulSources", "failedSources", "matchedResources"} {
+		count, found := summary.Properties[field]
+		if !found || count.Type != "integer" || count.Format != "int64" || count.Minimum == nil || *count.Minimum != 0 {
+			t.Fatalf("installed CRD summary field %q schema is incorrect: %#v", field, count)
+		}
+	}
+	resultHash, found := status.Properties["resultHash"]
+	if !found || resultHash.Type != "string" || resultHash.MaxLength == nil || *resultHash.MaxLength != 71 || resultHash.Pattern != `^sha256:[0-9a-f]{64}$` {
+		t.Fatalf("installed CRD resultHash schema is incorrect: %#v", resultHash)
+	}
+	result, found := status.Properties["result"]
+	if !found || result.Type != "object" || result.AdditionalProperties != nil || len(result.Properties) != 1 {
+		t.Fatalf("installed CRD result schema is incorrect: %#v", result)
+	}
+	resultSources, found := result.Properties["sources"]
+	if !found || resultSources.Type != "array" || resultSources.Items == nil || resultSources.Items.Schema == nil || resultSources.XListType == nil || *resultSources.XListType != "atomic" {
+		t.Fatalf("installed CRD typed result sources schema is incorrect: %#v", resultSources)
+	}
+	sourceResult := resultSources.Items.Schema
+	if sourceResult.Type != "object" {
+		t.Fatalf("installed CRD typed source result schema is not an object: %#v", sourceResult)
+	}
+	state, found := sourceResult.Properties["state"]
+	if !found || state.Type != "string" || !equalJSONValues(state.Enum, []string{"values", "error"}) {
+		t.Fatalf("installed CRD source state schema is incorrect: %#v", state)
+	}
+	fieldErrors, found := sourceResult.Properties["fieldErrors"]
+	if !found || fieldErrors.Type != "array" || fieldErrors.Items == nil || fieldErrors.Items.Schema == nil || fieldErrors.XListType == nil || *fieldErrors.XListType != "atomic" {
+		t.Fatalf("installed CRD field errors schema is incorrect: %#v", fieldErrors)
+	}
+	resourcesResult, found := sourceResult.Properties["resources"]
+	if !found || resourcesResult.Type != "array" || resourcesResult.Items == nil || resourcesResult.Items.Schema == nil || resourcesResult.XListType == nil || *resourcesResult.XListType != "atomic" {
+		t.Fatalf("installed CRD typed resources schema is incorrect: %#v", resourcesResult)
+	}
+	resourceResult := resourcesResult.Items.Schema
+	resourceError, found := resourceResult.Properties["error"]
+	if !found || resourceError.Type != "object" || resourceError.AdditionalProperties != nil || !apiContractContains(resourceError.Required, "reason") {
+		t.Fatalf("installed CRD resource error schema is incorrect: %#v", resourceError)
+	}
+	fieldsResult, found := resourceResult.Properties["fields"]
+	if !found || fieldsResult.Type != "array" || fieldsResult.Items == nil || fieldsResult.Items.Schema == nil || fieldsResult.XListType == nil || *fieldsResult.XListType != "atomic" {
+		t.Fatalf("installed CRD typed fields schema is incorrect: %#v", fieldsResult)
+	}
+	fieldResult := fieldsResult.Items.Schema
+	fieldResultType, found := fieldResult.Properties["type"]
+	if !found || !equalJSONValues(fieldResultType.Enum, []string{"string", "integer", "number", "boolean", "timestamp", "duration", "quantity", "object", "list"}) {
+		t.Fatalf("installed CRD typed field type schema is incorrect: %#v", fieldResultType)
+	}
+	fieldState, found := fieldResult.Properties["state"]
+	if !found || !equalJSONValues(fieldState.Enum, []string{"absent", "values", "error"}) {
+		t.Fatalf("installed CRD typed field state schema is incorrect: %#v", fieldState)
+	}
+	matches, found := fieldResult.Properties["matches"]
+	if !found || matches.Type != "array" || matches.Items == nil || matches.Items.Schema == nil || matches.XListType == nil || *matches.XListType != "atomic" {
+		t.Fatalf("installed CRD typed matches schema is incorrect: %#v", matches)
+	}
+	match := matches.Items.Schema
+	matchState, found := match.Properties["state"]
+	if !found || !equalJSONValues(matchState.Enum, []string{"value", "null"}) {
+		t.Fatalf("installed CRD match state schema is incorrect: %#v", matchState)
+	}
+	for _, payload := range []string{"stringValue", "numberValue", "objectValue", "listValue"} {
+		value, found := match.Properties[payload]
+		if !found || value.Type != "string" {
+			t.Fatalf("installed CRD typed string payload %q schema is incorrect: %#v", payload, value)
+		}
+	}
+	for _, payload := range []string{"integerValue", "durationValue", "quantityValue", "timestampValue", "booleanValue"} {
+		if _, found := match.Properties[payload]; !found {
+			t.Fatalf("installed CRD typed payload %q schema is missing: %#v", payload, match.Properties)
+		}
+	}
+	aggregateResults, found := sourceResult.Properties["aggregates"]
+	if !found || aggregateResults.Type != "array" || aggregateResults.Items == nil || aggregateResults.Items.Schema == nil || aggregateResults.XListType == nil || *aggregateResults.XListType != "atomic" {
+		t.Fatalf("installed CRD aggregate results schema is incorrect: %#v", aggregateResults)
+	}
+	aggregateResult := aggregateResults.Items.Schema
+	if aggregateResult.Type != "object" || !apiContractContains(aggregateResult.Required, "name") || !apiContractContains(aggregateResult.Required, "function") || !apiContractContains(aggregateResult.Required, "field") || !apiContractContains(aggregateResult.Required, "state") {
+		t.Fatalf("installed CRD aggregate result required fields are incorrect: %#v", aggregateResult)
+	}
+	aggregateState, found := aggregateResult.Properties["state"]
+	if !found || aggregateState.Type != "string" || !equalJSONValues(aggregateState.Enum, []string{"values", "degraded", "error"}) {
+		t.Fatalf("installed CRD aggregate state schema is incorrect: %#v", aggregateState)
+	}
+	aggregateGroups, found := aggregateResult.Properties["groups"]
+	if !found || aggregateGroups.Type != "array" || aggregateGroups.Items == nil || aggregateGroups.Items.Schema == nil || aggregateGroups.XListType == nil || *aggregateGroups.XListType != "atomic" {
+		t.Fatalf("installed CRD aggregate groups schema is incorrect: %#v", aggregateGroups)
+	}
+	aggregateGroup := aggregateGroups.Items.Schema
+	if aggregateGroup.Type != "object" || !apiContractContains(aggregateGroup.Required, "value") {
+		t.Fatalf("installed CRD aggregate group schema is incorrect: %#v", aggregateGroup)
+	}
+	aggregateKeys, found := aggregateGroup.Properties["keys"]
+	if !found || aggregateKeys.Type != "array" || aggregateKeys.Items == nil || aggregateKeys.Items.Schema == nil || aggregateKeys.XListType == nil || *aggregateKeys.XListType != "atomic" {
+		t.Fatalf("installed CRD aggregate keys schema is incorrect: %#v", aggregateKeys)
+	}
+	aggregateValue := aggregateGroup.Properties["value"]
+	if aggregateValue.Type != "object" || !apiContractContains(aggregateValue.Required, "type") || !apiContractContains(aggregateValue.Required, "state") {
+		t.Fatalf("installed CRD aggregate value schema is incorrect: %#v", aggregateValue)
+	}
+	aggregateValueState, found := aggregateValue.Properties["state"]
+	if !found || aggregateValueState.Type != "string" || !equalJSONValues(aggregateValueState.Enum, []string{"absent", "values"}) {
+		t.Fatalf("installed CRD aggregate value state schema is incorrect: %#v", aggregateValueState)
+	}
+	aggregateMatches, found := aggregateValue.Properties["matches"]
+	if !found || aggregateMatches.Type != "array" || aggregateMatches.Items == nil || aggregateMatches.Items.Schema == nil || aggregateMatches.XListType == nil || *aggregateMatches.XListType != "atomic" {
+		t.Fatalf("installed CRD aggregate matches schema is incorrect: %#v", aggregateMatches)
+	}
+	aggregateFailures, found := aggregateResult.Properties["failures"]
+	if !found || aggregateFailures.Type != "array" || aggregateFailures.Items == nil || aggregateFailures.Items.Schema == nil || aggregateFailures.XListType == nil || *aggregateFailures.XListType != "atomic" {
+		t.Fatalf("installed CRD aggregate failures schema is incorrect: %#v", aggregateFailures)
+	}
+	aggregateFailure := aggregateFailures.Items.Schema
+	if aggregateFailure.Type != "object" || !apiContractContains(aggregateFailure.Required, "provenance") || !apiContractContains(aggregateFailure.Required, "error") {
+		t.Fatalf("installed CRD aggregate failure schema is incorrect: %#v", aggregateFailure)
+	}
+	provenance, found := aggregateFailure.Properties["provenance"]
+	if !found || provenance.Type != "object" || !apiContractContains(provenance.Required, "apiVersion") || !apiContractContains(provenance.Required, "kind") || !apiContractContains(provenance.Required, "name") || !apiContractContains(provenance.Required, "uid") {
+		t.Fatalf("installed CRD aggregate provenance schema is incorrect: %#v", provenance)
+	}
+	apiContractAssertNoDefaults(t, root)
+	apiContractAssertNoPreserveUnknownFields(t, root)
+}
+
+func assertInstalledAccessPolicyCRDContract(t *testing.T, ctx context.Context, client apiextensionsclient.Interface) {
+	t.Helper()
+
+	crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, accessPolicyCRDName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get installed access policy CRD contract: %v", err)
+	}
+	if crd.Spec.Group != GroupVersion.Group || crd.Spec.Scope != apiextensionsv1.ClusterScoped {
+		t.Fatalf("installed access policy CRD identity or scope is incorrect: %#v", crd.Spec)
+	}
+	if crd.Spec.Names.Kind != "FacetAccessPolicy" || crd.Spec.Names.ListKind != "FacetAccessPolicyList" || crd.Spec.Names.Plural != accessPolicyResource || crd.Spec.Names.Singular != "facetaccesspolicy" {
+		t.Fatalf("installed access policy CRD names are incorrect: %#v", crd.Spec.Names)
+	}
+	if len(crd.Spec.Versions) != 1 {
+		t.Fatalf("installed access policy CRD has %d versions, expected one", len(crd.Spec.Versions))
+	}
+	version := crd.Spec.Versions[0]
+	if version.Name != GroupVersion.Version || !version.Served || !version.Storage {
+		t.Fatalf("installed access policy version contract is incorrect: %#v", version)
+	}
+	if version.Subresources != nil && version.Subresources.Status != nil {
+		t.Fatal("installed access policy CRD unexpectedly exposes a status subresource")
+	}
+	if version.Schema == nil || version.Schema.OpenAPIV3Schema == nil {
+		t.Fatal("installed access policy CRD has no structural OpenAPI schema")
+	}
+
+	root := version.Schema.OpenAPIV3Schema
+	if root.Type != "object" || !apiContractContains(root.Required, "spec") {
+		t.Fatalf("installed access policy root schema is incorrect: %#v", root)
+	}
+	if len(root.XValidations) != 1 || root.XValidations[0].Rule != "self.metadata.name == 'installation-access-ceiling'" || root.XValidations[0].Message != "metadata.name must be installation-access-ceiling" {
+		t.Fatalf("installed access policy singleton validation is incorrect: %#v", root.XValidations)
+	}
+
+	spec, found := root.Properties["spec"]
+	if !found || spec.Type != "object" || !apiContractContains(spec.Required, "namespaces") || len(spec.Properties) != 3 {
+		t.Fatalf("installed access policy spec schema is incorrect: %#v", spec)
+	}
+	namespaces, found := spec.Properties["namespaces"]
+	if !found || namespaces.Type != "object" || !apiContractContains(namespaces.Required, "mode") {
+		t.Fatalf("installed namespace policy schema is incorrect: %#v", namespaces)
+	}
+	mode, found := namespaces.Properties["mode"]
+	if !found || mode.Type != "string" || !equalJSONValues(mode.Enum, []string{"Explicit", "All", "AllNonSystem"}) {
+		t.Fatalf("installed namespace mode enum is incorrect: %#v", mode)
+	}
+	for _, field := range []string{"include", "exclude", "systemNamespaces"} {
+		list, found := namespaces.Properties[field]
+		if !found || list.Type != "array" || list.Items == nil || list.Items.Schema == nil || list.XListType == nil || *list.XListType != "set" {
+			t.Fatalf("installed namespace list %q is not a set: %#v", field, list)
+		}
+		assertSchemaMaxItems(t, list, "policy namespace "+field, 256)
+		item := list.Items.Schema
+		if item.Type != "string" || item.MaxLength == nil || *item.MaxLength != 63 || item.Pattern != `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` {
+			t.Fatalf("installed namespace list %q item validation is incorrect: %#v", field, item)
+		}
+	}
+	systemNamespaces := namespaces.Properties["systemNamespaces"]
+	if systemNamespaces.Default == nil || string(systemNamespaces.Default.Raw) != `["kube-system","kube-public","kube-node-lease"]` {
+		t.Fatalf("installed system namespace default is incorrect: %#v", systemNamespaces.Default)
+	}
+
+	resources, found := spec.Properties["resources"]
+	if !found || resources.Type != "array" || resources.Items == nil || resources.Items.Schema == nil || resources.XListType == nil || *resources.XListType != "atomic" {
+		t.Fatalf("installed resource rules are not atomic: %#v", resources)
+	}
+	assertSchemaMaxItems(t, resources, "policy resource rules", 128)
+	resourceRule := resources.Items.Schema
+	if resourceRule.Type != "object" || !apiContractContains(resourceRule.Required, "apiGroups") || !apiContractContains(resourceRule.Required, "kinds") {
+		t.Fatalf("installed resource rule required fields are incorrect: %#v", resourceRule)
+	}
+	apiGroups := resourceRule.Properties["apiGroups"]
+	if apiGroups.Type != "array" || apiGroups.MinItems == nil || *apiGroups.MinItems != 1 || apiGroups.XListType == nil || *apiGroups.XListType != "set" || apiGroups.Items == nil || apiGroups.Items.Schema == nil || apiGroups.Items.Schema.MaxLength == nil || *apiGroups.Items.Schema.MaxLength != 253 || apiGroups.Items.Schema.Pattern != `^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` {
+		t.Fatalf("installed API group validation contract is incorrect: %#v", apiGroups)
+	}
+	assertSchemaMaxItems(t, apiGroups, "policy API groups", 64)
+	kinds := resourceRule.Properties["kinds"]
+	if kinds.Type != "array" || kinds.MinItems == nil || *kinds.MinItems != 1 || kinds.XListType == nil || *kinds.XListType != "set" || kinds.Items == nil || kinds.Items.Schema == nil || kinds.Items.Schema.MaxLength == nil || *kinds.Items.Schema.MaxLength != 63 || kinds.Items.Schema.Pattern != `^[A-Z][A-Za-z0-9]*$` {
+		t.Fatalf("installed Kind validation contract is incorrect: %#v", kinds)
+	}
+	assertSchemaMaxItems(t, kinds, "policy Kinds", 64)
+
+	allowClusterScoped, found := spec.Properties["allowClusterScoped"]
+	if !found || allowClusterScoped.Type != "boolean" || allowClusterScoped.Default == nil || string(allowClusterScoped.Default.Raw) != "false" {
+		t.Fatalf("installed cluster-scope default is incorrect: %#v", allowClusterScoped)
+	}
+	if root.XPreserveUnknownFields != nil || spec.XPreserveUnknownFields != nil || namespaces.XPreserveUnknownFields != nil || resourceRule.XPreserveUnknownFields != nil {
+		t.Fatal("installed access policy schema permits preserved unknown fields")
+	}
+}
+
+func apiContractContains(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func assertSchemaMaxItems(t *testing.T, schema apiextensionsv1.JSONSchemaProps, name string, want int64) {
+	t.Helper()
+	if schema.MaxItems == nil || *schema.MaxItems != want {
+		t.Fatalf("installed %s maxItems = %v, want %d", name, schema.MaxItems, want)
+	}
+}
+
+func assertSchemaMaxProperties(t *testing.T, schema apiextensionsv1.JSONSchemaProps, name string, want int64) {
+	t.Helper()
+	if schema.MaxProperties == nil || *schema.MaxProperties != want {
+		t.Fatalf("installed %s maxProperties = %v, want %d", name, schema.MaxProperties, want)
+	}
+}
+
+func equalJSONValues(values []apiextensionsv1.JSON, expected []string) bool {
+	if len(values) != len(expected) {
+		return false
+	}
+	for index, value := range values {
+		if string(value.Raw) != `"`+expected[index]+`"` {
+			return false
+		}
+	}
+	return true
+}
+
+func apiContractAssertNoDefaults(t *testing.T, schema *apiextensionsv1.JSONSchemaProps) {
+	t.Helper()
+	if schema.Default != nil {
+		t.Fatalf("installed CRD schema contains an implicit default: %#v", schema.Default)
+	}
+	for _, property := range schema.Properties {
+		property := property
+		apiContractAssertNoDefaults(t, &property)
+	}
+	if schema.Items != nil && schema.Items.Schema != nil {
+		apiContractAssertNoDefaults(t, schema.Items.Schema)
+	}
+}
+
+func apiContractAssertNoPreserveUnknownFields(t *testing.T, schema *apiextensionsv1.JSONSchemaProps) {
+	t.Helper()
+	if schema.XPreserveUnknownFields != nil {
+		t.Fatalf("installed CRD schema contains preserve-unknown-fields at %#v", schema)
+	}
+	for propertyName, property := range schema.Properties {
+		property := property
+		if property.XPreserveUnknownFields != nil {
+			t.Fatalf("installed CRD schema contains preserve-unknown-fields in property %q", propertyName)
+		}
+		apiContractAssertNoPreserveUnknownFields(t, &property)
+	}
+	if schema.Items != nil && schema.Items.Schema != nil {
+		apiContractAssertNoPreserveUnknownFields(t, schema.Items.Schema)
+	}
+	if schema.AdditionalProperties != nil && schema.AdditionalProperties.Schema != nil {
+		apiContractAssertNoPreserveUnknownFields(t, schema.AdditionalProperties.Schema)
+	}
+}
+
+func assertCRDEstablished(t *testing.T, ctx context.Context, client apiextensionsclient.Interface, crdName string) {
+	t.Helper()
+
+	crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get installed CRD: %v", err)
+	}
+	for _, condition := range crd.Status.Conditions {
+		if condition.Type == apiextensionsv1.Established && condition.Status == apiextensionsv1.ConditionTrue {
+			return
+		}
+	}
+	t.Fatalf("CRD %s did not become Established: %#v", crdName, crd.Status.Conditions)
+}
+
+func assertResourceRegistered(t *testing.T, client discovery.DiscoveryInterface, resourceName string, namespaced bool) {
+	t.Helper()
+
+	resources, err := client.ServerResourcesForGroupVersion(GroupVersion.String())
+	if err != nil {
+		t.Fatalf("discover %s: %v", GroupVersion.String(), err)
+	}
+	for _, resource := range resources.APIResources {
+		if resource.Name == resourceName {
+			if resource.Namespaced != namespaced {
+				t.Fatalf("%s discovery scope = %t, want %t", resourceName, resource.Namespaced, namespaced)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s is not registered in API discovery: %#v", resourceName, resources.APIResources)
+}
+
+func createMinimalResource(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	created, err := resources.Create(ctx, newFacet("minimal", namespace, map[string]interface{}{}), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create minimal Facet: %v", err)
+	}
+	if created.GetName() != "minimal" || created.GetNamespace() != namespace {
+		t.Fatalf("minimal Facet was not persisted as requested: %#v", created.Object)
+	}
+	if _, err := resources.Get(ctx, "minimal", metav1.GetOptions{}); err != nil {
+		t.Fatalf("get persisted minimal Facet: %v", err)
+	}
+}
+
+func createValidSourceResource(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	created, err := resources.Create(ctx, newFacet("valid-source", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "source-one",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+		}},
+	}), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create Facet with valid source: %v", err)
+	}
+	if _, found, err := unstructured.NestedSlice(created.Object, "spec", "sources"); err != nil || !found {
+		t.Fatalf("persisted valid source was not returned: found=%t err=%v object=%#v", found, err, created.Object)
+	}
+}
+
+func assertMissingSpecRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	assertInvalidCreate(t, ctx, resources, newFacet("missing-spec", namespace, nil), "missing spec")
+	assertNotPersisted(t, ctx, resources, "missing-spec")
+}
+
+func assertInvalidSourceRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	assertInvalidCreate(t, ctx, resources, newFacet("invalid-source", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{"id": "Invalid_Source"}},
+	}), "invalid source ID")
+	assertNotPersisted(t, ctx, resources, "invalid-source")
+}
+
+func assertSelectionSourceAdmissionRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	validSource := func(id string) map[string]interface{} {
+		return map[string]interface{}{
+			"id": id,
+			"resource": map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+			},
+		}
+	}
+	tests := []struct {
+		name   string
+		object *unstructured.Unstructured
+	}{
+		{
+			name: "duplicate source IDs",
+			object: newFacet("duplicate-source-ids", namespace, map[string]interface{}{
+				"sources": []interface{}{validSource("duplicate"), validSource("duplicate")},
+			}),
+		},
+		{
+			name: "missing resource coordinates",
+			object: newFacet("missing-resource", namespace, map[string]interface{}{
+				"sources": []interface{}{map[string]interface{}{"id": "missing-resource"}},
+			}),
+		},
+		{
+			name: "invalid namespace name",
+			object: newFacet("invalid-namespace", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("invalid-namespace")
+					source["namespaces"] = map[string]interface{}{"names": []interface{}{"Invalid_Namespace"}}
+					return source
+				}()},
+			}),
+		},
+		{
+			name: "duplicate namespace names",
+			object: newFacet("duplicate-namespaces", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("duplicate-namespaces")
+					source["namespaces"] = map[string]interface{}{"names": []interface{}{"team-a", "team-a"}}
+					return source
+				}()},
+			}),
+		},
+		{
+			name: "missing field name",
+			object: newFacet("missing-field-name", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("missing-field-name")
+					source["fields"] = []interface{}{map[string]interface{}{"path": "{.metadata.name}"}}
+					return source
+				}()},
+			}),
+		},
+		{
+			name: "missing field path",
+			object: newFacet("missing-field-path", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("missing-field-path")
+					source["fields"] = []interface{}{map[string]interface{}{"name": "resourceName"}}
+					return source
+				}()},
+			}),
+		},
+		{
+			name: "invalid field name",
+			object: newFacet("invalid-field-name", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("invalid-field-name")
+					source["fields"] = []interface{}{map[string]interface{}{"name": "Invalid_Name", "path": "{.metadata.name}"}}
+					return source
+				}()},
+			}),
+		},
+		{
+			name: "overlong field path",
+			object: newFacet("overlong-field-path", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("overlong-field-path")
+					source["fields"] = []interface{}{map[string]interface{}{"name": "resourceName", "path": strings.Repeat("a", 1025)}}
+					return source
+				}()},
+			}),
+		},
+		{
+			name: "duplicate field names",
+			object: newFacet("duplicate-field-names", namespace, map[string]interface{}{
+				"sources": []interface{}{func() map[string]interface{} {
+					source := validSource("duplicate-field-names")
+					source["fields"] = []interface{}{
+						map[string]interface{}{"name": "resourceName", "path": "{.metadata.name}"},
+						map[string]interface{}{"name": "resourceName", "path": "{.metadata.namespace}"},
+					}
+					return source
+				}()},
+			}),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assertInvalidCreate(t, ctx, resources, test.object, test.name)
+			assertNotPersisted(t, ctx, resources, test.object.GetName())
+		})
+	}
+}
+
+func assertNonListSourcesRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	assertInvalidCreate(t, ctx, resources, newFacet("non-list-sources", namespace, map[string]interface{}{
+		"sources": "not-a-list",
+	}), "non-list sources")
+	assertNotPersisted(t, ctx, resources, "non-list-sources")
+}
+
+func assertNegativeObservedGenerationRejected(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	created, err := resources.Create(ctx, newFacet("negative-generation", namespace, map[string]interface{}{}), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create negative-generation fixture: %v", err)
+	}
+	statusUpdate := created.DeepCopy()
+	if err := unstructured.SetNestedField(statusUpdate.Object, int64(-1), "status", "observedGeneration"); err != nil {
+		t.Fatalf("set negative observedGeneration: %v", err)
+	}
+	_, err = resources.UpdateStatus(ctx, statusUpdate, metav1.UpdateOptions{})
+	if !apierrors.IsInvalid(err) {
+		t.Fatalf("negative observedGeneration was not rejected as invalid: %v", err)
+	}
+
+	statusUpdate = created.DeepCopy()
+	if err := unstructured.SetNestedField(statusUpdate.Object, int64(-1), "status", "summary", "successfulSources"); err != nil {
+		t.Fatalf("set negative successful source summary: %v", err)
+	}
+	_, err = resources.UpdateStatus(ctx, statusUpdate, metav1.UpdateOptions{})
+	if !apierrors.IsInvalid(err) {
+		t.Fatalf("negative successfulSources was not rejected as invalid: %v", err)
+	}
+
+	statusUpdate = created.DeepCopy()
+	if err := unstructured.SetNestedField(statusUpdate.Object, "sha256:"+strings.Repeat("A", 64), "status", "resultHash"); err != nil {
+		t.Fatalf("set invalid result hash: %v", err)
+	}
+	_, err = resources.UpdateStatus(ctx, statusUpdate, metav1.UpdateOptions{})
+	if !apierrors.IsInvalid(err) {
+		t.Fatalf("invalid resultHash was not rejected as invalid: %v", err)
+	}
+}
+
+func assertAdmissionValidationStructureRejected(t *testing.T, ctx context.Context, resources, accessPolicies dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	validSource := func(id string) map[string]interface{} {
+		return map[string]interface{}{
+			"id":       id,
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+		}
+	}
+	validField := func(name string) map[string]interface{} {
+		return map[string]interface{}{"name": name, "path": "{.metadata.name}"}
+	}
+	validAggregation := func(name string) map[string]interface{} {
+		return map[string]interface{}{"name": name, "function": "count", "field": "value"}
+	}
+	validOperator := func() map[string]interface{} {
+		return map[string]interface{}{"operator": "exists"}
+	}
+	validOperand := func() map[string]interface{} {
+		return map[string]interface{}{"state": "value", "stringValue": "value"}
+	}
+
+	facetCases := []struct {
+		name string
+		spec map[string]interface{}
+	}{
+		{
+			name: "sources",
+			spec: func() map[string]interface{} {
+				items := make([]interface{}, 33)
+				for index := range items {
+					items[index] = validSource(fmt.Sprintf("source-%03d", index))
+				}
+				return map[string]interface{}{"sources": items}
+			}(),
+		},
+		{
+			name: "source namespaces",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("namespaces")
+				items := make([]interface{}, 65)
+				for index := range items {
+					items[index] = fmt.Sprintf("team-%03d", index)
+				}
+				source["namespaces"] = map[string]interface{}{"names": items}
+				return source
+			}()}},
+		},
+		{
+			name: "source fields",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("fields")
+				items := make([]interface{}, 65)
+				for index := range items {
+					items[index] = validField(fmt.Sprintf("field-%03d", index))
+				}
+				source["fields"] = items
+				return source
+			}()}},
+		},
+		{
+			name: "field operators",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("operators")
+				operators := make([]interface{}, 17)
+				for index := range operators {
+					operators[index] = validOperator()
+				}
+				source["fields"] = []interface{}{map[string]interface{}{"name": "value", "path": "{.metadata.name}", "operators": operators}}
+				return source
+			}()}},
+		},
+		{
+			name: "operator values",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("operator-values")
+				values := make([]interface{}, 129)
+				for index := range values {
+					values[index] = validOperand()
+				}
+				source["fields"] = []interface{}{map[string]interface{}{
+					"name": "value", "path": "{.metadata.name}",
+					"operators": []interface{}{map[string]interface{}{"operator": "in", "values": values}},
+				}}
+				return source
+			}()}},
+		},
+		{
+			name: "source aggregations",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("aggregations")
+				items := make([]interface{}, 33)
+				for index := range items {
+					items[index] = validAggregation(fmt.Sprintf("aggregate-%03d", index))
+				}
+				source["aggregations"] = items
+				return source
+			}()}},
+		},
+		{
+			name: "aggregation groupBy",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("group-by")
+				items := make([]interface{}, 17)
+				for index := range items {
+					items[index] = fmt.Sprintf("field-%03d", index)
+				}
+				source["aggregations"] = []interface{}{map[string]interface{}{"name": "aggregate", "function": "count", "field": "value", "groupBy": items}}
+				return source
+			}()}},
+		},
+		{
+			name: "selector matchExpressions",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("expressions")
+				items := make([]interface{}, 65)
+				for index := range items {
+					items[index] = map[string]interface{}{"key": fmt.Sprintf("label-%03d", index), "operator": "In", "values": []interface{}{"backend"}}
+				}
+				source["selector"] = map[string]interface{}{"matchExpressions": items}
+				return source
+			}()}},
+		},
+		{
+			name: "selector matchLabels",
+			spec: map[string]interface{}{"sources": []interface{}{func() map[string]interface{} {
+				source := validSource("labels")
+				labels := make(map[string]interface{}, 65)
+				for index := 0; index < 65; index++ {
+					labels[fmt.Sprintf("label-%03d", index)] = "backend"
+				}
+				source["selector"] = map[string]interface{}{"matchLabels": labels}
+				return source
+			}()}},
+		},
+	}
+	for _, test := range facetCases {
+		t.Run("Facet "+test.name, func(t *testing.T) {
+			name := "budget-" + strings.ReplaceAll(test.name, " ", "-")
+			assertInvalidCreate(t, ctx, resources, newFacet(name, namespace, test.spec), test.name)
+			assertNotPersisted(t, ctx, resources, name)
+		})
+	}
+
+	validRule := func() map[string]interface{} {
+		return map[string]interface{}{"apiGroups": []interface{}{""}, "kinds": []interface{}{"Pod"}}
+	}
+	policyCases := []struct {
+		name   string
+		mutate func(map[string]interface{})
+	}{
+		{
+			name: "namespace include",
+			mutate: func(spec map[string]interface{}) {
+				items := make([]interface{}, 257)
+				for index := range items {
+					items[index] = fmt.Sprintf("include-%03d", index)
+				}
+				spec["namespaces"].(map[string]interface{})["include"] = items
+			},
+		},
+		{
+			name: "namespace exclude",
+			mutate: func(spec map[string]interface{}) {
+				items := make([]interface{}, 257)
+				for index := range items {
+					items[index] = fmt.Sprintf("exclude-%03d", index)
+				}
+				spec["namespaces"].(map[string]interface{})["exclude"] = items
+			},
+		},
+		{
+			name: "system namespaces",
+			mutate: func(spec map[string]interface{}) {
+				items := make([]interface{}, 257)
+				for index := range items {
+					items[index] = fmt.Sprintf("system-%03d", index)
+				}
+				spec["namespaces"].(map[string]interface{})["systemNamespaces"] = items
+			},
+		},
+		{
+			name: "resource rules",
+			mutate: func(spec map[string]interface{}) {
+				items := make([]interface{}, 129)
+				for index := range items {
+					items[index] = validRule()
+				}
+				spec["resources"] = items
+			},
+		},
+		{
+			name: "resource API groups",
+			mutate: func(spec map[string]interface{}) {
+				items := make([]interface{}, 65)
+				for index := range items {
+					items[index] = fmt.Sprintf("group-%03d.example.com", index)
+				}
+				spec["resources"] = []interface{}{map[string]interface{}{"apiGroups": items, "kinds": []interface{}{"Pod"}}}
+			},
+		},
+		{
+			name: "resource Kinds",
+			mutate: func(spec map[string]interface{}) {
+				items := make([]interface{}, 65)
+				for index := range items {
+					items[index] = fmt.Sprintf("Kind%03d", index)
+				}
+				spec["resources"] = []interface{}{map[string]interface{}{"apiGroups": []interface{}{""}, "kinds": items}}
+			},
+		},
+	}
+	for _, test := range policyCases {
+		t.Run("FacetAccessPolicy "+test.name, func(t *testing.T) {
+			spec := validAccessPolicySpec()
+			test.mutate(spec)
+			assertInvalidCreate(t, ctx, accessPolicies, newAccessPolicy(InstallationAccessCeilingName, spec), test.name)
+		})
+	}
+}
+
+func assertStatusUpdatePreservesSpec(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, namespace string) {
+	t.Helper()
+
+	created, err := resources.Create(ctx, newFacet("status-isolation", namespace, map[string]interface{}{
+		"sources": []interface{}{map[string]interface{}{
+			"id":       "stable-source",
+			"resource": map[string]interface{}{"apiVersion": "v1", "kind": "Pod"},
+		}},
+	}), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create status-isolation fixture: %v", err)
+	}
+	expectedSpec, found, err := unstructured.NestedFieldCopy(created.Object, "spec")
+	if err != nil || !found {
+		t.Fatalf("read status-isolation spec: found=%t err=%v", found, err)
+	}
+
+	statusUpdate := created.DeepCopy()
+	if err := unstructured.SetNestedField(statusUpdate.Object, int64(1), "status", "observedGeneration"); err != nil {
+		t.Fatalf("set status observedGeneration: %v", err)
+	}
+	if err := unstructured.SetNestedField(statusUpdate.Object, int64(2), "status", "summary", "successfulSources"); err != nil {
+		t.Fatalf("set successful source summary: %v", err)
+	}
+	if err := unstructured.SetNestedField(statusUpdate.Object, int64(1), "status", "summary", "failedSources"); err != nil {
+		t.Fatalf("set failed source summary: %v", err)
+	}
+	if err := unstructured.SetNestedField(statusUpdate.Object, int64(3), "status", "summary", "matchedResources"); err != nil {
+		t.Fatalf("set matched resource summary: %v", err)
+	}
+	if err := unstructured.SetNestedField(statusUpdate.Object, "sha256:"+strings.Repeat("0", 64), "status", "resultHash"); err != nil {
+		t.Fatalf("set result hash: %v", err)
+	}
+	if _, err := resources.UpdateStatus(ctx, statusUpdate, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("update status subresource: %v", err)
+	}
+
+	stored, err := resources.Get(ctx, "status-isolation", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get status-isolation after status update: %v", err)
+	}
+	actualSpec, found, err := unstructured.NestedFieldCopy(stored.Object, "spec")
+	if err != nil || !found || !reflect.DeepEqual(expectedSpec, actualSpec) {
+		t.Fatalf("status update changed spec: expected=%#v actual=%#v found=%t err=%v", expectedSpec, actualSpec, found, err)
+	}
+	observedGeneration, found, err := unstructured.NestedInt64(stored.Object, "status", "observedGeneration")
+	if err != nil || !found || observedGeneration != 1 {
+		t.Fatalf("status update was not persisted: generation=%d found=%t err=%v", observedGeneration, found, err)
+	}
+	for field, expected := range map[string]int64{"successfulSources": 2, "failedSources": 1, "matchedResources": 3} {
+		value, found, err := unstructured.NestedInt64(stored.Object, "status", "summary", field)
+		if err != nil || !found || value != expected {
+			t.Fatalf("status summary field %q was not persisted: value=%d found=%t err=%v", field, value, found, err)
+		}
+	}
+	resultHash, found, err := unstructured.NestedString(stored.Object, "status", "resultHash")
+	if err != nil || !found || resultHash != "sha256:"+strings.Repeat("0", 64) {
+		t.Fatalf("status resultHash was not persisted: value=%q found=%t err=%v", resultHash, found, err)
+	}
+}
+
+func assertAccessPolicyDefaultingAndEmptyOverride(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface) {
+	t.Helper()
+
+	created, err := resources.Create(ctx, newAccessPolicy(InstallationAccessCeilingName, validAccessPolicySpec()), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("create valid access policy: %v", err)
+	}
+	if created.GetName() != InstallationAccessCeilingName || created.GetNamespace() != "" {
+		t.Fatalf("access policy was not persisted cluster-scoped: %#v", created.Object)
+	}
+
+	systemNamespaces, found, err := unstructured.NestedSlice(created.Object, "spec", "namespaces", "systemNamespaces")
+	if err != nil || !found || !reflect.DeepEqual(systemNamespaces, []interface{}{"kube-system", "kube-public", "kube-node-lease"}) {
+		t.Fatalf("omitted systemNamespaces did not receive the API default: value=%#v found=%t err=%v", systemNamespaces, found, err)
+	}
+	allowClusterScoped, found, err := unstructured.NestedBool(created.Object, "spec", "allowClusterScoped")
+	if err != nil || !found || allowClusterScoped {
+		t.Fatalf("omitted allowClusterScoped did not default to false: value=%t found=%t err=%v", allowClusterScoped, found, err)
+	}
+
+	current, err := resources.Get(ctx, InstallationAccessCeilingName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get persisted access policy: %v", err)
+	}
+	if err := unstructured.SetNestedSlice(current.Object, []interface{}{}, "spec", "namespaces", "systemNamespaces"); err != nil {
+		t.Fatalf("set explicit empty systemNamespaces: %v", err)
+	}
+	updated, err := resources.Update(ctx, current, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("update access policy with explicit empty systemNamespaces: %v", err)
+	}
+	systemNamespaces, found, err = unstructured.NestedSlice(updated.Object, "spec", "namespaces", "systemNamespaces")
+	if err != nil || !found || !reflect.DeepEqual(systemNamespaces, []interface{}{}) {
+		t.Fatalf("explicit empty systemNamespaces was not preserved: value=%#v found=%t err=%v", systemNamespaces, found, err)
+	}
+
+	if err := unstructured.SetNestedField(updated.Object, "Explicit", "spec", "namespaces", "mode"); err != nil {
+		t.Fatalf("set empty deny-all namespace mode: %v", err)
+	}
+	for _, field := range []string{"include", "exclude", "systemNamespaces"} {
+		if err := unstructured.SetNestedSlice(updated.Object, []interface{}{}, "spec", "namespaces", field); err != nil {
+			t.Fatalf("set empty namespace list %q: %v", field, err)
+		}
+	}
+	if err := unstructured.SetNestedSlice(updated.Object, []interface{}{}, "spec", "resources"); err != nil {
+		t.Fatalf("set empty resource allowlist: %v", err)
+	}
+	updated, err = resources.Update(ctx, updated, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("update access policy with empty deny-all boundaries: %v", err)
+	}
+	for _, field := range []string{"include", "exclude", "systemNamespaces"} {
+		values, found, err := unstructured.NestedSlice(updated.Object, "spec", "namespaces", field)
+		if err != nil || !found || !reflect.DeepEqual(values, []interface{}{}) {
+			t.Fatalf("empty deny-all namespace list %q was not preserved: value=%#v found=%t err=%v", field, values, found, err)
+		}
+	}
+	resourcesList, found, err := unstructured.NestedSlice(updated.Object, "spec", "resources")
+	if err != nil || !found || !reflect.DeepEqual(resourcesList, []interface{}{}) {
+		t.Fatalf("empty deny-all resource list was not preserved: value=%#v found=%t err=%v", resourcesList, found, err)
+	}
+
+	if err := resources.Delete(ctx, InstallationAccessCeilingName, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("delete access policy before invalid cases: %v", err)
+	}
+}
+
+func assertAccessPolicyValidation(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface) {
+	t.Helper()
+
+	tests := []struct {
+		name   string
+		object *unstructured.Unstructured
+	}{
+		{
+			name:   "non-singleton name",
+			object: newAccessPolicy("default", validAccessPolicySpec()),
+		},
+		{
+			name: "invalid mode",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["namespaces"].(map[string]interface{})["mode"] = "Unknown"
+				return spec
+			}()),
+		},
+		{
+			name: "invalid namespace",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["namespaces"].(map[string]interface{})["include"] = []interface{}{"Invalid_Namespace"}
+				return spec
+			}()),
+		},
+		{
+			name: "duplicate namespace set value",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["namespaces"].(map[string]interface{})["include"] = []interface{}{"team-a", "team-a"}
+				return spec
+			}()),
+		},
+		{
+			name: "empty API group rule member",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"] = []interface{}{map[string]interface{}{
+					"apiGroups": []interface{}{},
+					"kinds":     []interface{}{"Pod"},
+				}}
+				return spec
+			}()),
+		},
+		{
+			name: "empty Kind rule member",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"] = []interface{}{map[string]interface{}{
+					"apiGroups": []interface{}{[]interface{}{}},
+					"kinds":     []interface{}{},
+				}}
+				return spec
+			}()),
+		},
+		{
+			name: "duplicate resource set value",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"] = []interface{}{map[string]interface{}{
+					"apiGroups": []interface{}{"apps", "apps"},
+					"kinds":     []interface{}{"Deployment"},
+				}}
+				return spec
+			}()),
+		},
+		{
+			name: "malformed API group",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"].([]interface{})[0].(map[string]interface{})["apiGroups"] = []interface{}{"Apps"}
+				return spec
+			}()),
+		},
+		{
+			name: "wildcard API group",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"].([]interface{})[0].(map[string]interface{})["apiGroups"] = []interface{}{"*"}
+				return spec
+			}()),
+		},
+		{
+			name: "malformed Kind",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"].([]interface{})[0].(map[string]interface{})["kinds"] = []interface{}{"deployment"}
+				return spec
+			}()),
+		},
+		{
+			name: "wildcard Kind",
+			object: newAccessPolicy(InstallationAccessCeilingName, func() map[string]interface{} {
+				spec := validAccessPolicySpec()
+				spec["resources"].([]interface{})[0].(map[string]interface{})["kinds"] = []interface{}{"*"}
+				return spec
+			}()),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assertInvalidCreate(t, ctx, resources, test.object, test.name)
+			assertNotPersisted(t, ctx, resources, test.object.GetName())
+		})
+	}
+}
+
+func validAccessPolicySpec() map[string]interface{} {
+	return map[string]interface{}{
+		"namespaces": map[string]interface{}{
+			"mode":    "AllNonSystem",
+			"include": []interface{}{"team-a"},
+			"exclude": []interface{}{"team-b"},
+		},
+		"resources": []interface{}{map[string]interface{}{
+			"apiGroups": []interface{}{""},
+			"kinds":     []interface{}{"Pod"},
+		}},
+	}
+}
+
+func newAccessPolicy(name string, spec map[string]interface{}) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": GroupVersion.String(),
+		"kind":       "FacetAccessPolicy",
+		"metadata": map[string]interface{}{
+			"name": name,
+		},
+		"spec": spec,
+	}}
+}
+
+func assertUnservedVersionRejected(t *testing.T, ctx context.Context, client dynamic.Interface, namespace string) {
+	t.Helper()
+
+	unservedResources := client.Resource(schema.GroupVersionResource{
+		Group:    GroupVersion.Group,
+		Version:  "v1beta1",
+		Resource: facetResource,
+	}).Namespace(namespace)
+	_, err := unservedResources.Create(ctx, &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": unservedAPIVersion,
+		"kind":       "Facet",
+		"metadata":   map[string]interface{}{"name": "unserved-version"},
+		"spec":       map[string]interface{}{},
+	}}, metav1.CreateOptions{})
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("unserved API version was not rejected with NotFound: %v", err)
+	}
+}
+
+func assertInvalidCreate(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, object *unstructured.Unstructured, description string) {
+	t.Helper()
+
+	_, err := resources.Create(ctx, object, metav1.CreateOptions{})
+	if !apierrors.IsInvalid(err) && !apierrors.IsBadRequest(err) {
+		t.Fatalf("%s was not rejected as an invalid request: %v", description, err)
+	}
+}
+
+func assertNotPersisted(t *testing.T, ctx context.Context, resources dynamic.ResourceInterface, name string) {
+	t.Helper()
+
+	_, err := resources.Get(ctx, name, metav1.GetOptions{})
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("invalid resource %q was persisted: %v", name, err)
+	}
+}
+
+func newFacet(name, namespace string, spec map[string]interface{}) *unstructured.Unstructured {
+	object := map[string]interface{}{
+		"apiVersion": GroupVersion.String(),
+		"kind":       "Facet",
+		"metadata": map[string]interface{}{
+			"name":      name,
+			"namespace": namespace,
+		},
+	}
+	if spec != nil {
+		object["spec"] = spec
+	}
+	return &unstructured.Unstructured{Object: object}
+}

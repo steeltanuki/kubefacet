@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,7 +32,7 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 	t.Helper()
 
 	t.Run("a target failure discards all prior source matches", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:         "atomic-source",
 			Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a", "team-c"}},
@@ -53,7 +53,7 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 	})
 
 	t.Run("forbidden runtime reads stay distinct from policy denial", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{ID: "rbac-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		source := v1alpha1.FacetSource{ID: "rbac-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		plan := planSelection(t, ctx, resolver, "team-a", source)
 		runtimeFailure := apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "forbidden-pod", errors.New("raw-rbac-detail"))
 		lister := &scriptedResourceLister{responses: []scriptedListResponse{{err: runtimeFailure}}}
@@ -81,7 +81,7 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 	})
 
 	t.Run("unsupported, interrupted, unavailable, and invalid-object failures are stable", func(t *testing.T) {
-		unsupportedSource := v1alpha1.KubeseerSource{
+		unsupportedSource := v1alpha1.FacetSource{
 			ID:       "unsupported-source",
 			Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 			Selector: &v1alpha1.ResourceSelector{FieldSelector: "spec.unsupported=secret-value"},
@@ -99,7 +99,7 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 
 		canceledCtx, cancel := context.WithCancel(ctx)
 		cancel()
-		canceledSource := v1alpha1.KubeseerSource{ID: "canceled-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		canceledSource := v1alpha1.FacetSource{ID: "canceled-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		canceledPlan := planSelection(t, ctx, resolver, "team-a", canceledSource)
 		canceledLister := &countingResourceLister{}
 		canceledOutcome := newSelectionExecutor(canceledLister).Execute(canceledCtx, mustBindSelection(t, canceledPlan))
@@ -107,14 +107,14 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 			t.Fatalf("canceled outcome = %#v calls=%d", canceledOutcome, len(canceledLister.Calls()))
 		}
 
-		unavailableSource := v1alpha1.KubeseerSource{ID: "unavailable-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		unavailableSource := v1alpha1.FacetSource{ID: "unavailable-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		unavailablePlan := planSelection(t, ctx, resolver, "team-a", unavailableSource)
 		unavailable := newSelectionExecutor(&scriptedResourceLister{responses: []scriptedListResponse{{returnNil: true}}}).Execute(ctx, mustBindSelection(t, unavailablePlan))
 		if !selection.HasReason(unavailable.Err, selection.ReasonReadUnavailable) {
 			t.Fatalf("nil response outcome = %#v", unavailable)
 		}
 
-		invalidSource := v1alpha1.KubeseerSource{ID: "invalid-object-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		invalidSource := v1alpha1.FacetSource{ID: "invalid-object-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		invalidPlan := planSelection(t, ctx, resolver, "team-a", invalidSource)
 		invalidObject := newSelectionExecutor(&scriptedResourceLister{responses: []scriptedListResponse{{list: listWithContinue(&unstructured.Unstructured{Object: map[string]interface{}{"metadata": map[string]interface{}{"name": "missing-uid"}}}, "")}}}).Execute(ctx, mustBindSelection(t, invalidPlan))
 		if !selection.HasReason(invalidObject.Err, selection.ReasonInvalidObject) || len(invalidObject.Resources) != 0 {
@@ -123,9 +123,9 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 	})
 
 	t.Run("batch keeps completed siblings and interrupts only unstarted sources", func(t *testing.T) {
-		firstSource := v1alpha1.KubeseerSource{ID: "batch-first", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
-		secondSource := v1alpha1.KubeseerSource{ID: "batch-second", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
-		thirdSource := v1alpha1.KubeseerSource{ID: "batch-third", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		firstSource := v1alpha1.FacetSource{ID: "batch-first", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		secondSource := v1alpha1.FacetSource{ID: "batch-second", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
+		thirdSource := v1alpha1.FacetSource{ID: "batch-third", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}
 		firstPlan := planSelection(t, ctx, resolver, "team-a", firstSource)
 		secondPlan := planSelection(t, ctx, resolver, "team-a", secondSource)
 		thirdPlan := planSelection(t, ctx, resolver, "team-a", thirdSource)
@@ -158,7 +158,7 @@ func assertResourceSelectionFailureScenarios(t *testing.T, ctx context.Context, 
 	})
 }
 
-func planSelection(t *testing.T, ctx context.Context, resolver *discovery.Resolver, ownerNamespace string, source v1alpha1.KubeseerSource) selection.SelectionPlan {
+func planSelection(t *testing.T, ctx context.Context, resolver *discovery.Resolver, ownerNamespace string, source v1alpha1.FacetSource) selection.SelectionPlan {
 	t.Helper()
 	plan, err := selection.NewPlanner(resolver).Plan(ctx, ownerNamespace, source)
 	if err != nil {

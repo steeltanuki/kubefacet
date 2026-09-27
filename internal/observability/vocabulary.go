@@ -17,8 +17,8 @@ package observability
 import (
 	"time"
 
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
 	"k8s.io/apimachinery/pkg/types"
 )
 

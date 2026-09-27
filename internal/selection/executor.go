@@ -19,9 +19,9 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

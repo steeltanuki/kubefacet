@@ -25,8 +25,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
@@ -205,11 +205,11 @@ func (o *Observer) StartAttempt(ctx context.Context, start AttemptStart) (contex
 	attemptCtx := context.WithValue(ctx, correlationKey{}, correlation)
 	attempt := &Attempt{observer: o, started: o.now(), context: attemptCtx}
 	if o.tracerProvider != nil && !o.disabled {
-		tracer := o.tracerProvider.Tracer("github.com/steeltanuki/kubeseer/internal/observability")
-		attemptCtx, attempt.rootSpan = tracer.Start(attemptCtx, "kubeseer.reconciliation", trace.WithAttributes(
-			attribute.String("kubeseer.namespace", start.Namespace),
-			attribute.String("kubeseer.name", start.Name),
-			attribute.String("kubeseer.attempt_id", identifier),
+		tracer := o.tracerProvider.Tracer("github.com/steeltanuki/kubefacet/internal/observability")
+		attemptCtx, attempt.rootSpan = tracer.Start(attemptCtx, "kubefacet.reconciliation", trace.WithAttributes(
+			attribute.String("kubefacet.namespace", start.Namespace),
+			attribute.String("kubefacet.name", start.Name),
+			attribute.String("kubefacet.attempt_id", identifier),
 		))
 		attempt.setContext(attemptCtx)
 	}
@@ -288,8 +288,8 @@ func (o *Observer) ObserveLimit(ctx context.Context, observation LimitObservatio
 	})
 	if span := trace.SpanFromContext(ctx); span.IsRecording() {
 		span.SetAttributes(
-			attribute.String("kubeseer.limit.dimension", string(dimension)),
-			attribute.Int64("kubeseer.limit.ceiling", ceiling),
+			attribute.String("kubefacet.limit.dimension", string(dimension)),
+			attribute.Int64("kubefacet.limit.ceiling", ceiling),
 		)
 	}
 }
@@ -429,8 +429,8 @@ func (a *Attempt) StartStage(ctx context.Context, stage Stage) (context.Context,
 	}
 	handle := &StageHandle{attempt: a, stage: stage, context: ctx}
 	if a.rootSpan != nil && a.observer != nil && a.observer.tracerProvider != nil {
-		tracer := a.observer.tracerProvider.Tracer("github.com/steeltanuki/kubeseer/internal/observability")
-		stageCtx, span := tracer.Start(ctx, "kubeseer.reconciliation."+string(stage), trace.WithAttributes(attribute.String("kubeseer.stage", string(stage))))
+		tracer := a.observer.tracerProvider.Tracer("github.com/steeltanuki/kubefacet/internal/observability")
+		stageCtx, span := tracer.Start(ctx, "kubefacet.reconciliation."+string(stage), trace.WithAttributes(attribute.String("kubefacet.stage", string(stage))))
 		handle.context = stageCtx
 		handle.span = span
 	}
@@ -453,10 +453,10 @@ func (h *StageHandle) End(observation StageObservation) {
 		observation.Retry = normalizeRetry(observation.Retry)
 		if h.span != nil {
 			h.span.SetAttributes(
-				attribute.String("kubeseer.stage", string(observation.Stage)),
-				attribute.String("kubeseer.outcome", string(observation.Outcome)),
-				attribute.String("kubeseer.reason", string(observation.Reason)),
-				attribute.String("kubeseer.retry", string(observation.Retry)),
+				attribute.String("kubefacet.stage", string(observation.Stage)),
+				attribute.String("kubefacet.outcome", string(observation.Outcome)),
+				attribute.String("kubefacet.reason", string(observation.Reason)),
+				attribute.String("kubefacet.retry", string(observation.Retry)),
 			)
 			h.span.End()
 		}
@@ -518,10 +518,10 @@ func (a *Attempt) Complete(ctx context.Context, terminal Terminal) {
 		}
 		if a.rootSpan != nil {
 			a.rootSpan.SetAttributes(
-				attribute.String("kubeseer.outcome", string(terminal.Outcome)),
-				attribute.String("kubeseer.reason", string(terminal.Reason)),
-				attribute.String("kubeseer.retry", string(terminal.Retry)),
-				attribute.Int64("kubeseer.duration_ms", elapsed.Milliseconds()),
+				attribute.String("kubefacet.outcome", string(terminal.Outcome)),
+				attribute.String("kubefacet.reason", string(terminal.Reason)),
+				attribute.String("kubefacet.retry", string(terminal.Retry)),
+				attribute.Int64("kubefacet.duration_ms", elapsed.Milliseconds()),
 			)
 			a.rootSpan.End()
 		}
@@ -656,9 +656,9 @@ func (o *Observer) emit(ctx context.Context, record LogRecord) {
 		values = append(values, "trace_id", record.TraceID, "span_id", record.SpanID)
 	}
 	if record.Severity == SeverityError {
-		o.logger.Error(nil, "kubeseer observability", values...)
+		o.logger.Error(nil, "kubefacet observability", values...)
 	} else {
-		o.logger.Info("kubeseer observability", values...)
+		o.logger.Info("kubefacet observability", values...)
 	}
 }
 
@@ -667,7 +667,7 @@ func callLogSink(sink LogSink, record LogRecord) {
 	_ = sink.Emit(record)
 }
 
-const malformedStatusEventMessage = "Kubeseer status transition could not be classified"
+const malformedStatusEventMessage = "Facet status transition could not be classified"
 
 var statusEventConditionOrder = []string{"Accepted", "Authorized", "SourcesResolved", "Ready"}
 

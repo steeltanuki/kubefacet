@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +60,7 @@ func assertObservabilityStatusScenarios(t *testing.T, ctx context.Context) {
 		if !strings.HasPrefix(event, corev1.EventTypeNormal+" "+string(observability.ReasonEvaluationSucceeded)+" ") || !strings.Contains(event, "evaluation succeeded") {
 			t.Fatalf("success Event = %q", event)
 		}
-		assertObservabilityMetricValue(t, registry, "kubeseer_status_updates_total", `outcome="written",reason="EvaluationSucceeded"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_status_updates_total", `outcome="written",reason="EvaluationSucceeded"`, 1)
 	})
 
 	priorityTests := []struct {
@@ -85,7 +85,7 @@ func assertObservabilityStatusScenarios(t *testing.T, ctx context.Context) {
 		},
 		{
 			name:       "Ready wins after earlier success",
-			evaluation: statuscontract.Evaluation{Result: func() *v1alpha1.KubeseerResult { value := degradedStatusResult(); return &value }(), Sources: []statuscontract.SourceAssessment{{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}}},
+			evaluation: statuscontract.Evaluation{Result: func() *v1alpha1.FacetResult { value := degradedStatusResult(); return &value }(), Sources: []statuscontract.SourceAssessment{{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}}},
 			wantReason: statuscontract.ReasonEvaluationDegraded,
 		},
 	}
@@ -136,11 +136,11 @@ func assertObservabilityStatusScenarios(t *testing.T, ctx context.Context) {
 		if err != nil {
 			t.Fatalf("construct conflict observer: %v", err)
 		}
-		conflictWriter := &runtimeStatusWriter{err: apierrors.NewConflict(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseers"}, "event-suppressed", errors.New("raw conflict body"))}
+		conflictWriter := &runtimeStatusWriter{err: apierrors.NewConflict(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facets"}, "event-suppressed", errors.New("raw conflict body"))}
 		conflictTracker := reconciliation.NewFreshnessTracker()
 		conflictLease, conflictRelease := runtimeStatusLease(t, conflictTracker, current)
 		defer conflictRelease()
-		conflictErr := reconciliation.NewStatusPublisher(newRuntimeStatusReader(current), conflictWriter, conflictTracker, reconciliation.WithStatusObserver(conflictObserver)).Publish(ctx, conflictLease, publisherEvaluation(v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "different"}}}))
+		conflictErr := reconciliation.NewStatusPublisher(newRuntimeStatusReader(current), conflictWriter, conflictTracker, reconciliation.WithStatusObserver(conflictObserver)).Publish(ctx, conflictLease, publisherEvaluation(v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "different"}}}))
 		if conflictErr == nil || !reconciliation.IsRetryable(conflictErr) || len(conflictRecorder.Events) != 0 {
 			t.Fatalf("conflict result = err=%v events=%d", conflictErr, len(conflictRecorder.Events))
 		}
@@ -168,7 +168,7 @@ func assertObservabilityStatusScenarios(t *testing.T, ctx context.Context) {
 		if err != nil {
 			t.Fatalf("construct malformed observer: %v", err)
 		}
-		owner := &v1alpha1.Kubeseer{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "malformed-event", UID: "malformed-event-uid"}}
+		owner := &v1alpha1.Facet{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "malformed-event", UID: "malformed-event-uid"}}
 		observer.RecordStatusEvent(ctx, owner, []metav1.Condition{{Type: statuscontract.ConditionAccepted, Status: metav1.ConditionFalse, Reason: "user-controlled", Message: "secret-data"}})
 		event := requireFakeEvent(t, recorder)
 		if !strings.HasPrefix(event, corev1.EventTypeWarning+" "+string(observability.ReasonInternalError)+" ") || strings.Contains(event, "secret-data") || strings.Contains(event, "user-controlled") {
@@ -193,8 +193,8 @@ func requireFakeEvent(t *testing.T, recorder *record.FakeRecorder) string {
 	}
 }
 
-func degradedStatusResult() v1alpha1.KubeseerResult {
-	return v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "degraded-source", State: v1alpha1.SourceStateError, Error: &v1alpha1.KubeseerResultError{Reason: "ReadUnavailable", Message: "sanitized"}}}}
+func degradedStatusResult() v1alpha1.FacetResult {
+	return v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "degraded-source", State: v1alpha1.SourceStateError, Error: &v1alpha1.FacetResultError{Reason: "ReadUnavailable", Message: "sanitized"}}}}
 }
 
 type panicEventRecorder struct{}

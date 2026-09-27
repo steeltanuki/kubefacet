@@ -17,15 +17,15 @@ package typedoutput
 import (
 	"sort"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 )
 
 // CompileSource validates every field type before any native match is
 // converted. Valid plans are sorted by field name; invalid declarations remain
 // field-local failures so independent plans survive.
-func CompileSource(source v1alpha1.KubeseerSource) PlanOutcome {
+func CompileSource(source v1alpha1.FacetSource) PlanOutcome {
 	type indexedField struct {
-		field v1alpha1.KubeseerField
+		field v1alpha1.FacetField
 		index int
 	}
 	fields := make([]indexedField, len(source.Fields))
@@ -60,7 +60,7 @@ func CompileSource(source v1alpha1.KubeseerSource) PlanOutcome {
 
 // CompileBatch compiles all source declarations independently and preserves
 // source input order.
-func CompileBatch(sources []v1alpha1.KubeseerSource) []PlanOutcome {
+func CompileBatch(sources []v1alpha1.FacetSource) []PlanOutcome {
 	outcomes := make([]PlanOutcome, len(sources))
 	for index, source := range sources {
 		outcomes[index] = CompileSource(source)
@@ -70,7 +70,7 @@ func CompileBatch(sources []v1alpha1.KubeseerSource) []PlanOutcome {
 
 // IsSupportedType reports whether a field type belongs to the closed logical
 // type set approved by the public API.
-func IsSupportedType(valueType v1alpha1.KubeseerValueType) bool {
+func IsSupportedType(valueType v1alpha1.FacetValueType) bool {
 	switch valueType {
 	case v1alpha1.ValueTypeString,
 		v1alpha1.ValueTypeInteger,

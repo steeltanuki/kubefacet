@@ -17,10 +17,10 @@ package aggregation
 import (
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 // BuildResult projects aggregation outcomes into the existing structural
@@ -30,7 +30,7 @@ import (
 // The public adapter is intentionally infallible for valid immutable
 // outcomes. Callers that need to classify malformed internal outcomes can use
 // BuildResultChecked.
-func BuildResult(outcomes []SourceOutcome) v1alpha1.KubeseerResult {
+func BuildResult(outcomes []SourceOutcome) v1alpha1.FacetResult {
 	result, _ := BuildResultChecked(outcomes)
 	return result
 }
@@ -38,9 +38,9 @@ func BuildResult(outcomes []SourceOutcome) v1alpha1.KubeseerResult {
 // BuildResultChecked is the checked form used by the reconciliation runtime.
 // It preserves the existing operator projection and fails before publication
 // if an internal outcome cannot be represented by the structural API.
-func BuildResultChecked(outcomes []SourceOutcome) (v1alpha1.KubeseerResult, error) {
+func BuildResultChecked(outcomes []SourceOutcome) (v1alpha1.FacetResult, error) {
 	if outcomes == nil {
-		return v1alpha1.KubeseerResult{}, nil
+		return v1alpha1.FacetResult{}, nil
 	}
 
 	operatorsOutcomes := make([]operators.SourceOutcome, len(outcomes))
@@ -49,10 +49,10 @@ func BuildResultChecked(outcomes []SourceOutcome) (v1alpha1.KubeseerResult, erro
 	}
 	result, err := operators.BuildResult(operatorsOutcomes)
 	if err != nil {
-		return v1alpha1.KubeseerResult{}, fmt.Errorf("project operator result: %w", err)
+		return v1alpha1.FacetResult{}, fmt.Errorf("project operator result: %w", err)
 	}
 	if len(result.Sources) != len(outcomes) {
-		return v1alpha1.KubeseerResult{}, fmt.Errorf("operator result source count %d does not match aggregation outcome count %d", len(result.Sources), len(outcomes))
+		return v1alpha1.FacetResult{}, fmt.Errorf("operator result source count %d does not match aggregation outcome count %d", len(result.Sources), len(outcomes))
 	}
 
 	for index, outcome := range outcomes {
@@ -61,15 +61,15 @@ func BuildResultChecked(outcomes []SourceOutcome) (v1alpha1.KubeseerResult, erro
 		}
 		projected, err := projectAggregates(outcome.Aggregates())
 		if err != nil {
-			return v1alpha1.KubeseerResult{}, fmt.Errorf("project aggregates for source %q: %w", outcome.SourceID(), err)
+			return v1alpha1.FacetResult{}, fmt.Errorf("project aggregates for source %q: %w", outcome.SourceID(), err)
 		}
 		result.Sources[index].Aggregates = projected
 	}
 	return result, nil
 }
 
-func projectAggregates(outcomes []AggregateOutcome) ([]v1alpha1.KubeseerAggregateResult, error) {
-	projected := make([]v1alpha1.KubeseerAggregateResult, len(outcomes))
+func projectAggregates(outcomes []AggregateOutcome) ([]v1alpha1.FacetAggregateResult, error) {
+	projected := make([]v1alpha1.FacetAggregateResult, len(outcomes))
 	for index, outcome := range outcomes {
 		converted, err := projectAggregate(outcome)
 		if err != nil {
@@ -80,8 +80,8 @@ func projectAggregates(outcomes []AggregateOutcome) ([]v1alpha1.KubeseerAggregat
 	return projected, nil
 }
 
-func projectAggregate(outcome AggregateOutcome) (v1alpha1.KubeseerAggregateResult, error) {
-	projected := v1alpha1.KubeseerAggregateResult{
+func projectAggregate(outcome AggregateOutcome) (v1alpha1.FacetAggregateResult, error) {
+	projected := v1alpha1.FacetAggregateResult{
 		Name:     outcome.Name(),
 		Function: outcome.Function(),
 		Field:    outcome.Field(),
@@ -95,22 +95,22 @@ func projectAggregate(outcome AggregateOutcome) (v1alpha1.KubeseerAggregateResul
 
 	groups := outcome.Groups()
 	if len(groups) != 0 {
-		projected.Groups = make([]v1alpha1.KubeseerAggregateGroup, len(groups))
+		projected.Groups = make([]v1alpha1.FacetAggregateGroup, len(groups))
 		for index, group := range groups {
 			converted, err := projectGroup(group)
 			if err != nil {
-				return v1alpha1.KubeseerAggregateResult{}, err
+				return v1alpha1.FacetAggregateResult{}, err
 			}
 			projected.Groups[index] = converted
 		}
 	}
 	failures := outcome.Failures()
 	if len(failures) != 0 {
-		projected.Failures = make([]v1alpha1.KubeseerAggregateResourceFailure, len(failures))
+		projected.Failures = make([]v1alpha1.FacetAggregateResourceFailure, len(failures))
 		for index, failure := range failures {
 			converted, err := projectResourceFailure(failure)
 			if err != nil {
-				return v1alpha1.KubeseerAggregateResult{}, err
+				return v1alpha1.FacetAggregateResult{}, err
 			}
 			projected.Failures[index] = converted
 		}
@@ -118,17 +118,17 @@ func projectAggregate(outcome AggregateOutcome) (v1alpha1.KubeseerAggregateResul
 	return projected, nil
 }
 
-func projectGroup(group AggregateGroup) (v1alpha1.KubeseerAggregateGroup, error) {
-	projected := v1alpha1.KubeseerAggregateGroup{}
+func projectGroup(group AggregateGroup) (v1alpha1.FacetAggregateGroup, error) {
+	projected := v1alpha1.FacetAggregateGroup{}
 	keys := group.Keys()
 	if len(keys) != 0 {
-		projected.Keys = make([]v1alpha1.KubeseerAggregateKey, len(keys))
+		projected.Keys = make([]v1alpha1.FacetAggregateKey, len(keys))
 		for index, key := range keys {
 			value, err := typedoutput.ProjectMatch(key.Value())
 			if err != nil {
-				return v1alpha1.KubeseerAggregateGroup{}, fmt.Errorf("project group key %q: %w", key.Field(), err)
+				return v1alpha1.FacetAggregateGroup{}, fmt.Errorf("project group key %q: %w", key.Field(), err)
 			}
-			projected.Keys[index] = v1alpha1.KubeseerAggregateKey{
+			projected.Keys[index] = v1alpha1.FacetAggregateKey{
 				Field: key.Field(),
 				Type:  key.Type(),
 				Value: value,
@@ -138,18 +138,18 @@ func projectGroup(group AggregateGroup) (v1alpha1.KubeseerAggregateGroup, error)
 
 	value, err := projectAggregateValue(group.Value())
 	if err != nil {
-		return v1alpha1.KubeseerAggregateGroup{}, err
+		return v1alpha1.FacetAggregateGroup{}, err
 	}
 	projected.Value = value
 	projected.Contributors, err = projectProvenances(group.Contributors())
 	if err != nil {
-		return v1alpha1.KubeseerAggregateGroup{}, err
+		return v1alpha1.FacetAggregateGroup{}, err
 	}
 	return projected, nil
 }
 
-func projectAggregateValue(value AggregateValue) (v1alpha1.KubeseerAggregateValue, error) {
-	projected := v1alpha1.KubeseerAggregateValue{
+func projectAggregateValue(value AggregateValue) (v1alpha1.FacetAggregateValue, error) {
+	projected := v1alpha1.FacetAggregateValue{
 		Type:  value.Type(),
 		State: value.State(),
 	}
@@ -157,41 +157,41 @@ func projectAggregateValue(value AggregateValue) (v1alpha1.KubeseerAggregateValu
 	if len(matches) == 0 {
 		return projected, nil
 	}
-	projected.Matches = make([]v1alpha1.KubeseerAggregateMatch, len(matches))
+	projected.Matches = make([]v1alpha1.FacetAggregateMatch, len(matches))
 	for index, match := range matches {
 		converted, err := typedoutput.ProjectMatch(match.Value())
 		if err != nil {
-			return v1alpha1.KubeseerAggregateValue{}, fmt.Errorf("project aggregate value match: %w", err)
+			return v1alpha1.FacetAggregateValue{}, fmt.Errorf("project aggregate value match: %w", err)
 		}
 		contributors, err := projectProvenances(match.Contributors())
 		if err != nil {
-			return v1alpha1.KubeseerAggregateValue{}, err
+			return v1alpha1.FacetAggregateValue{}, err
 		}
-		projected.Matches[index] = v1alpha1.KubeseerAggregateMatch{Value: converted, Contributors: contributors}
+		projected.Matches[index] = v1alpha1.FacetAggregateMatch{Value: converted, Contributors: contributors}
 	}
 	return projected, nil
 }
 
-func projectResourceFailure(failure ResourceFailure) (v1alpha1.KubeseerAggregateResourceFailure, error) {
+func projectResourceFailure(failure ResourceFailure) (v1alpha1.FacetAggregateResourceFailure, error) {
 	provenance, err := projectProvenance(failure.Provenance())
 	if err != nil {
-		return v1alpha1.KubeseerAggregateResourceFailure{}, err
+		return v1alpha1.FacetAggregateResourceFailure{}, err
 	}
 	failureErr := failure.Error()
 	if failureErr == nil {
-		return v1alpha1.KubeseerAggregateResourceFailure{}, fmt.Errorf("aggregate resource failure for %q has no error", provenance.Name)
+		return v1alpha1.FacetAggregateResourceFailure{}, fmt.Errorf("aggregate resource failure for %q has no error", provenance.Name)
 	}
-	return v1alpha1.KubeseerAggregateResourceFailure{
+	return v1alpha1.FacetAggregateResourceFailure{
 		Provenance: provenance,
 		Error:      *publicAggregateError(failureErr),
 	}, nil
 }
 
-func projectProvenances(provenances []selection.Provenance) ([]v1alpha1.KubeseerResourceProvenance, error) {
+func projectProvenances(provenances []selection.Provenance) ([]v1alpha1.FacetResourceProvenance, error) {
 	if len(provenances) == 0 {
 		return nil, nil
 	}
-	projected := make([]v1alpha1.KubeseerResourceProvenance, len(provenances))
+	projected := make([]v1alpha1.FacetResourceProvenance, len(provenances))
 	for index, provenance := range provenances {
 		converted, err := projectProvenance(provenance)
 		if err != nil {
@@ -202,11 +202,11 @@ func projectProvenances(provenances []selection.Provenance) ([]v1alpha1.Kubeseer
 	return projected, nil
 }
 
-func projectProvenance(provenance selection.Provenance) (v1alpha1.KubeseerResourceProvenance, error) {
+func projectProvenance(provenance selection.Provenance) (v1alpha1.FacetResourceProvenance, error) {
 	if provenance.APIVersion == "" || provenance.Kind == "" || provenance.Name == "" || provenance.UID == "" {
-		return v1alpha1.KubeseerResourceProvenance{}, fmt.Errorf("aggregate provenance is incomplete")
+		return v1alpha1.FacetResourceProvenance{}, fmt.Errorf("aggregate provenance is incomplete")
 	}
-	return v1alpha1.KubeseerResourceProvenance{
+	return v1alpha1.FacetResourceProvenance{
 		APIVersion: provenance.APIVersion,
 		Kind:       provenance.Kind,
 		Namespace:  provenance.Namespace,
@@ -215,9 +215,9 @@ func projectProvenance(provenance selection.Provenance) (v1alpha1.KubeseerResour
 	}, nil
 }
 
-func publicAggregateError(err *AggregateError) *v1alpha1.KubeseerResultError {
+func publicAggregateError(err *AggregateError) *v1alpha1.FacetResultError {
 	if err == nil {
 		return nil
 	}
-	return &v1alpha1.KubeseerResultError{Reason: string(err.Reason), Message: err.Message}
+	return &v1alpha1.FacetResultError{Reason: string(err.Reason), Message: err.Message}
 }

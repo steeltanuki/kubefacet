@@ -27,11 +27,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 // Limits bounds every output-amplifying dimension of one aggregate.
@@ -88,7 +88,7 @@ type AggregateError struct {
 	SourceID       string
 	AggregateName  string
 	AggregateIndex int
-	Function       v1alpha1.KubeseerAggregationFunction
+	Function       v1alpha1.FacetAggregationFunction
 	FieldName      string
 	GroupByIndex   int
 	Provenance     *selection.Provenance
@@ -118,7 +118,7 @@ const (
 )
 
 // NewAggregateError creates a stable sanitized error and copies provenance.
-func NewAggregateError(sourceID string, aggregateName string, function v1alpha1.KubeseerAggregationFunction, fieldName string, provenance *selection.Provenance, reason Reason, message string) *AggregateError {
+func NewAggregateError(sourceID string, aggregateName string, function v1alpha1.FacetAggregationFunction, fieldName string, provenance *selection.Provenance, reason Reason, message string) *AggregateError {
 	var copied *selection.Provenance
 	if provenance != nil {
 		value := *provenance
@@ -137,7 +137,7 @@ func NewAggregateError(sourceID string, aggregateName string, function v1alpha1.
 	}
 }
 
-func aggregateErrorWithCause(sourceID string, aggregateName string, function v1alpha1.KubeseerAggregationFunction, fieldName string, provenance *selection.Provenance, reason Reason, message string, cause error) *AggregateError {
+func aggregateErrorWithCause(sourceID string, aggregateName string, function v1alpha1.FacetAggregationFunction, fieldName string, provenance *selection.Provenance, reason Reason, message string, cause error) *AggregateError {
 	err := NewAggregateError(sourceID, aggregateName, function, fieldName, provenance, reason, message)
 	err.cause = cause
 	return err
@@ -185,26 +185,26 @@ func HasReason(err error, reason Reason) bool {
 // GroupFieldPlan captures one ordered grouping field and its logical type.
 type GroupFieldPlan struct {
 	name     string
-	typeName v1alpha1.KubeseerValueType
+	typeName v1alpha1.FacetValueType
 }
 
 // Name returns the declared grouping field name.
 func (p GroupFieldPlan) Name() string { return p.name }
 
 // Type returns the declared grouping field type.
-func (p GroupFieldPlan) Type() v1alpha1.KubeseerValueType { return p.typeName }
+func (p GroupFieldPlan) Type() v1alpha1.FacetValueType { return p.typeName }
 
 // AggregatePlan is one immutable valid aggregate declaration.
 type AggregatePlan struct {
 	sourceID          string
 	name              string
-	function          v1alpha1.KubeseerAggregationFunction
+	function          v1alpha1.FacetAggregationFunction
 	field             string
-	fieldType         v1alpha1.KubeseerValueType
+	fieldType         v1alpha1.FacetValueType
 	groupBy           []GroupFieldPlan
 	includeProvenance bool
 	precision         int32
-	roundingMode      v1alpha1.KubeseerRoundingMode
+	roundingMode      v1alpha1.FacetRoundingMode
 	limits            Limits
 }
 
@@ -215,13 +215,13 @@ func (p AggregatePlan) SourceID() string { return p.sourceID }
 func (p AggregatePlan) Name() string { return p.name }
 
 // Function returns the closed reducer function.
-func (p AggregatePlan) Function() v1alpha1.KubeseerAggregationFunction { return p.function }
+func (p AggregatePlan) Function() v1alpha1.FacetAggregationFunction { return p.function }
 
 // Field returns the target field name.
 func (p AggregatePlan) Field() string { return p.field }
 
 // FieldType returns the target logical type.
-func (p AggregatePlan) FieldType() v1alpha1.KubeseerValueType { return p.fieldType }
+func (p AggregatePlan) FieldType() v1alpha1.FacetValueType { return p.fieldType }
 
 // GroupBy returns ordered grouping field plans.
 func (p AggregatePlan) GroupBy() []GroupFieldPlan {
@@ -236,7 +236,7 @@ func (p AggregatePlan) IncludeProvenance() bool { return p.includeProvenance }
 func (p AggregatePlan) Precision() int32 { return p.precision }
 
 // RoundingMode returns the effective average rounding mode.
-func (p AggregatePlan) RoundingMode() v1alpha1.KubeseerRoundingMode { return p.roundingMode }
+func (p AggregatePlan) RoundingMode() v1alpha1.FacetRoundingMode { return p.roundingMode }
 
 // Limits returns the copied per-plan cardinality ceilings.
 func (p AggregatePlan) Limits() Limits { return p.limits }
@@ -340,7 +340,7 @@ func (c Contribution) MatchIndex() int { return c.matchIndex }
 // AggregateKey is one ordered, typed group-key component.
 type AggregateKey struct {
 	field     string
-	typeName  v1alpha1.KubeseerValueType
+	typeName  v1alpha1.FacetValueType
 	match     typedoutput.Match
 	canonical []byte
 }
@@ -349,7 +349,7 @@ type AggregateKey struct {
 func (k AggregateKey) Field() string { return k.field }
 
 // Type returns the grouping field type.
-func (k AggregateKey) Type() v1alpha1.KubeseerValueType { return k.typeName }
+func (k AggregateKey) Type() v1alpha1.FacetValueType { return k.typeName }
 
 // Value returns the immutable typed key match.
 func (k AggregateKey) Value() typedoutput.Match { return k.match }
@@ -373,16 +373,16 @@ func (m AggregateValueMatch) Contributors() []selection.Provenance {
 
 // AggregateValue is one explicit typed reducer result.
 type AggregateValue struct {
-	typeName v1alpha1.KubeseerValueType
-	state    v1alpha1.KubeseerAggregateValueState
+	typeName v1alpha1.FacetValueType
+	state    v1alpha1.FacetAggregateValueState
 	matches  []AggregateValueMatch
 }
 
 // Type returns the output logical type.
-func (v AggregateValue) Type() v1alpha1.KubeseerValueType { return v.typeName }
+func (v AggregateValue) Type() v1alpha1.FacetValueType { return v.typeName }
 
 // State returns absent or values, including an intentionally empty collection.
-func (v AggregateValue) State() v1alpha1.KubeseerAggregateValueState { return v.state }
+func (v AggregateValue) State() v1alpha1.FacetAggregateValueState { return v.state }
 
 // Matches returns defensive copies of reducer output values.
 func (v AggregateValue) Matches() []AggregateValueMatch {
@@ -440,9 +440,9 @@ func (f ResourceFailure) Error() *AggregateError { return cloneAggregateError(f.
 // terminal state, groups, resource failures, or aggregate-scoped error.
 type AggregateOutcome struct {
 	name     string
-	function v1alpha1.KubeseerAggregationFunction
+	function v1alpha1.FacetAggregationFunction
 	field    string
-	state    v1alpha1.KubeseerAggregateState
+	state    v1alpha1.FacetAggregateState
 	groups   []AggregateGroup
 	failures []ResourceFailure
 	err      *AggregateError
@@ -452,13 +452,13 @@ type AggregateOutcome struct {
 func (o AggregateOutcome) Name() string { return o.name }
 
 // Function returns the reducer function.
-func (o AggregateOutcome) Function() v1alpha1.KubeseerAggregationFunction { return o.function }
+func (o AggregateOutcome) Function() v1alpha1.FacetAggregationFunction { return o.function }
 
 // Field returns the target field.
 func (o AggregateOutcome) Field() string { return o.field }
 
 // State returns values, degraded, or error.
-func (o AggregateOutcome) State() v1alpha1.KubeseerAggregateState { return o.state }
+func (o AggregateOutcome) State() v1alpha1.FacetAggregateState { return o.state }
 
 // Groups returns defensive groups in canonical tuple order.
 func (o AggregateOutcome) Groups() []AggregateGroup {

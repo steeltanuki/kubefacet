@@ -28,10 +28,10 @@ func assertPackagingRBACScenarios(t *testing.T) {
 	if !ok {
 		t.Fatal("locate integration test source")
 	}
-	chartDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubeseer")
+	chartDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubefacet")
 
 	render := func(extra ...string) (string, error) {
-		args := []string{"template", "kubeseer", chartDir, "--namespace", "team-a", "--kube-version", "1.35.6"}
+		args := []string{"template", "kubefacet", chartDir, "--namespace", "team-a", "--kube-version", "1.35.6"}
 		args = append(args, extra...)
 		return func() (string, error) {
 			output, err := exec.Command("helm", args...).CombinedOutput()
@@ -44,8 +44,8 @@ func assertPackagingRBACScenarios(t *testing.T) {
 		t.Fatalf("render default RBAC: %v\n%s", err, defaultRender)
 	}
 	for _, fragment := range []string{
-		"name: kubeseer-operator",
-		"resources: [\"kubeseers\"]",
+		"name: kubefacet-operator",
+		"resources: [\"facets\"]",
 		"resources: [\"leases\"]",
 		"resources: [\"events\"]",
 	} {
@@ -64,7 +64,7 @@ func assertPackagingRBACScenarios(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render namespaced observed RBAC: %v\n%s", err, namespacedRender)
 	}
-	if !strings.Contains(namespacedRender, "kind: Role\nmetadata:\n  name: kubeseer-observed-0\n  namespace: team-a") || !strings.Contains(namespacedRender, "resources:\n      - deployments") {
+	if !strings.Contains(namespacedRender, "kind: Role\nmetadata:\n  name: kubefacet-observed-0\n  namespace: team-a") || !strings.Contains(namespacedRender, "resources:\n      - deployments") {
 		t.Fatal("namespaced observed RBAC was not scoped to the declared namespace/resource")
 	}
 
@@ -77,7 +77,7 @@ func assertPackagingRBACScenarios(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render explicitly allowed cluster-scoped RBAC: %v\n%s", err, clusterRender)
 	}
-	if !strings.Contains(clusterRender, "name: kubeseer-observed-cluster") || !strings.Contains(clusterRender, "resources:\n      - nodes") {
+	if !strings.Contains(clusterRender, "name: kubefacet-observed-cluster") || !strings.Contains(clusterRender, "resources:\n      - nodes") {
 		t.Fatal("explicit cluster-scoped RBAC was not rendered")
 	}
 
@@ -85,11 +85,11 @@ func assertPackagingRBACScenarios(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render author RBAC: %v\n%s", err, authorRender)
 	}
-	if !strings.Contains(authorRender, "name: kubeseer-author") || !strings.Contains(authorRender, "name: alice") {
+	if !strings.Contains(authorRender, "name: kubefacet-author") || !strings.Contains(authorRender, "name: alice") {
 		t.Fatal("author RBAC was not rendered independently")
 	}
 	authorSection := authorRender
-	if start := strings.Index(authorSection, "# Source: kubeseer/templates/rbac-authors.yaml"); start >= 0 {
+	if start := strings.Index(authorSection, "# Source: kubefacet/templates/rbac-authors.yaml"); start >= 0 {
 		authorSection = authorSection[start:]
 		if end := strings.Index(authorSection, "\n---\n"); end >= 0 {
 			authorSection = authorSection[:end]

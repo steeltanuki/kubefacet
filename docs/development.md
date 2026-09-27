@@ -1,6 +1,6 @@
 # Development and verification
 
-Kubeseer is a Go/controller-runtime project with generated Kubernetes APIs,
+KubeFacet is a Go/controller-runtime project with generated Kubernetes APIs,
 layered integration tests, a packaged kind E2E system, and Walden-controlled
 feature evidence. This guide describes the repository's current executable
 workflow.
@@ -32,12 +32,12 @@ The certified local and E2E provider is kind on rootless Podman.
 | Path | Purpose |
 | --- | --- |
 | `api/v1alpha1` | Public API types and generated deep-copy code |
-| `cmd/kubeseer` | Manager binary entry point |
-| `cmd/kubeseer-local` | Private helper used by the constrained local workflow |
-| `cmd/kubeseer-purge` | Separately built, confirmed destructive purge client |
+| `cmd/kubefacet` | Manager binary entry point |
+| `cmd/kubefacet-local` | Private helper used by the constrained local workflow |
+| `cmd/kubefacet-purge` | Separately built, confirmed destructive purge client |
 | `internal/*` | Discovery, policy, authorization, selection, evaluation, status, admission, and runtime packages |
 | `config/crd/bases` | Generated canonical CRDs |
-| `charts/kubeseer` | Canonical Helm package and values schema |
+| `charts/kubefacet` | Canonical Helm package and values schema |
 | `examples` | Runnable public-boundary scenarios |
 | `test/integration` | Cross-module in-process scenarios |
 | `test/envtest` | Real Kubernetes API machinery through envtest |
@@ -75,7 +75,7 @@ Do not hand-edit generated CRDs or deep-copy files.
 
 ## Test layers
 
-Kubeseer treats the lowest genuine collaboration boundary as the preferred
+KubeFacet treats the lowest genuine collaboration boundary as the preferred
 proof layer. Package-local unit tests may exist, but required behaviour is
 proved through cross-module, envtest, or E2E scenarios.
 
@@ -105,8 +105,8 @@ runs the API suite across both supported Kubernetes versions.
 Use writable caches in restricted or ephemeral environments:
 
 ```sh
-GOCACHE=/tmp/kubeseer-go-build \
-GOMODCACHE=/tmp/kubeseer-go-mod \
+GOCACHE=/tmp/kubefacet-go-build \
+GOMODCACHE=/tmp/kubefacet-go-mod \
   make test-api
 ```
 
@@ -161,7 +161,7 @@ make local-examples-down
 make local-down
 ```
 
-Only the fixed `kubeseer-local` cluster is owned by these commands. Never use
+Only the fixed `kubefacet-local` cluster is owned by these commands. Never use
 global Podman cleanup as a project recovery step. See the
 [local development guide](local-development.md) for state paths and supported
 hosts.

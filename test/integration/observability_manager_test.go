@@ -26,13 +26,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"k8s.io/apimachinery/pkg/types"
@@ -68,7 +68,7 @@ func assertObservabilityManagerScenarios(t *testing.T, ctx context.Context, reso
 
 	key := types.NamespacedName{Namespace: "team-a", Name: "observability-manager-owner"}
 	source := runtimePipelineValuesSource("observability-manager-source")
-	owner := runtimePipelineKubeseer(key, "observability-manager-uid", 1, source)
+	owner := runtimePipelineFacet(key, "observability-manager-uid", 1, source)
 	ownerReader := &countingRuntimeReader{delegate: newRuntimePipelineReader(owner)}
 	resourceLister := newRuntimePipelineLister()
 	resourceLister.SetResponse(source.ID, unstructuredListForPipeline(runtimePipelineResource("manager-resource", "manager-resource-uid", "manager-value", "7")))
@@ -98,7 +98,7 @@ func assertObservabilityManagerScenarios(t *testing.T, ctx context.Context, reso
 	runtimeInstance, err := reconciliation.NewRuntime(reconciliation.Options{SafetyInterval: time.Hour}, reconciliation.Dependencies{
 		Reader:       ownerReader,
 		Lister:       ownerReader,
-		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) { return basePolicy().DeepCopy(), nil }),
+		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) { return basePolicy().DeepCopy(), nil }),
 		Enforcer:     authorization.NewEnforcer(observability.NewAuthorizationRecorder(observer)),
 		Planner:      selection.NewPlanner(resolver),
 		Executor: selection.NewExecutor(resourceLister,
@@ -191,13 +191,13 @@ func assertObservabilityManagerScenarios(t *testing.T, ctx context.Context, reso
 		t.Fatalf("replaceable logger entries = %d, want at least %d", loggerLines.Len(), len(records))
 	}
 	assertObservabilityMetricFamilies(t, registry)
-	assertObservabilityMetricValue(t, registry, "kubeseer_reconciliations_total", `outcome="completed",reason="EvaluationSucceeded"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_reconciliation_duration_seconds", `outcome="completed"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_resources_read_total", `scope="namespaced"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_authorization_decisions_total", `kind="PolicyDecision",outcome="allowed",reason="Allowed"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_results_produced_total", `outcome="completed"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_status_updates_total", `outcome="written",reason="EvaluationSucceeded"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_source_watch_restarts_total", `reason="ReadUnavailable"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_reconciliations_total", `outcome="completed",reason="EvaluationSucceeded"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_reconciliation_duration_seconds", `outcome="completed"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_resources_read_total", `scope="namespaced"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_authorization_decisions_total", `kind="PolicyDecision",outcome="allowed",reason="Allowed"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_results_produced_total", `outcome="completed"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_status_updates_total", `outcome="written",reason="EvaluationSucceeded"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_source_watch_restarts_total", `reason="ReadUnavailable"`, 1)
 
 	spans := exporter.GetSpans()
 	if len(spans) != 10 {
@@ -261,14 +261,14 @@ type countingRuntimeReader struct {
 	lists    int
 }
 
-func (r *countingRuntimeReader) Get(ctx context.Context, key types.NamespacedName, object *v1alpha1.Kubeseer) error {
+func (r *countingRuntimeReader) Get(ctx context.Context, key types.NamespacedName, object *v1alpha1.Facet) error {
 	r.mu.Lock()
 	r.gets++
 	r.mu.Unlock()
 	return r.delegate.Get(ctx, key, object)
 }
 
-func (r *countingRuntimeReader) List(ctx context.Context, list *v1alpha1.KubeseerList) error {
+func (r *countingRuntimeReader) List(ctx context.Context, list *v1alpha1.FacetList) error {
 	r.mu.Lock()
 	r.lists++
 	r.mu.Unlock()
@@ -293,7 +293,7 @@ type countingStatusReader struct {
 	gets     int
 }
 
-func (r *countingStatusReader) Get(ctx context.Context, key types.NamespacedName, object *v1alpha1.Kubeseer) error {
+func (r *countingStatusReader) Get(ctx context.Context, key types.NamespacedName, object *v1alpha1.Facet) error {
 	r.mu.Lock()
 	r.gets++
 	r.mu.Unlock()

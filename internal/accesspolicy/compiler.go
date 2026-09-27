@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
@@ -59,7 +59,7 @@ type validationIssue struct {
 // an immutable lookup representation. Empty namespace and resource lists are
 // valid deny-all boundaries; nil systemNamespaces receives the documented
 // default while a non-nil empty slice remains empty.
-func Compile(policy *v1alpha1.KubeseerAccessPolicy) (*CompiledPolicy, error) {
+func Compile(policy *v1alpha1.FacetAccessPolicy) (*CompiledPolicy, error) {
 	issues := Validate(policy)
 	if len(issues) != 0 {
 		return nil, issues[0]
@@ -102,7 +102,7 @@ func Compile(policy *v1alpha1.KubeseerAccessPolicy) (*CompiledPolicy, error) {
 
 // Validate returns every independent policy declaration failure in stable
 // field order. It performs no compilation, I/O, or mutation.
-func Validate(policy *v1alpha1.KubeseerAccessPolicy) []*PolicyError {
+func Validate(policy *v1alpha1.FacetAccessPolicy) []*PolicyError {
 	issues := validatePolicy(policy)
 	result := make([]*PolicyError, len(issues))
 	for index, issue := range issues {
@@ -117,11 +117,11 @@ func Validate(policy *v1alpha1.KubeseerAccessPolicy) []*PolicyError {
 
 // ValidateAll is an explicit alias for callers that prefer the multi-error
 // terminology at an admission boundary.
-func ValidateAll(policy *v1alpha1.KubeseerAccessPolicy) []*PolicyError {
+func ValidateAll(policy *v1alpha1.FacetAccessPolicy) []*PolicyError {
 	return Validate(policy)
 }
 
-func validatePolicy(policy *v1alpha1.KubeseerAccessPolicy) []validationIssue {
+func validatePolicy(policy *v1alpha1.FacetAccessPolicy) []validationIssue {
 	if policy == nil {
 		return []validationIssue{{field: "policy", message: "must not be nil"}}
 	}
