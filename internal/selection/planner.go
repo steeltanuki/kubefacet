@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -45,7 +45,7 @@ func NewPlanner(resolver DiscoveryResolver) *Planner {
 
 // Plan resolves identity and scope, canonicalizes selectors, and derives exact
 // namespace targets without reading any resource instances.
-func (p *Planner) Plan(ctx context.Context, ownerNamespace string, source v1alpha1.KubeseerSource) (SelectionPlan, error) {
+func (p *Planner) Plan(ctx context.Context, ownerNamespace string, source v1alpha1.FacetSource) (SelectionPlan, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -88,7 +88,7 @@ func (p *Planner) Plan(ctx context.Context, ownerNamespace string, source v1alph
 	}, nil
 }
 
-func validateSource(source v1alpha1.KubeseerSource) error {
+func validateSource(source v1alpha1.FacetSource) error {
 	if source.ID == "" || len(source.ID) > 63 || len(validation.IsDNS1123Label(source.ID)) != 0 {
 		return NewSelectionError(source.ID, ReasonInvalidSource, "source ID must be a valid DNS-1123 label")
 	}
@@ -101,7 +101,7 @@ func validateSource(source v1alpha1.KubeseerSource) error {
 	return nil
 }
 
-func canonicalSelectors(source v1alpha1.KubeseerSource) (string, string, error) {
+func canonicalSelectors(source v1alpha1.FacetSource) (string, string, error) {
 	selector := source.Selector
 	if selector == nil {
 		return labels.Everything().String(), fields.Everything().String(), nil

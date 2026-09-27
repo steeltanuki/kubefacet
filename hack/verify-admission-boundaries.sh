@@ -74,7 +74,7 @@ if [[ -d "$API_DIR" ]]; then
 	done < <(find "$API_DIR" -mindepth 1 -maxdepth 1 -type d -name 'v*' -print | sort)
 fi
 
-check_absent 'second Kubeseer API version' 'kubeseer\.io/v(?:[2-9][0-9]*|1(?:alpha[2-9][0-9]*|beta[0-9]+))' "$API_DIR" "$CRD_DIR" "$ADMISSION_DIR"
+check_absent 'second Facet API version' 'kubefacet\.steeltanuki\.it/v(?:[2-9][0-9]*|1(?:alpha[2-9][0-9]*|beta[0-9]+))' "$API_DIR" "$CRD_DIR" "$ADMISSION_DIR"
 check_absent 'opaque public schema' 'x-kubernetes-preserve-unknown-fields|preserveUnknownFields|preserve-unknown-fields' "$API_DIR" "$CRD_DIR"
 check_absent 'SubjectAccessReview or user impersonation' 'SubjectAccessReview|subjectaccessreviews|Impersonat|Impersonation|as-user|as-group' "$ADMISSION_DIR"
 check_absent 'admission-created authorization capability' 'internal/authorization|authorization\.(New|Capability|Record)|\bCapability\b|\bAuthorizedRoute\b|\bAuthorizedRead\b|BindCapabilities' "$ADMISSION_DIR"
@@ -83,6 +83,12 @@ check_absent 'admission Service or certificate lifecycle' 'cert-manager|certwatc
 
 require_text "$MAKEFILE" './hack/verify-generated.sh'
 require_text "$MAKEFILE" 'TestEnvtestAdmissionValidation'
+require_text "$API_DIR/v1alpha1/groupversion_info.go" 'Group: "kubefacet.steeltanuki.it"'
+require_text "$API_DIR/v1alpha1/doc.go" '+groupName=kubefacet.steeltanuki.it'
+require_text "$API_DIR/v1alpha1/facet_types.go" '+kubebuilder:resource:path=facets,singular=facet,scope=Namespaced'
+require_text "$API_DIR/v1alpha1/facet_access_policy_types.go" '+kubebuilder:resource:path=facetaccesspolicies,singular=facetaccesspolicy,scope=Cluster'
+require_text "$CRD_DIR/kubefacet.steeltanuki.it_facets.yaml" 'name: facets.kubefacet.steeltanuki.it'
+require_text "$CRD_DIR/kubefacet.steeltanuki.it_facetaccesspolicies.yaml" 'name: facetaccesspolicies.kubefacet.steeltanuki.it'
 require_text "$ROOT_DIR/hack/verify-test-layer-policy.sh" 'check_envtest_suite test/envtest/admission_validation_envtest_test.go TestEnvtestAdmissionValidation'
 require_text "$ROOT_DIR/test/integration/installation_access_policy_test.go" 'MODULE_INTEGRATION=admission-validation STATUS=passed'
 require_text "$ROOT_DIR/test/envtest/reconciliation_runtime_envtest_test.go" 'API_CONTRACT=admission-validation-runtime STATUS=passed'

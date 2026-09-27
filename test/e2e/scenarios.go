@@ -82,23 +82,23 @@ var scenarioRegistry = []Scenario{
 	{ID: "E2E-010", Name: "Source update and semantic no-op", RegistryKey: "source-update-noop", Run: scenarioSourceUpdateNoop},
 	{ID: "E2E-011", Name: "Source deletion and policy restriction", RegistryKey: "source-deletion-policy", Run: scenarioSourceDeletionPolicy},
 	{ID: "E2E-012", Name: "Manager restart", RegistryKey: "manager-restart", Run: scenarioManagerRestart},
-	{ID: "E2E-013", Name: "Kubeseer deletion", RegistryKey: "kubeseer-deletion", Run: scenarioKubeseerDeletion},
+	{ID: "E2E-013", Name: "Facet deletion", RegistryKey: "kubefacet-deletion", Run: scenarioFacetDeletion},
 	{ID: "E2E-014", Name: "Overlapping instances", RegistryKey: "overlapping-instances", Run: scenarioOverlappingInstances},
 	{ID: "E2E-015", Name: "Status and observability correlation", RegistryKey: "status-observability", Run: scenarioStatusObservability},
 }
 
 var expectedFeatureNames = []string{
-	"kubeseer-api-foundation", "integration-testing-foundation", "resource-discovery", "installation-access-policy",
+	"kubefacet-api-foundation", "integration-testing-foundation", "resource-discovery", "installation-access-policy",
 	"resource-selection", "field-extraction", "typed-output-model", "reconciliation-runtime", "status-and-conditions",
 	"authorization-enforcement", "value-operators", "cross-namespace-aggregation", "admission-validation", "observability",
 	"performance-and-limits", "packaging-and-installation",
 }
 
 var expectedMinimumScenarioKeys = []string{
-	"deployment-in-kubeseer-namespace", "pods-across-multiple-namespaces", "custom-resource", "label-selection",
+	"deployment-in-kubefacet-namespace", "pods-across-multiple-namespaces", "custom-resource", "label-selection",
 	"scalar-jsonpath", "list-jsonpath", "typed-values", "numeric-aggregation", "partial-degraded-result",
 	"forbidden-namespace", "forbidden-kind", "missing-resource-type-or-crd", "source-update", "semantic-no-op",
-	"source-deletion", "policy-restriction", "operator-restart", "oversized-output", "kubeseer-deletion", "overlapping-instances",
+	"source-deletion", "policy-restriction", "operator-restart", "oversized-output", "kubefacet-deletion", "overlapping-instances",
 }
 
 // LoadManifest rejects unknown fields so a new release-scope entry cannot be

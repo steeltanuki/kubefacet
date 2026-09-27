@@ -4,19 +4,19 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: degraded
-  namespace: kubeseer-example-degraded
-  labels: {kubeseer.io/example: partial-degradation, app.kubernetes.io/name: degraded}
+  namespace: kubefacet-example-degraded
+  labels: {kubefacet.steeltanuki.it/example: partial-degradation, app.kubernetes.io/name: degraded}
 spec:
   replicas: 1
   selector: {matchLabels: {app.kubernetes.io/name: degraded}}
   template:
-    metadata: {labels: {app.kubernetes.io/name: degraded, kubeseer.io/example: partial-degradation}}
+    metadata: {labels: {app.kubernetes.io/name: degraded, kubefacet.steeltanuki.it/example: partial-degradation}}
     spec: {containers: [{name: fixture, image: registry.k8s.io/pause:3.10, imagePullPolicy: IfNotPresent}]}
 ---
-apiVersion: fixtures.kubeseer.io/v1alpha1
+apiVersion: fixtures.kubefacet.steeltanuki.it/v1alpha1
 kind: DegradedWidget
 metadata:
   name: degraded-widget
-  namespace: kubeseer-example-degraded
-  labels: {kubeseer.io/example: partial-degradation}
+  namespace: kubefacet-example-degraded
+  labels: {kubefacet.steeltanuki.it/example: partial-degradation}
 spec: {size: 3}

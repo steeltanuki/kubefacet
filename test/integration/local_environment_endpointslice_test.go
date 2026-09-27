@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/internal/localprobe"
+	"github.com/steeltanuki/kubefacet/internal/localprobe"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,8 +31,8 @@ import (
 func assertLocalEndpointSliceObserverScenarios(t *testing.T, ctx context.Context) {
 	t.Helper()
 	const (
-		namespace   = "kubeseer-system"
-		serviceName = "kubeseer-webhook"
+		namespace   = "kubefacet-system"
+		serviceName = "kubefacet-webhook"
 	)
 
 	t.Run("selects the Service label and aggregates every matching slice", func(t *testing.T) {
@@ -71,7 +71,7 @@ func assertLocalEndpointSliceObserverScenarios(t *testing.T, ctx context.Context
 		if listNamespace != namespace {
 			t.Fatalf("EndpointSlice LIST namespace = %q, want %q", listNamespace, namespace)
 		}
-		if listSelector != "kubernetes.io/service-name=kubeseer-webhook" {
+		if listSelector != "kubernetes.io/service-name=kubefacet-webhook" {
 			t.Fatalf("EndpointSlice LIST selector = %q, want exact Service equality selector", listSelector)
 		}
 	})
@@ -86,7 +86,7 @@ func assertLocalEndpointSliceObserverScenarios(t *testing.T, ctx context.Context
 		if got != 0 {
 			t.Fatalf("zero-ready count = %d, want 0", got)
 		}
-		if err == nil || !strings.Contains(err.Error(), "webhook Service kubeseer-system/kubeseer-webhook has no ready EndpointSlice endpoints") {
+		if err == nil || !strings.Contains(err.Error(), "webhook Service kubefacet-system/kubefacet-webhook has no ready EndpointSlice endpoints") {
 			t.Fatalf("zero-ready error = %v", err)
 		}
 	})
@@ -104,7 +104,7 @@ func assertLocalEndpointSliceObserverScenarios(t *testing.T, ctx context.Context
 		if got != 0 {
 			t.Fatalf("list-error count = %d, want 0", got)
 		}
-		if err == nil || !strings.Contains(err.Error(), "webhook Service kubeseer-system/kubeseer-webhook EndpointSlice list unavailable") || !strings.Contains(err.Error(), "forbidden by EndpointSlice fixture") {
+		if err == nil || !strings.Contains(err.Error(), "webhook Service kubefacet-system/kubefacet-webhook EndpointSlice list unavailable") || !strings.Contains(err.Error(), "forbidden by EndpointSlice fixture") {
 			t.Fatalf("list-error = %v", err)
 		}
 	})

@@ -23,13 +23,13 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +52,7 @@ func assertObservabilityRuntimeScenarios(t *testing.T, ctx context.Context, reso
 
 	source := runtimePipelineValuesSource("observability-runtime-source")
 	key := types.NamespacedName{Namespace: "team-a", Name: "observability-runtime-owner"}
-	object := runtimePipelineKubeseer(key, "observability-runtime-uid", 1, source)
+	object := runtimePipelineFacet(key, "observability-runtime-uid", 1, source)
 	reader := newRuntimePipelineReader(object)
 	lister := newRuntimePipelineLister()
 	lister.SetResponse(source.ID, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*runtimePipelineResource("runtime-resource", "runtime-resource-uid", "runtime-value", "7")}})
@@ -69,16 +69,16 @@ func assertObservabilityRuntimeScenarios(t *testing.T, ctx context.Context, reso
 	if terminal.Event != observability.EventReconciliationCompleted || terminal.Outcome != observability.OutcomeCompleted || terminal.Reason != observability.ReasonEvaluationSucceeded || terminal.AttemptID == "" || terminal.TraceID == "" || terminal.SpanID == "" {
 		t.Fatalf("runtime terminal envelope = %#v", terminal)
 	}
-	assertObservabilityMetricValue(t, registry, "kubeseer_reconciliations_total", `outcome="completed",reason="EvaluationSucceeded"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_reconciliation_duration_seconds", `outcome="completed"`, 1)
-	assertObservabilityMetricValue(t, registry, "kubeseer_results_produced_total", `outcome="completed"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_reconciliations_total", `outcome="completed",reason="EvaluationSucceeded"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_reconciliation_duration_seconds", `outcome="completed"`, 1)
+	assertObservabilityMetricValue(t, registry, "kubefacet_results_produced_total", `outcome="completed"`, 1)
 	spans := exporter.GetSpans()
 	if len(spans) != 10 {
 		t.Fatalf("trace span count = %d, want one root plus nine fixed stages", len(spans))
 	}
 	rootIndex := -1
 	for index, span := range spans {
-		if span.Name == "kubeseer.reconciliation" && !span.Parent.SpanID().IsValid() {
+		if span.Name == "kubefacet.reconciliation" && !span.Parent.SpanID().IsValid() {
 			rootIndex = index
 			break
 		}
@@ -91,7 +91,7 @@ func assertObservabilityRuntimeScenarios(t *testing.T, ctx context.Context, reso
 		if index == rootIndex {
 			continue
 		}
-		if span.Parent.TraceID() != rootTrace || !span.Parent.SpanID().IsValid() || !strings.HasPrefix(span.Name, "kubeseer.reconciliation.") {
+		if span.Parent.TraceID() != rootTrace || !span.Parent.SpanID().IsValid() || !strings.HasPrefix(span.Name, "kubefacet.reconciliation.") {
 			t.Fatalf("stage span is not rooted at reconciliation: %#v", span)
 		}
 	}
@@ -127,7 +127,7 @@ func assertObservabilityRuntimeScenarios(t *testing.T, ctx context.Context, reso
 	if len(retryRecords) < 3 || retryRecords[len(retryRecords)-1].Event != observability.EventReconciliationRetryScheduled || retryRecords[len(retryRecords)-1].Reason != observability.ReasonReadUnavailable || retryRecords[len(retryRecords)-1].Retry != observability.RetryScheduled {
 		t.Fatalf("retry runtime records = %#v", retryRecords)
 	}
-	assertObservabilityMetricValue(t, retryRegistry, "kubeseer_source_failures_total", `reason="ReadUnavailable",stage="read"`, 1)
+	assertObservabilityMetricValue(t, retryRegistry, "kubefacet_source_failures_total", `reason="ReadUnavailable",stage="read"`, 1)
 	for _, record := range retryRecords {
 		if strings.Contains(record.AttemptID, "raw-retry-body-sentinel") || strings.Contains(record.SourceID, "raw-retry-body-sentinel") {
 			t.Fatalf("retry error crossed structured observation: %#v", record)
@@ -141,8 +141,8 @@ func assertObservabilityRuntimeScenarios(t *testing.T, ctx context.Context, reso
 		t.Fatalf("construct concurrent observer: %v", err)
 	}
 	concurrentReader := newRuntimePipelineReader(
-		runtimePipelineKubeseer(types.NamespacedName{Namespace: "team-a", Name: "concurrent-a"}, "concurrent-a-uid", 1),
-		runtimePipelineKubeseer(types.NamespacedName{Namespace: "team-a", Name: "concurrent-b"}, "concurrent-b-uid", 1),
+		runtimePipelineFacet(types.NamespacedName{Namespace: "team-a", Name: "concurrent-a"}, "concurrent-a-uid", 1),
+		runtimePipelineFacet(types.NamespacedName{Namespace: "team-a", Name: "concurrent-b"}, "concurrent-b-uid", 1),
 	)
 	concurrentRuntime := mustObservedRuntimePipeline(t, resolver, concurrentReader, newRuntimePipelineLister(), basePolicy(), &runtimePipelineRoutes{}, &runtimePipelinePublisher{}, reconciliation.NewFreshnessTracker(), concurrentObserver)
 	var wait sync.WaitGroup
@@ -156,7 +156,7 @@ func assertObservabilityRuntimeScenarios(t *testing.T, ctx context.Context, reso
 		}(name)
 	}
 	wait.Wait()
-	assertObservabilityMetricValue(t, concurrentRegistry, "kubeseer_reconciliations_total", `outcome="completed",reason="EvaluationSucceeded"`, 2)
+	assertObservabilityMetricValue(t, concurrentRegistry, "kubefacet_reconciliations_total", `outcome="completed",reason="EvaluationSucceeded"`, 2)
 }
 
 func opaqueTestAttemptID() observability.AttemptIDGenerator {
@@ -170,12 +170,12 @@ func opaqueTestAttemptID() observability.AttemptIDGenerator {
 	}
 }
 
-func mustObservedRuntimePipeline(t *testing.T, resolver *discovery.Resolver, reader *runtimePipelineReader, lister *runtimePipelineLister, policy *v1alpha1.KubeseerAccessPolicy, routes *runtimePipelineRoutes, publisher *runtimePipelinePublisher, tracker *reconciliation.FreshnessTracker, observer *observability.Observer) *reconciliation.Runtime {
+func mustObservedRuntimePipeline(t *testing.T, resolver *discovery.Resolver, reader *runtimePipelineReader, lister *runtimePipelineLister, policy *v1alpha1.FacetAccessPolicy, routes *runtimePipelineRoutes, publisher *runtimePipelinePublisher, tracker *reconciliation.FreshnessTracker, observer *observability.Observer) *reconciliation.Runtime {
 	t.Helper()
 	runtime, err := reconciliation.NewRuntime(reconciliation.Options{SafetyInterval: time.Hour}, reconciliation.Dependencies{
 		Reader: reader,
 		Lister: reader,
-		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		PolicySource: accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			return policy.DeepCopy(), nil
 		}),
 		Enforcer: authorization.NewEnforcer(observability.NewAuthorizationRecorder(observer)),

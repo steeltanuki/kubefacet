@@ -28,8 +28,8 @@ func assertPackagingPolicyScenarios(t *testing.T) {
 	if !ok {
 		t.Fatal("locate integration test source")
 	}
-	chartDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubeseer")
-	managed := exec.Command("helm", "template", "kubeseer", chartDir,
+	chartDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubefacet")
+	managed := exec.Command("helm", "template", "kubefacet", chartDir,
 		"--namespace", "team-a", "--kube-version", "1.35.6",
 		"--set", "accessPolicy.explicitNamespaces[0]=team-a",
 		"--set", "accessPolicy.allowedResources[0].apiGroups[0]=apps",
@@ -40,8 +40,8 @@ func assertPackagingPolicyScenarios(t *testing.T) {
 	}
 	managedText := string(managedOutput)
 	for _, fragment := range []string{
-		"name: kubeseer-policy-bootstrap",
-		"name: kubeseer-policy",
+		"name: kubefacet-policy-bootstrap",
+		"name: kubefacet-policy",
 		"helm.sh/hook: pre-install,pre-upgrade,pre-rollback",
 		"helm.sh/hook-weight: \"-20\"",
 		"helm.sh/hook-weight: \"-10\"",
@@ -58,7 +58,7 @@ func assertPackagingPolicyScenarios(t *testing.T) {
 		t.Fatal("managed policy unexpectedly enables cluster-scoped observation")
 	}
 
-	external := exec.Command("helm", "template", "kubeseer", chartDir,
+	external := exec.Command("helm", "template", "kubefacet", chartDir,
 		"--namespace", "team-a", "--kube-version", "1.35.6",
 		"--set", "accessPolicy.mode=external")
 	externalOutput, err := external.CombinedOutput()

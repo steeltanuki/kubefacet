@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 )
 
 var fieldNamePattern = regexp.MustCompile(`^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$`)
@@ -27,7 +27,7 @@ var fieldNamePattern = regexp.MustCompile(`^[a-z][A-Za-z0-9]*(?:-[a-z0-9]+)*$`)
 // CompileSource validates and compiles every field declaration before a plan
 // is returned. It performs no resource evaluation and does not use a cache.
 // This compatibility wrapper returns the first sorted failure.
-func CompileSource(source v1alpha1.KubeseerSource) (Plan, *ExtractionError) {
+func CompileSource(source v1alpha1.FacetSource) (Plan, *ExtractionError) {
 	plan, failures := CompileSourceAll(source)
 	if len(failures) != 0 {
 		return Plan{}, failures[0]
@@ -37,9 +37,9 @@ func CompileSource(source v1alpha1.KubeseerSource) (Plan, *ExtractionError) {
 
 // CompileSourceAll compiles every independently valid field and returns all
 // deterministic declaration failures with their submitted field indexes.
-func CompileSourceAll(source v1alpha1.KubeseerSource) (Plan, []*ExtractionError) {
+func CompileSourceAll(source v1alpha1.FacetSource) (Plan, []*ExtractionError) {
 	type indexedField struct {
-		field v1alpha1.KubeseerField
+		field v1alpha1.FacetField
 		index int
 	}
 	fields := make([]indexedField, len(source.Fields))
@@ -93,14 +93,14 @@ func CompileSourceAll(source v1alpha1.KubeseerSource) (Plan, []*ExtractionError)
 
 // ValidateSource returns all static extraction failures without retaining a
 // compiled plan.
-func ValidateSource(source v1alpha1.KubeseerSource) []*ExtractionError {
+func ValidateSource(source v1alpha1.FacetSource) []*ExtractionError {
 	_, failures := CompileSourceAll(source)
 	return failures
 }
 
 // CompileBatch compiles all sources independently, preserving input order and
 // retaining a source-scoped error for every invalid declaration.
-func CompileBatch(sources []v1alpha1.KubeseerSource) []CompileOutcome {
+func CompileBatch(sources []v1alpha1.FacetSource) []CompileOutcome {
 	outcomes := make([]CompileOutcome, len(sources))
 	for index, source := range sources {
 		plan, err := CompileSource(source)

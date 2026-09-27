@@ -19,11 +19,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertValueOperatorComparisonScenarios(t *testing.T) {
@@ -32,9 +32,9 @@ func assertValueOperatorComparisonScenarios(t *testing.T) {
 	t.Run("logical scalar equality is exact across normalized representations", func(t *testing.T) {
 		cases := []struct {
 			name      string
-			typeName  v1alpha1.KubeseerValueType
+			typeName  v1alpha1.FacetValueType
 			observed  any
-			operand   *v1alpha1.KubeseerOperatorOperand
+			operand   *v1alpha1.FacetOperatorOperand
 			wantState operators.ResourceState
 		}{
 			{name: "string case-sensitive", typeName: v1alpha1.ValueTypeString, observed: "Demo", operand: stringOperand("Demo"), wantState: operators.ResourceAccepted},
@@ -47,42 +47,42 @@ func assertValueOperatorComparisonScenarios(t *testing.T) {
 		}
 		for _, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
-				outcome := evaluateValueOperator(t, "eq", test.typeName, test.observed, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorEq, Value: test.operand})
+				outcome := evaluateValueOperator(t, "eq", test.typeName, test.observed, "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorEq, Value: test.operand})
 				assertSingleResourceState(t, outcome, test.wantState)
 			})
 		}
 
-		unequal := evaluateValueOperator(t, "ne", v1alpha1.ValueTypeString, "Demo", "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("demo")})
+		unequal := evaluateValueOperator(t, "ne", v1alpha1.ValueTypeString, "Demo", "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("demo")})
 		assertSingleResourceState(t, unequal, operators.ResourceAccepted)
-		equal := evaluateValueOperator(t, "ne-equal", v1alpha1.ValueTypeString, "Demo", "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("Demo")})
+		equal := evaluateValueOperator(t, "ne-equal", v1alpha1.ValueTypeString, "Demo", "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("Demo")})
 		assertSingleResourceState(t, equal, operators.ResourceRejected)
 	})
 
 	t.Run("ordered predicates cover inclusive and exclusive boundaries", func(t *testing.T) {
 		cases := []struct {
 			name string
-			op   v1alpha1.KubeseerOperatorName
+			op   v1alpha1.FacetOperatorName
 			got  any
-			arg  *v1alpha1.KubeseerOperatorOperand
+			arg  *v1alpha1.FacetOperatorOperand
 		}{
 			{name: "greater", op: v1alpha1.OperatorGt, got: int64(3), arg: integerOperand(2)},
 			{name: "greater equal", op: v1alpha1.OperatorGte, got: int64(2), arg: integerOperand(2)},
 			{name: "less", op: v1alpha1.OperatorLt, got: "1.25", arg: numberOperand("2.5")},
 			{name: "less equal", op: v1alpha1.OperatorLte, got: "2026-08-26T12:30:00Z", arg: timestampOperand("2026-08-26T12:30:00Z")},
 		}
-		types := []v1alpha1.KubeseerValueType{v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeNumber, v1alpha1.ValueTypeTimestamp}
+		types := []v1alpha1.FacetValueType{v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeInteger, v1alpha1.ValueTypeNumber, v1alpha1.ValueTypeTimestamp}
 		for index, test := range cases {
 			t.Run(test.name, func(t *testing.T) {
-				outcome := evaluateValueOperator(t, string(test.op), types[index], test.got, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: test.op, Value: test.arg})
+				outcome := evaluateValueOperator(t, string(test.op), types[index], test.got, "{.data.value}", &v1alpha1.FacetOperator{Operator: test.op, Value: test.arg})
 				assertSingleResourceState(t, outcome, operators.ResourceAccepted)
 			})
 		}
-		boundary := evaluateValueOperator(t, "not-less", v1alpha1.ValueTypeDuration, "1s", "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorLt, Value: durationOperand("1s")})
+		boundary := evaluateValueOperator(t, "not-less", v1alpha1.ValueTypeDuration, "1s", "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorLt, Value: durationOperand("1s")})
 		assertSingleResourceState(t, boundary, operators.ResourceRejected)
 	})
 
 	t.Run("multi-match and null cardinality use existential positive and non-empty negative semantics", func(t *testing.T) {
-		positive := evaluateValueOperator(t, "multi-eq", v1alpha1.ValueTypeString, []any{"other", nil, "target"}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorEq, Value: stringOperand("target")})
+		positive := evaluateValueOperator(t, "multi-eq", v1alpha1.ValueTypeString, []any{"other", nil, "target"}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorEq, Value: stringOperand("target")})
 		assertSingleResourceState(t, positive, operators.ResourceAccepted)
 		resources := positive.Resources()
 		if len(resources) != 1 || len(resources[0].Fields()) != 1 || len(resources[0].Fields()[0].Matches()) != 3 {
@@ -91,20 +91,20 @@ func assertValueOperatorComparisonScenarios(t *testing.T) {
 		if value, ok := resources[0].Fields()[0].Matches()[0].StringValue(); !ok || value != "other" {
 			t.Fatalf("positive comparison changed first match: %q (ok=%t)", value, ok)
 		}
-		negative := evaluateValueOperator(t, "multi-ne", v1alpha1.ValueTypeString, []any{"other", nil, "target"}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("target")})
+		negative := evaluateValueOperator(t, "multi-ne", v1alpha1.ValueTypeString, []any{"other", nil, "target"}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("target")})
 		assertSingleResourceState(t, negative, operators.ResourceRejected)
-		noEqual := evaluateValueOperator(t, "multi-ne-no-equal", v1alpha1.ValueTypeString, []any{"other", nil}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("target")})
+		noEqual := evaluateValueOperator(t, "multi-ne-no-equal", v1alpha1.ValueTypeString, []any{"other", nil}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("target")})
 		assertSingleResourceState(t, noEqual, operators.ResourceAccepted)
-		absent := evaluateValueOperator(t, "absent-eq", v1alpha1.ValueTypeString, map[string]any{}, "{.data.value}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorEq, Value: stringOperand("target")})
+		absent := evaluateValueOperator(t, "absent-eq", v1alpha1.ValueTypeString, map[string]any{}, "{.data.value}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorEq, Value: stringOperand("target")})
 		assertSingleResourceState(t, absent, operators.ResourceRejected)
-		allNull := evaluateValueOperator(t, "null-eq", v1alpha1.ValueTypeString, []any{nil, nil}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorEq, Value: stringOperand("target")})
+		allNull := evaluateValueOperator(t, "null-eq", v1alpha1.ValueTypeString, []any{nil, nil}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorEq, Value: stringOperand("target")})
 		assertSingleResourceState(t, allNull, operators.ResourceRejected)
-		nullNe := evaluateValueOperator(t, "null-ne", v1alpha1.ValueTypeString, []any{nil}, "{.data.values[*]}", &v1alpha1.KubeseerOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("target")})
+		nullNe := evaluateValueOperator(t, "null-ne", v1alpha1.ValueTypeString, []any{nil}, "{.data.values[*]}", &v1alpha1.FacetOperator{Operator: v1alpha1.OperatorNe, Value: stringOperand("target")})
 		assertSingleResourceState(t, nullNe, operators.ResourceRejected)
 	})
 }
 
-func evaluateValueOperator(t *testing.T, id string, typeName v1alpha1.KubeseerValueType, observed any, path string, operator *v1alpha1.KubeseerOperator) operators.SourceOutcome {
+func evaluateValueOperator(t *testing.T, id string, typeName v1alpha1.FacetValueType, observed any, path string, operator *v1alpha1.FacetOperator) operators.SourceOutcome {
 	t.Helper()
 	fieldValue := observed
 	if path == "{.data.value}" {
@@ -112,7 +112,7 @@ func evaluateValueOperator(t *testing.T, id string, typeName v1alpha1.KubeseerVa
 			fieldValue = observed
 		}
 	}
-	source := v1alpha1.KubeseerSource{ID: id, Fields: []v1alpha1.KubeseerField{{Name: "value", Path: path, Type: typeName, Operators: []v1alpha1.KubeseerOperator{*operator}}}}
+	source := v1alpha1.FacetSource{ID: id, Fields: []v1alpha1.FacetField{{Name: "value", Path: path, Type: typeName, Operators: []v1alpha1.FacetOperator{*operator}}}}
 	object := map[string]any{"data": map[string]any{"value": fieldValue}}
 	if path != "{.data.value}" {
 		object["data"].(map[string]any)["values"] = observed

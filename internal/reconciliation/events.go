@@ -18,7 +18,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -37,27 +37,27 @@ func enqueueObject(queue workqueue.TypedRateLimitingInterface[reconcile.Request]
 	}
 }
 
-// KubeseerPredicate accepts lifecycle events that can change work safety and
+// FacetPredicate accepts lifecycle events that can change work safety and
 // suppresses status-only updates.
-type KubeseerPredicate struct{}
+type FacetPredicate struct{}
 
-func (KubeseerPredicate) Create(e event.TypedCreateEvent[*v1alpha1.Kubeseer]) bool {
+func (FacetPredicate) Create(e event.TypedCreateEvent[*v1alpha1.Facet]) bool {
 	return e.Object != nil
 }
 
-func (KubeseerPredicate) Delete(e event.TypedDeleteEvent[*v1alpha1.Kubeseer]) bool {
+func (FacetPredicate) Delete(e event.TypedDeleteEvent[*v1alpha1.Facet]) bool {
 	return e.Object != nil
 }
 
-func (KubeseerPredicate) Generic(e event.TypedGenericEvent[*v1alpha1.Kubeseer]) bool {
+func (FacetPredicate) Generic(e event.TypedGenericEvent[*v1alpha1.Facet]) bool {
 	return e.Object != nil
 }
 
-func (KubeseerPredicate) Update(e event.TypedUpdateEvent[*v1alpha1.Kubeseer]) bool {
-	return kubeseerLifecycleChanged(e.ObjectOld, e.ObjectNew)
+func (FacetPredicate) Update(e event.TypedUpdateEvent[*v1alpha1.Facet]) bool {
+	return facetLifecycleChanged(e.ObjectOld, e.ObjectNew)
 }
 
-func kubeseerLifecycleChanged(oldObject, newObject *v1alpha1.Kubeseer) bool {
+func facetLifecycleChanged(oldObject, newObject *v1alpha1.Facet) bool {
 	if oldObject == nil || newObject == nil {
 		return oldObject != newObject
 	}
@@ -75,7 +75,7 @@ type LifecycleHandler struct {
 	trigger *TriggerSource
 }
 
-var _ handler.TypedEventHandler[*v1alpha1.Kubeseer, reconcile.Request] = (*LifecycleHandler)(nil)
+var _ handler.TypedEventHandler[*v1alpha1.Facet, reconcile.Request] = (*LifecycleHandler)(nil)
 
 // NewLifecycleHandler creates the owned-resource event handler.
 func NewLifecycleHandler(tracker *FreshnessTracker, routes RouteManager, trigger ...*TriggerSource) *LifecycleHandler {
@@ -94,7 +94,7 @@ func (h *LifecycleHandler) enqueue(key types.NamespacedName, queue workqueue.Typ
 	enqueueObject(queue, key.Namespace, key.Name)
 }
 
-func (h *LifecycleHandler) Create(_ context.Context, e event.TypedCreateEvent[*v1alpha1.Kubeseer], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *LifecycleHandler) Create(_ context.Context, e event.TypedCreateEvent[*v1alpha1.Facet], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if h == nil || e.Object == nil {
 		return
 	}
@@ -107,8 +107,8 @@ func (h *LifecycleHandler) Create(_ context.Context, e event.TypedCreateEvent[*v
 	h.enqueue(types.NamespacedName{Namespace: e.Object.Namespace, Name: e.Object.Name}, queue)
 }
 
-func (h *LifecycleHandler) Update(_ context.Context, e event.TypedUpdateEvent[*v1alpha1.Kubeseer], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	if h == nil || !kubeseerLifecycleChanged(e.ObjectOld, e.ObjectNew) || e.ObjectNew == nil {
+func (h *LifecycleHandler) Update(_ context.Context, e event.TypedUpdateEvent[*v1alpha1.Facet], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if h == nil || !facetLifecycleChanged(e.ObjectOld, e.ObjectNew) || e.ObjectNew == nil {
 		return
 	}
 	key := types.NamespacedName{Namespace: e.ObjectNew.Namespace, Name: e.ObjectNew.Name}
@@ -121,7 +121,7 @@ func (h *LifecycleHandler) Update(_ context.Context, e event.TypedUpdateEvent[*v
 	h.enqueue(key, queue)
 }
 
-func (h *LifecycleHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*v1alpha1.Kubeseer], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *LifecycleHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*v1alpha1.Facet], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if h == nil || e.Object == nil {
 		return
 	}
@@ -135,7 +135,7 @@ func (h *LifecycleHandler) Delete(_ context.Context, e event.TypedDeleteEvent[*v
 	h.enqueue(key, queue)
 }
 
-func (h *LifecycleHandler) Generic(_ context.Context, e event.TypedGenericEvent[*v1alpha1.Kubeseer], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *LifecycleHandler) Generic(_ context.Context, e event.TypedGenericEvent[*v1alpha1.Facet], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if h == nil || e.Object == nil {
 		return
 	}
@@ -149,19 +149,19 @@ func (h *LifecycleHandler) Generic(_ context.Context, e event.TypedGenericEvent[
 // status-like or metadata-only updates without a new generation.
 type PolicyPredicate struct{}
 
-func (PolicyPredicate) Create(e event.TypedCreateEvent[*v1alpha1.KubeseerAccessPolicy]) bool {
+func (PolicyPredicate) Create(e event.TypedCreateEvent[*v1alpha1.FacetAccessPolicy]) bool {
 	return e.Object != nil && e.Object.Name == v1alpha1.InstallationAccessCeilingName
 }
 
-func (PolicyPredicate) Delete(e event.TypedDeleteEvent[*v1alpha1.KubeseerAccessPolicy]) bool {
+func (PolicyPredicate) Delete(e event.TypedDeleteEvent[*v1alpha1.FacetAccessPolicy]) bool {
 	return e.Object != nil && e.Object.Name == v1alpha1.InstallationAccessCeilingName
 }
 
-func (PolicyPredicate) Generic(e event.TypedGenericEvent[*v1alpha1.KubeseerAccessPolicy]) bool {
+func (PolicyPredicate) Generic(e event.TypedGenericEvent[*v1alpha1.FacetAccessPolicy]) bool {
 	return e.Object != nil && e.Object.Name == v1alpha1.InstallationAccessCeilingName
 }
 
-func (PolicyPredicate) Update(e event.TypedUpdateEvent[*v1alpha1.KubeseerAccessPolicy]) bool {
+func (PolicyPredicate) Update(e event.TypedUpdateEvent[*v1alpha1.FacetAccessPolicy]) bool {
 	if e.ObjectNew == nil || e.ObjectNew.Name != v1alpha1.InstallationAccessCeilingName {
 		return false
 	}
@@ -172,7 +172,7 @@ func (PolicyPredicate) Update(e event.TypedUpdateEvent[*v1alpha1.KubeseerAccessP
 }
 
 // PolicyHandler invalidates active leases, drops old routing, and asks the
-// trigger source to enqueue every existing Kubeseer.
+// trigger source to enqueue every existing Facet.
 type PolicyHandler struct {
 	tracker *FreshnessTracker
 	routes  RouteManager
@@ -180,14 +180,14 @@ type PolicyHandler struct {
 	mu      sync.Mutex
 }
 
-var _ handler.TypedEventHandler[*v1alpha1.KubeseerAccessPolicy, reconcile.Request] = (*PolicyHandler)(nil)
+var _ handler.TypedEventHandler[*v1alpha1.FacetAccessPolicy, reconcile.Request] = (*PolicyHandler)(nil)
 
 // NewPolicyHandler creates the singleton policy event handler.
 func NewPolicyHandler(tracker *FreshnessTracker, routes RouteManager, trigger *TriggerSource) *PolicyHandler {
 	return &PolicyHandler{tracker: tracker, routes: routes, trigger: trigger}
 }
 
-func (h *PolicyHandler) changed(ctx context.Context, object *v1alpha1.KubeseerAccessPolicy) {
+func (h *PolicyHandler) changed(ctx context.Context, object *v1alpha1.FacetAccessPolicy) {
 	if h == nil || object == nil || object.Name != v1alpha1.InstallationAccessCeilingName {
 		return
 	}
@@ -204,24 +204,24 @@ func (h *PolicyHandler) changed(ctx context.Context, object *v1alpha1.KubeseerAc
 	}
 }
 
-func (h *PolicyHandler) Create(ctx context.Context, e event.TypedCreateEvent[*v1alpha1.KubeseerAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *PolicyHandler) Create(ctx context.Context, e event.TypedCreateEvent[*v1alpha1.FacetAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.changed(ctx, e.Object)
 }
 
-func (h *PolicyHandler) Update(ctx context.Context, e event.TypedUpdateEvent[*v1alpha1.KubeseerAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *PolicyHandler) Update(ctx context.Context, e event.TypedUpdateEvent[*v1alpha1.FacetAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if !(PolicyPredicate{}).Update(e) {
 		return
 	}
 	h.changed(ctx, e.ObjectNew)
 }
 
-func (h *PolicyHandler) Delete(ctx context.Context, e event.TypedDeleteEvent[*v1alpha1.KubeseerAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *PolicyHandler) Delete(ctx context.Context, e event.TypedDeleteEvent[*v1alpha1.FacetAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.changed(ctx, e.Object)
 }
 
-func (h *PolicyHandler) Generic(ctx context.Context, e event.TypedGenericEvent[*v1alpha1.KubeseerAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *PolicyHandler) Generic(ctx context.Context, e event.TypedGenericEvent[*v1alpha1.FacetAccessPolicy], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	h.changed(ctx, e.Object)
 }
 
-var _ predicate.TypedPredicate[*v1alpha1.Kubeseer] = KubeseerPredicate{}
-var _ predicate.TypedPredicate[*v1alpha1.KubeseerAccessPolicy] = PolicyPredicate{}
+var _ predicate.TypedPredicate[*v1alpha1.Facet] = FacetPredicate{}
+var _ predicate.TypedPredicate[*v1alpha1.FacetAccessPolicy] = PolicyPredicate{}

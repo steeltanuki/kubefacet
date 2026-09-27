@@ -23,7 +23,7 @@ import (
 )
 
 // SourceDescriptor identifies the Kubernetes API type requested by one source.
-// It is an internal boundary and does not define the public Kubeseer CRD.
+// It is an internal boundary and does not define the public Facet CRD.
 type SourceDescriptor struct {
 	SourceID   string
 	APIVersion string

@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kubefacet.fullname" . }}-preflight
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+    helm.sh/hook: pre-install,pre-upgrade,pre-rollback
+    helm.sh/hook-weight: "-35"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        {{- include "kubefacet.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubefacet.fullname" . }}-preflight-hook
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: preflight
+          image: {{ include "kubefacet.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/kubefacet"]
+          args:
+            - package
+            - preflight
+            - --release-name={{ .Release.Name }}
+            - --release-namespace={{ .Release.Namespace }}
+            - --deployment-name={{ include "kubefacet.fullname" . }}
+            - --webhook-service={{ include "kubefacet.webhookServiceName" . }}
+            - --certificate-mode={{ .Values.certificate.mode }}
+            - --expected-version={{ .Chart.AppVersion }}
+            - --expected-facet-crd-storage-version=v1alpha1
+            - --expected-access-policy-crd-storage-version=v1alpha1
+            - --webhook-port={{ .Values.manager.webhookPort }}
+            - --timeout=90s
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
 )
 
 func assertFieldExtractionPlanningScenarios(t *testing.T) {
@@ -42,9 +42,9 @@ func assertFieldExtractionPlanningScenarios(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				source := v1alpha1.KubeseerSource{
+				source := v1alpha1.FacetSource{
 					ID:     "supported-source",
-					Fields: []v1alpha1.KubeseerField{{Name: "value", Path: test.path}},
+					Fields: []v1alpha1.FacetField{{Name: "value", Path: test.path}},
 				}
 				plan, err := extraction.CompileSource(source)
 				if err != nil {
@@ -78,9 +78,9 @@ func assertFieldExtractionPlanningScenarios(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				source := v1alpha1.KubeseerSource{
+				source := v1alpha1.FacetSource{
 					ID:     "unsupported-source",
-					Fields: []v1alpha1.KubeseerField{{Name: "value", Path: test.path}},
+					Fields: []v1alpha1.FacetField{{Name: "value", Path: test.path}},
 				}
 				_, first := extraction.CompileSource(source)
 				if !extraction.HasReason(first, extraction.ReasonUnsupportedExpression) {
@@ -114,9 +114,9 @@ func assertFieldExtractionPlanningScenarios(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				source := v1alpha1.KubeseerSource{
+				source := v1alpha1.FacetSource{
 					ID:     "invalid-source",
-					Fields: []v1alpha1.KubeseerField{{Name: "value", Path: test.path}},
+					Fields: []v1alpha1.FacetField{{Name: "value", Path: test.path}},
 				}
 				_, err := extraction.CompileSource(source)
 				if !extraction.HasReason(err, extraction.ReasonInvalidExpression) {
@@ -130,16 +130,16 @@ func assertFieldExtractionPlanningScenarios(t *testing.T) {
 	})
 
 	t.Run("batch compilation isolates sources and sorts fields", func(t *testing.T) {
-		sources := []v1alpha1.KubeseerSource{
+		sources := []v1alpha1.FacetSource{
 			{
 				ID: "first-source",
-				Fields: []v1alpha1.KubeseerField{
+				Fields: []v1alpha1.FacetField{
 					{Name: "zeta", Path: "{.metadata.name}"},
 					{Name: "alpha", Path: "{.metadata.namespace}"},
 				},
 			},
-			{ID: "broken-source", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.items[?(@.name)]}"}}},
-			{ID: "last-source", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.metadata.uid}"}}},
+			{ID: "broken-source", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.items[?(@.name)]}"}}},
+			{ID: "last-source", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.metadata.uid}"}}},
 		}
 		outcomes := extraction.CompileBatch(sources)
 		if len(outcomes) != len(sources) {
@@ -156,9 +156,9 @@ func assertFieldExtractionPlanningScenarios(t *testing.T) {
 			t.Fatalf("fields are not lexicographically ordered: %#v", got)
 		}
 
-		permuted := []v1alpha1.KubeseerSource{{
+		permuted := []v1alpha1.FacetSource{{
 			ID: "first-source",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "alpha", Path: "{.metadata.namespace}"},
 				{Name: "zeta", Path: "{.metadata.name}"},
 			},

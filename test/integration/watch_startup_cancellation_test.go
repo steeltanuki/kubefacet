@@ -24,12 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,7 +62,7 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "watch-deadline-owner"}
 		source := runtimePipelineValuesSource("watch-deadline-source")
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(key, "watch-deadline-uid", 1, source))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(key, "watch-deadline-uid", 1, source))
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, nil, nil)
 		publisher := &runtimePipelinePublisher{}
@@ -116,7 +116,7 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "watch-cancel-owner"}
 		source := runtimePipelineValuesSource("watch-cancel-source")
-		reader := newRuntimePipelineReader(runtimePipelineKubeseer(key, "watch-cancel-uid", 1, source))
+		reader := newRuntimePipelineReader(runtimePipelineFacet(key, "watch-cancel-uid", 1, source))
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, nil, nil)
 		publisher := &runtimePipelinePublisher{}
@@ -150,25 +150,25 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 
 	for _, invalidation := range []struct {
 		name   string
-		mutate func(*reconciliation.FreshnessTracker, *v1alpha1.Kubeseer)
+		mutate func(*reconciliation.FreshnessTracker, *v1alpha1.Facet)
 	}{
-		{name: "uid", mutate: func(tracker *reconciliation.FreshnessTracker, object *v1alpha1.Kubeseer) {
+		{name: "uid", mutate: func(tracker *reconciliation.FreshnessTracker, object *v1alpha1.Facet) {
 			updated := object.DeepCopy()
 			updated.UID = types.UID("watch-invalidated-new-uid")
 			tracker.Observe(updated)
 		}},
-		{name: "generation", mutate: func(tracker *reconciliation.FreshnessTracker, object *v1alpha1.Kubeseer) {
+		{name: "generation", mutate: func(tracker *reconciliation.FreshnessTracker, object *v1alpha1.Facet) {
 			updated := object.DeepCopy()
 			updated.Generation++
 			tracker.Observe(updated)
 		}},
-		{name: "deletion", mutate: func(tracker *reconciliation.FreshnessTracker, object *v1alpha1.Kubeseer) {
+		{name: "deletion", mutate: func(tracker *reconciliation.FreshnessTracker, object *v1alpha1.Facet) {
 			updated := object.DeepCopy()
 			deleting := metav1.Now()
 			updated.DeletionTimestamp = &deleting
 			tracker.Observe(updated)
 		}},
-		{name: "policy epoch", mutate: func(tracker *reconciliation.FreshnessTracker, _ *v1alpha1.Kubeseer) {
+		{name: "policy epoch", mutate: func(tracker *reconciliation.FreshnessTracker, _ *v1alpha1.Facet) {
 			tracker.InvalidateAll()
 		}},
 	} {
@@ -191,7 +191,7 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 			}
 			key := types.NamespacedName{Namespace: "team-a", Name: "watch-invalidated-" + strings.ReplaceAll(invalidation.name, " ", "-")}
 			source := runtimePipelineValuesSource("watch-invalidated-source")
-			object := runtimePipelineKubeseer(key, "watch-invalidated-uid", 1, source)
+			object := runtimePipelineFacet(key, "watch-invalidated-uid", 1, source)
 			reader := newRuntimePipelineReader(object)
 			lister := newRuntimePipelineLister()
 			lister.SetResponse(source.ID, nil, nil)
@@ -239,7 +239,7 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "watch-generation-owner"}
 		source := runtimePipelineValuesSource("watch-generation-source")
-		object := runtimePipelineKubeseer(key, "watch-generation-uid", 1, source)
+		object := runtimePipelineFacet(key, "watch-generation-uid", 1, source)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, nil, nil)
@@ -308,8 +308,8 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 		if err := registry.Start(managerContext, queue); err != nil {
 			t.Fatalf("start shared startup registry: %v", err)
 		}
-		objectA := newRuntimeKubeseer(ownerA, "shared-startup-uid-a", 1)
-		objectB := newRuntimeKubeseer(ownerB, "shared-startup-uid-b", 1)
+		objectA := newRuntimeFacet(ownerA, "shared-startup-uid-a", 1)
+		objectB := newRuntimeFacet(ownerB, "shared-startup-uid-b", 1)
 		tracker.Observe(objectA)
 		tracker.Observe(objectB)
 		leaseA, _, releaseA, err := tracker.Acquire(context.Background(), ownerA, objectA.UID, objectA.Generation)
@@ -402,7 +402,7 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 			t.Fatalf("start saturation registry: %v", err)
 		}
 		const workers = 4
-		objects := make([]*v1alpha1.Kubeseer, 0, workers)
+		objects := make([]*v1alpha1.Facet, 0, workers)
 		for index := 0; index < workers; index++ {
 			key := types.NamespacedName{Namespace: "team-a", Name: fmt.Sprintf("watch-saturation-%d", index)}
 			source := runtimePipelineValuesSource(fmt.Sprintf("watch-saturation-source-%d", index))
@@ -412,10 +412,10 @@ func assertWatchStartupCancellation(t *testing.T, ctx context.Context, resolver 
 			case 2:
 				source.Namespaces = &v1alpha1.NamespaceSelection{Names: []string{"team-d"}}
 			case 3:
-				source.Resource = v1alpha1.ResourceReference{APIVersion: "widgets.kubeseer.io/v1", Kind: "Widget"}
+				source.Resource = v1alpha1.ResourceReference{APIVersion: "widgets.kubefacet.steeltanuki.it/v1", Kind: "Widget"}
 				source.Namespaces = &v1alpha1.NamespaceSelection{Names: []string{"team-e"}}
 			}
-			objects = append(objects, runtimePipelineKubeseer(key, types.UID(fmt.Sprintf("watch-saturation-uid-%d", index)), 1, source))
+			objects = append(objects, runtimePipelineFacet(key, types.UID(fmt.Sprintf("watch-saturation-uid-%d", index)), 1, source))
 		}
 		reader := newRuntimePipelineReader(objects...)
 		lister := newRuntimePipelineLister()
@@ -482,7 +482,7 @@ func assertWatchStartupRecovery(t *testing.T, ctx context.Context, resolver *dis
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "recovery-startup-owner"}
 		source := runtimePipelineValuesSource("recovery-startup-source")
-		object := runtimePipelineKubeseer(key, "recovery-startup-uid", 1, source)
+		object := runtimePipelineFacet(key, "recovery-startup-uid", 1, source)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, runtimePipelineValueList("startup-resource", "startup-resource-uid", "before-recovery", "7"))
@@ -550,7 +550,7 @@ func assertWatchStartupRecovery(t *testing.T, ctx context.Context, resolver *dis
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "recovery-reconnect-owner"}
 		source := runtimePipelineValuesSource("recovery-reconnect-source")
-		object := runtimePipelineKubeseer(key, "recovery-reconnect-uid", 1, source)
+		object := runtimePipelineFacet(key, "recovery-reconnect-uid", 1, source)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, runtimePipelineValueList("reconnect-resource", "reconnect-resource-uid", "before-reconnect", "9"))
@@ -623,8 +623,8 @@ func assertWatchStartupRecovery(t *testing.T, ctx context.Context, resolver *dis
 		sourceA := runtimePipelineValuesSource("recovery-promotion-a-source")
 		sourceB := runtimePipelineValuesSource("recovery-promotion-b-source")
 		sourceB.Resource = v1alpha1.ResourceReference{APIVersion: "apps/v1", Kind: "Deployment"}
-		objectA := runtimePipelineKubeseer(ownerA, "recovery-promotion-uid-a", 1, sourceA)
-		objectB := runtimePipelineKubeseer(ownerB, "recovery-promotion-uid-b", 1, sourceB)
+		objectA := runtimePipelineFacet(ownerA, "recovery-promotion-uid-a", 1, sourceA)
+		objectB := runtimePipelineFacet(ownerB, "recovery-promotion-uid-b", 1, sourceB)
 		reader := newRuntimePipelineReader(objectA, objectB)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(sourceA.ID, runtimePipelineValueList("promotion-a-resource", "promotion-a-resource-uid", "a-before", "1"))
@@ -695,7 +695,7 @@ func assertWatchStartupRecovery(t *testing.T, ctx context.Context, resolver *dis
 		defer queue.ShutDown()
 		key := types.NamespacedName{Namespace: "team-a", Name: "recovery-periodic-owner"}
 		source := runtimePipelineValuesSource("recovery-periodic-source")
-		object := runtimePipelineKubeseer(key, "recovery-periodic-uid", 1, source)
+		object := runtimePipelineFacet(key, "recovery-periodic-uid", 1, source)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, runtimePipelineValueList("periodic-resource", "periodic-resource-uid", "periodic", "4"))
@@ -766,7 +766,7 @@ func assertWatchStartupRecovery(t *testing.T, ctx context.Context, resolver *dis
 		}
 		key := types.NamespacedName{Namespace: "team-a", Name: "recovery-revoked-owner"}
 		source := runtimePipelineValuesSource("recovery-revoked-source")
-		object := runtimePipelineKubeseer(key, "recovery-revoked-uid", 1, source)
+		object := runtimePipelineFacet(key, "recovery-revoked-uid", 1, source)
 		reader := newRuntimePipelineReader(object)
 		lister := newRuntimePipelineLister()
 		lister.SetResponse(source.ID, runtimePipelineValueList("revoked-resource", "revoked-resource-uid", "revoked", "5"))
@@ -822,7 +822,7 @@ func assertWatchSupervisorEstablishment(t *testing.T, ctx context.Context, resol
 		planner := selection.NewPlanner(resolver)
 		source := runtimePipelineValuesSource("establishment-timeout-source")
 		target := mustRuntimeTarget(t, ctx, planner, "team-a", source)
-		object := newRuntimeKubeseer(types.NamespacedName{Namespace: "team-a", Name: "establishment-timeout-owner"}, "establishment-timeout-uid", 1)
+		object := newRuntimeFacet(types.NamespacedName{Namespace: "team-a", Name: "establishment-timeout-owner"}, "establishment-timeout-uid", 1)
 		tracker.Observe(object)
 		lease, _, release, err := tracker.Acquire(context.Background(), objectKey(object), object.UID, object.Generation)
 		if err != nil {
@@ -875,7 +875,7 @@ func assertWatchSupervisorEstablishment(t *testing.T, ctx context.Context, resol
 		source := runtimePipelineValuesSource("late-stream-source")
 		target := mustRuntimeTarget(t, ctx, planner, "team-a", source)
 		owner := types.NamespacedName{Namespace: "team-a", Name: "late-stream-owner"}
-		object := newRuntimeKubeseer(owner, "late-stream-uid", 1)
+		object := newRuntimeFacet(owner, "late-stream-uid", 1)
 		tracker.Observe(object)
 		lease, _, release, err := tracker.Acquire(context.Background(), owner, object.UID, object.Generation)
 		if err != nil {
@@ -975,7 +975,7 @@ func assertWatchSupervisorEstablishment(t *testing.T, ctx context.Context, resol
 		source := runtimePipelineValuesSource("reauthorization-source")
 		target := mustRuntimeTarget(t, ctx, planner, "team-a", source)
 		owner := types.NamespacedName{Namespace: "team-a", Name: "reauthorization-owner"}
-		object := newRuntimeKubeseer(owner, "reauthorization-uid", 1)
+		object := newRuntimeFacet(owner, "reauthorization-uid", 1)
 		tracker.Observe(object)
 		lease, _, release, err := tracker.Acquire(context.Background(), owner, object.UID, object.Generation)
 		if err != nil {
@@ -1027,7 +1027,7 @@ func assertWatchSupervisorEstablishment(t *testing.T, ctx context.Context, resol
 		source := runtimePipelineValuesSource("shutdown-source")
 		target := mustRuntimeTarget(t, ctx, planner, "team-a", source)
 		owner := types.NamespacedName{Namespace: "team-a", Name: "shutdown-owner"}
-		object := newRuntimeKubeseer(owner, "shutdown-uid", 1)
+		object := newRuntimeFacet(owner, "shutdown-uid", 1)
 		tracker.Observe(object)
 		lease, _, release, err := tracker.Acquire(context.Background(), owner, object.UID, object.Generation)
 		if err != nil {
@@ -1088,7 +1088,7 @@ func assertWatchSupervisorEstablishment(t *testing.T, ctx context.Context, resol
 		source := runtimePipelineValuesSource("http-startup-source")
 		target := mustRuntimeTarget(t, ctx, planner, "team-a", source)
 		owner := types.NamespacedName{Namespace: "team-a", Name: "http-startup-owner"}
-		object := newRuntimeKubeseer(owner, "http-startup-uid", 1)
+		object := newRuntimeFacet(owner, "http-startup-uid", 1)
 		tracker.Observe(object)
 		lease, _, release, err := tracker.Acquire(context.Background(), owner, object.UID, object.Generation)
 		if err != nil {
@@ -1236,7 +1236,7 @@ func (t *startupBlockingRoundTripper) RoundTrip(request *http.Request) (*http.Re
 	return nil, request.Context().Err()
 }
 
-func objectKey(object *v1alpha1.Kubeseer) types.NamespacedName {
+func objectKey(object *v1alpha1.Facet) types.NamespacedName {
 	return types.NamespacedName{Namespace: object.Namespace, Name: object.Name}
 }
 
@@ -1249,7 +1249,7 @@ func watchStartupProfile(t *testing.T, timeout time.Duration) limits.Profile {
 	return profile
 }
 
-func mustWatchStartupRuntime(t *testing.T, resolver *discovery.Resolver, reader *runtimePipelineReader, lister *runtimePipelineLister, policy *v1alpha1.KubeseerAccessPolicy, routes *reconciliation.RouteRegistry, publisher *runtimePipelinePublisher, tracker *reconciliation.FreshnessTracker, profile limits.Profile) *reconciliation.Runtime {
+func mustWatchStartupRuntime(t *testing.T, resolver *discovery.Resolver, reader *runtimePipelineReader, lister *runtimePipelineLister, policy *v1alpha1.FacetAccessPolicy, routes *reconciliation.RouteRegistry, publisher *runtimePipelinePublisher, tracker *reconciliation.FreshnessTracker, profile limits.Profile) *reconciliation.Runtime {
 	t.Helper()
 	runtime, err := reconciliation.NewRuntime(reconciliation.Options{SafetyInterval: time.Hour, LimitProfile: &profile}, reconciliation.Dependencies{
 		Reader:       reader,
@@ -1270,7 +1270,7 @@ func mustWatchStartupRuntime(t *testing.T, resolver *discovery.Resolver, reader 
 	return runtime
 }
 
-func setRuntimePipelineObject(reader *runtimePipelineReader, object *v1alpha1.Kubeseer) {
+func setRuntimePipelineObject(reader *runtimePipelineReader, object *v1alpha1.Facet) {
 	reader.mu.Lock()
 	defer reader.mu.Unlock()
 	reader.objects[types.NamespacedName{Namespace: object.Namespace, Name: object.Name}] = object.DeepCopy()

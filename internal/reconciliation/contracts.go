@@ -20,14 +20,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +41,7 @@ const (
 )
 
 // Options controls internal runtime timing. SafetyInterval is intentionally
-// not a public Kubeseer API field; it belongs to manager configuration.
+// not a public Facet API field; it belongs to manager configuration.
 type Options struct {
 	SafetyInterval time.Duration
 
@@ -88,27 +88,27 @@ func (o Options) normalized() (Options, error) {
 	return o, nil
 }
 
-// KubeseerReader is the direct current-object read port used by reconciliation
+// FacetReader is the direct current-object read port used by reconciliation
 // and status publication. It cannot read arbitrary observed resources.
-type KubeseerReader interface {
-	Get(context.Context, types.NamespacedName, *v1alpha1.Kubeseer) error
+type FacetReader interface {
+	Get(context.Context, types.NamespacedName, *v1alpha1.Facet) error
 }
 
-// KubeseerLister is the narrow list port used only by enqueue-all scheduling.
-type KubeseerLister interface {
-	List(context.Context, *v1alpha1.KubeseerList) error
+// FacetLister is the narrow list port used only by enqueue-all scheduling.
+type FacetLister interface {
+	List(context.Context, *v1alpha1.FacetList) error
 }
 
-// KubeseerStore is the combined port normally supplied by a controller-runtime
+// FacetStore is the combined port normally supplied by a controller-runtime
 // client adapter.
-type KubeseerStore interface {
-	KubeseerReader
-	KubeseerLister
+type FacetStore interface {
+	FacetReader
+	FacetLister
 }
 
-// StatusWriter is limited to the Kubeseer status subresource.
+// StatusWriter is limited to the Facet status subresource.
 type StatusWriter interface {
-	Update(context.Context, *v1alpha1.Kubeseer) error
+	Update(context.Context, *v1alpha1.Facet) error
 }
 
 // StatusPublisherPort publishes a candidate for one current lease.
@@ -128,8 +128,8 @@ type RouteManager interface {
 // outbound I/O while retaining the real discovery, policy, selection,
 // extraction, and typed-output implementations.
 type Dependencies struct {
-	Reader          KubeseerReader
-	Lister          KubeseerLister
+	Reader          FacetReader
+	Lister          FacetLister
 	PolicySource    accesspolicy.PolicySource
 	Enforcer        *authorization.Enforcer
 	Planner         *selection.Planner
@@ -143,7 +143,7 @@ type Dependencies struct {
 }
 
 // Lease is a process-local freshness capability. It is valid only for the
-// exact Kubeseer identity, generation, and policy epoch captured at acquire
+// exact Facet identity, generation, and policy epoch captured at acquire
 // time.
 type Lease struct {
 	Key         types.NamespacedName
@@ -157,7 +157,7 @@ type Lease struct {
 // published before the queue receives one rate-limited retry error.
 type Candidate struct {
 	Lease     Lease
-	Result    v1alpha1.KubeseerResult
+	Result    v1alpha1.FacetResult
 	Retryable error
 }
 
@@ -179,10 +179,10 @@ func NewRuntime(options Options, dependencies Dependencies) (*Runtime, error) {
 		return nil, err
 	}
 	if dependencies.Reader == nil {
-		return nil, errors.New("reconciliation Kubeseer reader is required")
+		return nil, errors.New("reconciliation Facet reader is required")
 	}
 	if dependencies.Lister == nil {
-		return nil, errors.New("reconciliation Kubeseer lister is required")
+		return nil, errors.New("reconciliation Facet lister is required")
 	}
 	if dependencies.PolicySource == nil {
 		return nil, errors.New("reconciliation policy source is required")
@@ -256,7 +256,7 @@ func (r *Runtime) TriggerSource() *TriggerSource {
 	return r.trigger
 }
 
-// LifecycleHandler returns the typed Kubeseer event handler for registration.
+// LifecycleHandler returns the typed Facet event handler for registration.
 func (r *Runtime) LifecycleHandler() *LifecycleHandler {
 	if r == nil {
 		return nil
@@ -272,43 +272,43 @@ func (r *Runtime) PolicyHandler() *PolicyHandler {
 	return NewPolicyHandler(r.deps.Tracker, r.deps.Routes, r.trigger)
 }
 
-// KubeseerPredicate returns the lifecycle predicate used by SetupWithManager.
-func (r *Runtime) KubeseerPredicate() KubeseerPredicate { return KubeseerPredicate{} }
+// FacetPredicate returns the lifecycle predicate used by SetupWithManager.
+func (r *Runtime) FacetPredicate() FacetPredicate { return FacetPredicate{} }
 
 // PolicyPredicate returns the singleton policy predicate used by setup.
 func (r *Runtime) PolicyPredicate() PolicyPredicate { return PolicyPredicate{} }
 
-// ClientKubeseerStore adapts a controller-runtime reader to the narrow
-// Kubeseer ports. It is safe to use with APIReader for fresh security-sensitive
+// ClientFacetStore adapts a controller-runtime reader to the narrow
+// Facet ports. It is safe to use with APIReader for fresh security-sensitive
 // reads and enqueue-all listing.
-type ClientKubeseerStore struct {
+type ClientFacetStore struct {
 	reader client.Reader
 }
 
-// NewClientKubeseerStore constructs a narrow adapter around client.Reader.
-func NewClientKubeseerStore(reader client.Reader) *ClientKubeseerStore {
-	return &ClientKubeseerStore{reader: reader}
+// NewClientFacetStore constructs a narrow adapter around client.Reader.
+func NewClientFacetStore(reader client.Reader) *ClientFacetStore {
+	return &ClientFacetStore{reader: reader}
 }
 
-// Get retrieves one current Kubeseer by namespace/name.
-func (s *ClientKubeseerStore) Get(ctx context.Context, key types.NamespacedName, object *v1alpha1.Kubeseer) error {
+// Get retrieves one current Facet by namespace/name.
+func (s *ClientFacetStore) Get(ctx context.Context, key types.NamespacedName, object *v1alpha1.Facet) error {
 	if s == nil || s.reader == nil {
-		return errors.New("Kubeseer reader is not configured")
+		return errors.New("Facet reader is not configured")
 	}
 	if object == nil {
-		return errors.New("Kubeseer read destination is nil")
+		return errors.New("Facet read destination is nil")
 	}
 	return s.reader.Get(ctx, client.ObjectKey(key), object)
 }
 
-// List lists all Kubeseers through the supplied reader. The caller consumes
+// List lists all Facets through the supplied reader. The caller consumes
 // only identity metadata and drops the returned objects after enqueueing.
-func (s *ClientKubeseerStore) List(ctx context.Context, list *v1alpha1.KubeseerList) error {
+func (s *ClientFacetStore) List(ctx context.Context, list *v1alpha1.FacetList) error {
 	if s == nil || s.reader == nil {
-		return errors.New("Kubeseer lister is not configured")
+		return errors.New("Facet lister is not configured")
 	}
 	if list == nil {
-		return errors.New("Kubeseer list destination is nil")
+		return errors.New("Facet list destination is nil")
 	}
 	return s.reader.List(ctx, list)
 }
@@ -324,12 +324,12 @@ func NewClientStatusWriter(writer client.SubResourceWriter) *ClientStatusWriter 
 }
 
 // Update delegates only to the status subresource.
-func (w *ClientStatusWriter) Update(ctx context.Context, object *v1alpha1.Kubeseer) error {
+func (w *ClientStatusWriter) Update(ctx context.Context, object *v1alpha1.Facet) error {
 	if w == nil || w.writer == nil {
-		return errors.New("Kubeseer status writer is not configured")
+		return errors.New("Facet status writer is not configured")
 	}
 	if object == nil {
-		return errors.New("Kubeseer status destination is nil")
+		return errors.New("Facet status destination is nil")
 	}
 	return w.writer.Update(ctx, object)
 }

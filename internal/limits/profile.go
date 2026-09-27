@@ -45,7 +45,7 @@ const (
 	DefaultMaxActiveWatches        int   = 1024
 	DefaultMaxPendingTriggers      int   = 4096
 
-	DefaultMaxKubeseerSources          int = 32
+	DefaultMaxFacetSources             int = 32
 	DefaultMaxSourceNamespaces         int = 64
 	DefaultMaxSourceFields             int = 64
 	DefaultMaxFieldOperators           int = 16
@@ -71,7 +71,7 @@ const (
 // AdmissionOverrides contains optional admission-budget changes. A nil
 // member is omitted; a non-nil zero or negative member is invalid.
 type AdmissionOverrides struct {
-	MaxKubeseerSources          *int
+	MaxFacetSources             *int
 	MaxSourceNamespaces         *int
 	MaxSourceFields             *int
 	MaxFieldOperators           *int
@@ -85,7 +85,7 @@ type AdmissionOverrides struct {
 	MaxPolicyResourceRules      *int
 	MaxPolicyAPIGroups          *int
 	MaxPolicyKinds              *int
-	MaxKubeseerSpecBytes        *int
+	MaxFacetSpecBytes           *int
 	MaxAccessPolicySpecBytes    *int
 }
 
@@ -137,7 +137,7 @@ type Profile struct {
 // AdmissionBudgets is the domain-neutral view consumed by the admission
 // adapter. It deliberately contains values, never pointers.
 type AdmissionBudgets struct {
-	MaxKubeseerSources          int
+	MaxFacetSources             int
 	MaxSourceNamespaces         int
 	MaxSourceFields             int
 	MaxFieldOperators           int
@@ -151,7 +151,7 @@ type AdmissionBudgets struct {
 	MaxPolicyResourceRules      int
 	MaxPolicyAPIGroups          int
 	MaxPolicyKinds              int
-	MaxKubeseerSpecBytes        int
+	MaxFacetSpecBytes           int
 	MaxAccessPolicySpecBytes    int
 }
 
@@ -208,7 +208,7 @@ func DefaultProfile() Profile {
 		maxActiveWatches:        DefaultMaxActiveWatches,
 		maxPendingTriggers:      DefaultMaxPendingTriggers,
 		admission: AdmissionBudgets{
-			MaxKubeseerSources:          DefaultMaxKubeseerSources,
+			MaxFacetSources:             DefaultMaxFacetSources,
 			MaxSourceNamespaces:         DefaultMaxSourceNamespaces,
 			MaxSourceFields:             DefaultMaxSourceFields,
 			MaxFieldOperators:           DefaultMaxFieldOperators,
@@ -222,7 +222,7 @@ func DefaultProfile() Profile {
 			MaxPolicyResourceRules:      DefaultMaxPolicyResourceRules,
 			MaxPolicyAPIGroups:          DefaultMaxPolicyAPIGroups,
 			MaxPolicyKinds:              DefaultMaxPolicyKinds,
-			MaxKubeseerSpecBytes:        DefaultMaxCanonicalSpecBytes,
+			MaxFacetSpecBytes:           DefaultMaxCanonicalSpecBytes,
 			MaxAccessPolicySpecBytes:    DefaultMaxCanonicalSpecBytes,
 		},
 		aggregation: AggregationBudgets{
@@ -318,7 +318,7 @@ func invalid(field, value string) error {
 
 func resolveAdmission(overrides AdmissionOverrides, defaults AdmissionBudgets) (AdmissionBudgets, error) {
 	var err error
-	if defaults.MaxKubeseerSources, err = boundedAdmission("admission.maxKubeseerSources", overrides.MaxKubeseerSources, defaults.MaxKubeseerSources, DefaultMaxKubeseerSources); err != nil {
+	if defaults.MaxFacetSources, err = boundedAdmission("admission.maxFacetSources", overrides.MaxFacetSources, defaults.MaxFacetSources, DefaultMaxFacetSources); err != nil {
 		return AdmissionBudgets{}, err
 	}
 	if defaults.MaxSourceNamespaces, err = boundedAdmission("admission.maxSourceNamespaces", overrides.MaxSourceNamespaces, defaults.MaxSourceNamespaces, DefaultMaxSourceNamespaces); err != nil {
@@ -360,7 +360,7 @@ func resolveAdmission(overrides AdmissionOverrides, defaults AdmissionBudgets) (
 	if defaults.MaxPolicyKinds, err = boundedAdmission("admission.maxPolicyKinds", overrides.MaxPolicyKinds, defaults.MaxPolicyKinds, DefaultMaxPolicyKinds); err != nil {
 		return AdmissionBudgets{}, err
 	}
-	if defaults.MaxKubeseerSpecBytes, err = boundedAdmission("admission.maxKubeseerSpecBytes", overrides.MaxKubeseerSpecBytes, defaults.MaxKubeseerSpecBytes, DefaultMaxCanonicalSpecBytes); err != nil {
+	if defaults.MaxFacetSpecBytes, err = boundedAdmission("admission.maxFacetSpecBytes", overrides.MaxFacetSpecBytes, defaults.MaxFacetSpecBytes, DefaultMaxCanonicalSpecBytes); err != nil {
 		return AdmissionBudgets{}, err
 	}
 	if defaults.MaxAccessPolicySpecBytes, err = boundedAdmission("admission.maxAccessPolicySpecBytes", overrides.MaxAccessPolicySpecBytes, defaults.MaxAccessPolicySpecBytes, DefaultMaxCanonicalSpecBytes); err != nil {
@@ -446,7 +446,7 @@ func (p Profile) Valid() bool {
 	return p.pageSize > 0 && p.maxMatchedResources > 0 && p.maxSelectedInputBytes > 0 &&
 		p.maxProducedValueBytes > 0 && p.maxStatusBytes > 0 && p.evaluationTimeout > 0 &&
 		p.maxConcurrentReconciles > 0 && p.discoveryCacheEntries > 0 && p.discoveryCacheTTL > 0 &&
-		p.maxActiveWatches > 0 && p.maxPendingTriggers > 0 && p.admission.MaxKubeseerSources > 0 &&
+		p.maxActiveWatches > 0 && p.maxPendingTriggers > 0 && p.admission.MaxFacetSources > 0 &&
 		p.aggregation.MaxGroups > 0
 }
 

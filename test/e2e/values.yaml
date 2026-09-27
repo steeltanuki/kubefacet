@@ -22,7 +22,7 @@ limits:
   maxActiveWatches: 256
   maxPendingTriggers: 512
   admission:
-    maxKubeseerSources: 16
+    maxFacetSources: 16
     maxSourceNamespaces: 16
     maxSourceFields: 16
     maxFieldOperators: 8
@@ -36,7 +36,7 @@ limits:
     maxPolicyResourceRules: 32
     maxPolicyAPIGroups: 16
     maxPolicyKinds: 16
-    maxKubeseerSpecBytes: 131072
+    maxFacetSpecBytes: 131072
     maxAccessPolicySpecBytes: 131072
   aggregation:
     maxGroups: 256
@@ -48,7 +48,7 @@ accessPolicy:
   mode: managed
   explicitNamespaces: []
   allowedResources:
-    - apiGroups: ["", "apps", "fixtures.kubeseer.io"]
+    - apiGroups: ["", "apps", "fixtures.kubefacet.steeltanuki.it"]
       kinds: ["Pod", "Deployment", "Widget"]
   # The ClusterRole below grants the manager namespaced reads across the
   # run-created fixture namespaces. Logical access remains constrained by the
@@ -65,7 +65,7 @@ rbac:
       - apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - apiGroups: ["fixtures.kubeseer.io"]
+      - apiGroups: ["fixtures.kubefacet.steeltanuki.it"]
         resources: ["widgets"]
         verbs: ["get", "list", "watch"]
   authors:

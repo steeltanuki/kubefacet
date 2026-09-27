@@ -42,7 +42,7 @@ import (
 	"strings"
 	"testing"
 
-	harness "github.com/steeltanuki/kubeseer/test/envtest"
+	harness "github.com/steeltanuki/kubefacet/test/envtest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -94,5 +94,5 @@ func TestHarnessLifecycle(t *testing.T) {
 EOF
 
 package_path="./${FIXTURE_DIR#"$ROOT_DIR"/}"
-GOCACHE="${GOCACHE:-/tmp/kubeseer-gocache}" go test -count=1 "$package_path"
+GOCACHE="${GOCACHE:-/tmp/kubefacet-gocache}" go test -count=1 "$package_path"
 printf '%s\n' 'Envtest harness acceptance passed'

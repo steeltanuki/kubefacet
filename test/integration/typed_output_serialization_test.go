@@ -22,19 +22,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 	"sigs.k8s.io/yaml"
 )
 
 func assertTypedOutputSerializationScenarios(t *testing.T) {
 	t.Helper()
 
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID: "serialization-source",
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "empty", Path: "{.data.empty}", Type: v1alpha1.ValueTypeString},
 			{Name: "integer-zero", Path: "{.data.integerZero}", Type: v1alpha1.ValueTypeInteger},
 			{Name: "number", Path: "{.data.number}", Type: v1alpha1.ValueTypeNumber},
@@ -96,7 +96,7 @@ func assertTypedOutputSerializationScenarios(t *testing.T) {
 		t.Fatalf("structural provenance = %#v", resource)
 	}
 
-	byName := make(map[string]v1alpha1.KubeseerFieldResult, len(resource.Fields))
+	byName := make(map[string]v1alpha1.FacetFieldResult, len(resource.Fields))
 	for _, field := range resource.Fields {
 		byName[field.Name] = field
 	}
@@ -148,7 +148,7 @@ func assertTypedOutputSerializationScenarios(t *testing.T) {
 	if strings.Contains(string(encodedJSON), `"value":`) || strings.Contains(string(encodedJSON), `"originalValue":`) {
 		t.Fatalf("typed result contains an undeclared original-value payload: %s", encodedJSON)
 	}
-	var decodedJSON v1alpha1.KubeseerResult
+	var decodedJSON v1alpha1.FacetResult
 	if err := json.Unmarshal(encodedJSON, &decodedJSON); err != nil {
 		t.Fatalf("unmarshal typed result JSON: %v", err)
 	}
@@ -160,7 +160,7 @@ func assertTypedOutputSerializationScenarios(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal typed result YAML: %v", err)
 	}
-	var decodedYAML v1alpha1.KubeseerResult
+	var decodedYAML v1alpha1.FacetResult
 	if err := yaml.Unmarshal(encodedYAML, &decodedYAML); err != nil {
 		t.Fatalf("unmarshal typed result YAML: %v", err)
 	}
@@ -172,7 +172,7 @@ func assertTypedOutputSerializationScenarios(t *testing.T) {
 		t.Fatal("invalid empty source union was accepted")
 	}
 
-	planningSource := v1alpha1.KubeseerSource{ID: "planning-failure-source", Fields: []v1alpha1.KubeseerField{{Name: "missing", Path: "{.data.value}"}}}
+	planningSource := v1alpha1.FacetSource{ID: "planning-failure-source", Fields: []v1alpha1.FacetField{{Name: "missing", Path: "{.data.value}"}}}
 	planningPlan := typedoutput.CompileSource(planningSource)
 	planningExtracted := extraction.SourceOutcome{SourceID: planningSource.ID}
 	planningResult, err := typedoutput.BuildResult([]typedoutput.SourceOutcome{typedoutput.ConvertSource(planningPlan, planningExtracted)})
@@ -180,7 +180,7 @@ func assertTypedOutputSerializationScenarios(t *testing.T) {
 		t.Fatalf("planning error status = result=%#v err=%v", planningResult, err)
 	}
 
-	failingSource := v1alpha1.KubeseerSource{ID: "runtime-failure-source", Fields: []v1alpha1.KubeseerField{{Name: "bad", Path: "{.data.bad}", Type: v1alpha1.ValueTypeInteger}, {Name: "good", Path: "{.data.good}", Type: v1alpha1.ValueTypeString}}}
+	failingSource := v1alpha1.FacetSource{ID: "runtime-failure-source", Fields: []v1alpha1.FacetField{{Name: "bad", Path: "{.data.bad}", Type: v1alpha1.ValueTypeInteger}, {Name: "good", Path: "{.data.good}", Type: v1alpha1.ValueTypeString}}}
 	failingPlan := typedoutput.CompileSource(failingSource)
 	failingExtracted := extraction.ExtractBatch(context.Background(), []extraction.SourceInput{{
 		Source: failingSource,
@@ -197,7 +197,7 @@ func assertTypedOutputSerializationScenarios(t *testing.T) {
 	}
 }
 
-func countTypedPayloads(match v1alpha1.KubeseerTypedMatch) int {
+func countTypedPayloads(match v1alpha1.FacetTypedMatch) int {
 	count := 0
 	if match.StringValue != nil {
 		count++
@@ -229,14 +229,14 @@ func countTypedPayloads(match v1alpha1.KubeseerTypedMatch) int {
 	return count
 }
 
-func hasTypedPayload(match v1alpha1.KubeseerTypedMatch) bool {
+func hasTypedPayload(match v1alpha1.FacetTypedMatch) bool {
 	return countTypedPayloads(match) != 0
 }
 
-func typedResultSemanticallyEqualForIntegration(left, right v1alpha1.KubeseerResult) bool {
+func typedResultSemanticallyEqualForIntegration(left, right v1alpha1.FacetResult) bool {
 	leftCopy := *left.DeepCopy()
 	rightCopy := *right.DeepCopy()
-	for _, result := range []*v1alpha1.KubeseerResult{&leftCopy, &rightCopy} {
+	for _, result := range []*v1alpha1.FacetResult{&leftCopy, &rightCopy} {
 		for sourceIndex := range result.Sources {
 			for resourceIndex := range result.Sources[sourceIndex].Resources {
 				for fieldIndex := range result.Sources[sourceIndex].Resources[resourceIndex].Fields {

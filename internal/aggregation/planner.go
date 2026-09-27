@@ -17,8 +17,8 @@ package aggregation
 import (
 	"sort"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 const defaultAveragePrecision int32 = 6
@@ -26,10 +26,10 @@ const defaultAveragePrecision int32 = 6
 // PlanSource validates every aggregate declaration before evaluation. Valid
 // declarations and independent failures are retained in lexical name order;
 // no declaration cache is consulted or populated.
-func PlanSource(source v1alpha1.KubeseerSource, limits Limits) PlanOutcome {
+func PlanSource(source v1alpha1.FacetSource, limits Limits) PlanOutcome {
 	limits = normalizeLimits(limits)
 	type indexedAggregation struct {
-		declaration v1alpha1.KubeseerAggregation
+		declaration v1alpha1.FacetAggregation
 		index       int
 	}
 	declarations := make([]indexedAggregation, len(source.Aggregations))
@@ -46,7 +46,7 @@ func PlanSource(source v1alpha1.KubeseerSource, limits Limits) PlanOutcome {
 		return outcome
 	}
 
-	fieldTypes := make(map[string]v1alpha1.KubeseerValueType, len(source.Fields))
+	fieldTypes := make(map[string]v1alpha1.FacetValueType, len(source.Fields))
 	for _, field := range source.Fields {
 		if _, exists := fieldTypes[field.Name]; !exists {
 			fieldTypes[field.Name] = field.Type
@@ -78,7 +78,7 @@ func PlanSource(source v1alpha1.KubeseerSource, limits Limits) PlanOutcome {
 
 // PlanBatch plans all sources independently and retains caller declaration
 // order. It is a convenience for the production pipeline.
-func PlanBatch(sources []v1alpha1.KubeseerSource, limits Limits) []PlanOutcome {
+func PlanBatch(sources []v1alpha1.FacetSource, limits Limits) []PlanOutcome {
 	if sources == nil {
 		return nil
 	}
@@ -89,7 +89,7 @@ func PlanBatch(sources []v1alpha1.KubeseerSource, limits Limits) []PlanOutcome {
 	return outcomes
 }
 
-func planDeclaration(sourceID string, declaration v1alpha1.KubeseerAggregation, fieldTypes map[string]v1alpha1.KubeseerValueType, limits Limits) (AggregatePlan, *AggregateError) {
+func planDeclaration(sourceID string, declaration v1alpha1.FacetAggregation, fieldTypes map[string]v1alpha1.FacetValueType, limits Limits) (AggregatePlan, *AggregateError) {
 	if declaration.Name == "" {
 		return AggregatePlan{}, planningFailure(sourceID, declaration.Name, declaration.Function, declaration.Field, ReasonInvalidInput, "aggregate name is invalid")
 	}
@@ -167,7 +167,7 @@ func planDeclaration(sourceID string, declaration v1alpha1.KubeseerAggregation, 
 	}, nil
 }
 
-func compatibleFunction(function v1alpha1.KubeseerAggregationFunction, fieldType v1alpha1.KubeseerValueType) bool {
+func compatibleFunction(function v1alpha1.FacetAggregationFunction, fieldType v1alpha1.FacetValueType) bool {
 	switch function {
 	case v1alpha1.AggregationCollect, v1alpha1.AggregationCount,
 		v1alpha1.AggregationFirst, v1alpha1.AggregationLast,
@@ -184,7 +184,7 @@ func compatibleFunction(function v1alpha1.KubeseerAggregationFunction, fieldType
 	}
 }
 
-func supportedGroupType(fieldType v1alpha1.KubeseerValueType) bool {
+func supportedGroupType(fieldType v1alpha1.FacetValueType) bool {
 	switch fieldType {
 	case v1alpha1.ValueTypeString, v1alpha1.ValueTypeInteger,
 		v1alpha1.ValueTypeNumber, v1alpha1.ValueTypeBoolean,
@@ -196,7 +196,7 @@ func supportedGroupType(fieldType v1alpha1.KubeseerValueType) bool {
 	}
 }
 
-func supportedRoundingMode(mode v1alpha1.KubeseerRoundingMode) bool {
+func supportedRoundingMode(mode v1alpha1.FacetRoundingMode) bool {
 	switch mode {
 	case v1alpha1.RoundingHalfEven, v1alpha1.RoundingHalfAwayFromZero,
 		v1alpha1.RoundingTowardZero, v1alpha1.RoundingAwayFromZero:
@@ -206,6 +206,6 @@ func supportedRoundingMode(mode v1alpha1.KubeseerRoundingMode) bool {
 	}
 }
 
-func planningFailure(sourceID, aggregateName string, function v1alpha1.KubeseerAggregationFunction, fieldName string, reason Reason, message string) *AggregateError {
+func planningFailure(sourceID, aggregateName string, function v1alpha1.FacetAggregationFunction, fieldName string, reason Reason, message string) *AggregateError {
 	return NewAggregateError(sourceID, aggregateName, function, fieldName, nil, reason, message)
 }

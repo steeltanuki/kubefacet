@@ -45,9 +45,9 @@ func scenarioSourceUpdateNoop(ctx context.Context, t *testing.T, session *Cluste
 	if err != nil {
 		t.Fatalf("E2E-010 source Pod: %v", err)
 	}
-	owner, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("mutable", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	owner, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("mutable", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-010 Kubeseer: %v", err)
+		t.Fatalf("E2E-010 Facet: %v", err)
 	}
 	initial := mustReadySnapshot(t, session, ctx, owner, "E2E-010")
 	if initial.Result.Sources[0].Resources[0].Fields[0].Matches[0].StringValue == nil || *initial.Result.Sources[0].Resources[0].Fields[0].Matches[0].StringValue != "before" {
@@ -71,7 +71,7 @@ func scenarioSourceUpdateNoop(ctx context.Context, t *testing.T, session *Cluste
 	if err != nil {
 		t.Fatalf("E2E-010 list status Events: %v", err)
 	}
-	beforeMetric := metricCounter(t, session, "kubeseer_status_updates_total")
+	beforeMetric := metricCounter(t, session, "kubefacet_status_updates_total")
 	currentPod, err = session.Core.CoreV1().Pods(namespace).Get(ctx, pod.GetName(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("E2E-010 reread source: %v", err)
@@ -84,7 +84,7 @@ func scenarioSourceUpdateNoop(ctx context.Context, t *testing.T, session *Cluste
 		t.Fatalf("E2E-010 semantic no-op update: %v", err)
 	}
 	if err := QuietWindow(ctx, 5*time.Second, func(observeCtx context.Context) (string, error) {
-		current, readErr := session.GetKubeseer(observeCtx, owner.GetNamespace(), owner.GetName())
+		current, readErr := session.GetFacet(observeCtx, owner.GetNamespace(), owner.GetName())
 		if readErr != nil {
 			return "", readErr
 		}
@@ -96,7 +96,7 @@ func scenarioSourceUpdateNoop(ctx context.Context, t *testing.T, session *Cluste
 	if err != nil {
 		t.Fatalf("E2E-010 reread status Events: %v", err)
 	}
-	afterMetric := metricCounter(t, session, "kubeseer_status_updates_total")
+	afterMetric := metricCounter(t, session, "kubefacet_status_updates_total")
 	if len(afterEvents) != len(beforeEvents) && len(afterEvents) != len(beforeEvents)+1 {
 		t.Fatalf("E2E-010 no-op Event cardinality changed unexpectedly: before=%d after=%d", len(beforeEvents), len(afterEvents))
 	}
@@ -119,9 +119,9 @@ func scenarioSourceDeletionPolicy(ctx context.Context, t *testing.T, session *Cl
 	if err != nil {
 		t.Fatalf("E2E-011 source Pod: %v", err)
 	}
-	owner, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("deletable", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	owner, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("deletable", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-011 Kubeseer: %v", err)
+		t.Fatalf("E2E-011 Facet: %v", err)
 	}
 	_ = mustReadySnapshot(t, session, ctx, owner, "E2E-011")
 	if err := session.Core.CoreV1().Pods(namespace).Delete(ctx, pod.GetName(), metav1.DeleteOptions{}); err != nil {
@@ -156,9 +156,9 @@ func scenarioManagerRestart(ctx context.Context, t *testing.T, session *ClusterS
 	if err != nil {
 		t.Fatalf("E2E-012 source Pod: %v", err)
 	}
-	owner, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("restart", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	owner, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("restart", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-012 Kubeseer: %v", err)
+		t.Fatalf("E2E-012 Facet: %v", err)
 	}
 	_ = mustReadySnapshot(t, session, ctx, owner, "E2E-012")
 	before := managerPod(t, session, ctx)
@@ -185,7 +185,7 @@ func scenarioManagerRestart(ctx context.Context, t *testing.T, session *ClusterS
 	}
 }
 
-func scenarioKubeseerDeletion(ctx context.Context, t *testing.T, session *ClusterSession) {
+func scenarioFacetDeletion(ctx context.Context, t *testing.T, session *ClusterSession) {
 	fixtures := mustFixtures(t, session, "E2E-013")
 	defer cleanupFixtures(t, fixtures)
 	namespace, err := fixtures.EnsureNamespace(ctx)
@@ -199,22 +199,22 @@ func scenarioKubeseerDeletion(ctx context.Context, t *testing.T, session *Cluste
 	if err != nil {
 		t.Fatalf("E2E-013 source Pod: %v", err)
 	}
-	owner, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("preserved", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, nil, nil)}})
+	owner, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("preserved", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, nil, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-013 Kubeseer: %v", err)
+		t.Fatalf("E2E-013 Facet: %v", err)
 	}
 	_ = mustReadySnapshot(t, session, ctx, owner, "E2E-013")
-	if err := session.Dynamic.Resource(KubeseerResource).Namespace(namespace).Delete(ctx, owner.GetName(), metav1.DeleteOptions{}); err != nil {
-		t.Fatalf("E2E-013 delete Kubeseer: %v", err)
+	if err := session.Dynamic.Resource(FacetResource).Namespace(namespace).Delete(ctx, owner.GetName(), metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("E2E-013 delete Facet: %v", err)
 	}
-	if err := session.WaitFor(ctx, "E2E-013", "Kubeseer deletion", func(waitCtx context.Context) (bool, error) {
-		_, getErr := session.Dynamic.Resource(KubeseerResource).Namespace(namespace).Get(waitCtx, owner.GetName(), metav1.GetOptions{})
+	if err := session.WaitFor(ctx, "E2E-013", "Facet deletion", func(waitCtx context.Context) (bool, error) {
+		_, getErr := session.Dynamic.Resource(FacetResource).Namespace(namespace).Get(waitCtx, owner.GetName(), metav1.GetOptions{})
 		return apierrors.IsNotFound(getErr), nil
 	}); err != nil {
 		t.Fatalf("E2E-013 deletion completion: %v", err)
 	}
 	if _, err := session.Core.CoreV1().Pods(namespace).Get(ctx, pod.GetName(), metav1.GetOptions{}); err != nil {
-		t.Fatalf("E2E-013 observed resource was deleted with Kubeseer: %v", err)
+		t.Fatalf("E2E-013 observed resource was deleted with Facet: %v", err)
 	}
 	if current := managerPod(t, session, ctx); !podReady(current) {
 		t.Fatalf("E2E-013 manager health after deletion = %#v", current.Status.Conditions)
@@ -235,19 +235,19 @@ func scenarioOverlappingInstances(ctx context.Context, t *testing.T, session *Cl
 	if err != nil {
 		t.Fatalf("E2E-014 shared Pod: %v", err)
 	}
-	first, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("first"), map[string]interface{}{"sources": []interface{}{sourceSpec("first", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	first, err := fixtures.CreateFacet(ctx, fixtures.scopedName("first"), map[string]interface{}{"sources": []interface{}{sourceSpec("first", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-014 first Kubeseer: %v", err)
+		t.Fatalf("E2E-014 first Facet: %v", err)
 	}
-	second, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("second"), map[string]interface{}{"sources": []interface{}{sourceSpec("second", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
+	second, err := fixtures.CreateFacet(ctx, fixtures.scopedName("second"), map[string]interface{}{"sources": []interface{}{sourceSpec("second", "v1", "Pod", []string{namespace}, map[string]interface{}{"name": pod.GetName()}, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-014 second Kubeseer: %v", err)
+		t.Fatalf("E2E-014 second Facet: %v", err)
 	}
 	_ = mustReadySnapshot(t, session, ctx, first, "E2E-014")
 	_ = mustReadySnapshot(t, session, ctx, second, "E2E-014")
-	currentSecond, err := session.Dynamic.Resource(KubeseerResource).Namespace(namespace).Get(ctx, second.GetName(), metav1.GetOptions{})
+	currentSecond, err := session.Dynamic.Resource(FacetResource).Namespace(namespace).Get(ctx, second.GetName(), metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("E2E-014 reread second Kubeseer: %v", err)
+		t.Fatalf("E2E-014 reread second Facet: %v", err)
 	}
 	// Use a schema-valid type conversion failure while retaining the shared
 	// source and the first instance's independent status.
@@ -274,7 +274,7 @@ func scenarioOverlappingInstances(ctx context.Context, t *testing.T, session *Cl
 	if err := unstructured.SetNestedSlice(currentSecond.Object, sources, "spec", "sources"); err != nil {
 		t.Fatalf("E2E-014 prepare isolated failure: %v", err)
 	}
-	if _, err := session.Dynamic.Resource(KubeseerResource).Namespace(namespace).Update(ctx, currentSecond, metav1.UpdateOptions{}); err != nil {
+	if _, err := session.Dynamic.Resource(FacetResource).Namespace(namespace).Update(ctx, currentSecond, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("E2E-014 mutate second instance: %v", err)
 	}
 	failed := mustObservedSnapshot(t, session, ctx, currentSecond, "E2E-014", func(snapshot StatusSnapshot) bool {
@@ -293,7 +293,7 @@ func scenarioOverlappingInstances(ctx context.Context, t *testing.T, session *Cl
 
 func metricCounter(t *testing.T, session *ClusterSession, family string) float64 {
 	t.Helper()
-	endpoint := strings.TrimSpace(getenv("KUBESEER_E2E_METRICS_URL"))
+	endpoint := strings.TrimSpace(getenv("KUBEFACET_E2E_METRICS_URL"))
 	if endpoint != "" {
 		value := float64(-1)
 		pollCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
@@ -339,7 +339,7 @@ func findMetricValue(body, family string) (float64, bool) {
 		if len(parts) != 2 || strings.SplitN(parts[0], "{", 2)[0] != family {
 			continue
 		}
-		if family == "kubeseer_status_updates_total" && (!strings.Contains(parts[0], `outcome="written"`) || !strings.Contains(parts[0], `reason="EvaluationSucceeded"`)) {
+		if family == "kubefacet_status_updates_total" && (!strings.Contains(parts[0], `outcome="written"`) || !strings.Contains(parts[0], `reason="EvaluationSucceeded"`)) {
 			continue
 		}
 		value, err := strconv.ParseFloat(parts[1], 64)
@@ -366,7 +366,7 @@ func managerPod(t *testing.T, session *ClusterSession, ctx context.Context) *cor
 }
 
 func managerPodMaybe(session *ClusterSession, ctx context.Context) (*corev1.Pod, error) {
-	pods, err := session.Core.CoreV1().Pods(session.Metadata.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=kubeseer,app.kubernetes.io/instance=" + session.Metadata.Release})
+	pods, err := session.Core.CoreV1().Pods(session.Metadata.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=kubefacet,app.kubernetes.io/instance=" + session.Metadata.Release})
 	if err != nil {
 		return nil, err
 	}

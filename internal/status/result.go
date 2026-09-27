@@ -21,15 +21,15 @@ import (
 	"math"
 	"reflect"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 )
 
 // DerivedResult is the immutable semantic projection derived from one
 // structural result. Result remains the authoritative value; Summary,
 // ResultHash, and Degraded are recomputed from it.
 type DerivedResult struct {
-	Result     *v1alpha1.KubeseerResult
-	Summary    *v1alpha1.KubeseerSummary
+	Result     *v1alpha1.FacetResult
+	Summary    *v1alpha1.FacetSummary
 	ResultHash string
 	Degraded   bool
 }
@@ -37,7 +37,7 @@ type DerivedResult struct {
 // DeriveResult deep-copies and normalizes result, then derives all status
 // values that are functions of that result. A nil result represents an
 // unavailable result and therefore has no summary, hash, or degradation.
-func DeriveResult(result *v1alpha1.KubeseerResult) (DerivedResult, error) {
+func DeriveResult(result *v1alpha1.FacetResult) (DerivedResult, error) {
 	normalized := NormalizeResult(result)
 	if normalized == nil {
 		return DerivedResult{}, nil
@@ -61,7 +61,7 @@ func DeriveResult(result *v1alpha1.KubeseerResult) (DerivedResult, error) {
 
 // NormalizeResult returns a deep copy with nil and empty result collections
 // represented identically. Ordered result collections are never sorted.
-func NormalizeResult(result *v1alpha1.KubeseerResult) *v1alpha1.KubeseerResult {
+func NormalizeResult(result *v1alpha1.FacetResult) *v1alpha1.FacetResult {
 	if result == nil {
 		return nil
 	}
@@ -124,12 +124,12 @@ func NormalizeResult(result *v1alpha1.KubeseerResult) *v1alpha1.KubeseerResult {
 
 // SemanticResultEqual compares normalized structural results, retaining the
 // distinction between an absent result and a present empty result.
-func SemanticResultEqual(left, right *v1alpha1.KubeseerResult) bool {
+func SemanticResultEqual(left, right *v1alpha1.FacetResult) bool {
 	return reflect.DeepEqual(NormalizeResult(left), NormalizeResult(right))
 }
 
 // HasResultErrors reports source-scoped and field-scoped errors in a result.
-func HasResultErrors(result *v1alpha1.KubeseerResult) bool {
+func HasResultErrors(result *v1alpha1.FacetResult) bool {
 	if result == nil {
 		return false
 	}
@@ -156,8 +156,8 @@ func HasResultErrors(result *v1alpha1.KubeseerResult) bool {
 	return false
 }
 
-func summaryForResult(result *v1alpha1.KubeseerResult) (*v1alpha1.KubeseerSummary, error) {
-	summary := &v1alpha1.KubeseerSummary{}
+func summaryForResult(result *v1alpha1.FacetResult) (*v1alpha1.FacetSummary, error) {
+	summary := &v1alpha1.FacetSummary{}
 	for _, source := range result.Sources {
 		switch source.State {
 		case v1alpha1.SourceStateValues:
@@ -188,7 +188,7 @@ func addCount(value *int64, count int) error {
 	return nil
 }
 
-func hashNormalizedResult(result *v1alpha1.KubeseerResult) (string, error) {
+func hashNormalizedResult(result *v1alpha1.FacetResult) (string, error) {
 	encoded, err := json.Marshal(result)
 	if err != nil {
 		return "", fmt.Errorf("marshal normalized result: %w", err)

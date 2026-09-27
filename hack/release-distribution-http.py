@@ -54,7 +54,7 @@ def http_request(
     url: str, *, headers: dict[str, str] | None = None, data: bytes | None = None,
     follow_redirects: bool = True,
 ):
-    request_headers = {"User-Agent": "kubeseer-release-distribution/1"}
+    request_headers = {"User-Agent": "kubefacet-release-distribution/1"}
     if headers:
         request_headers.update(headers)
     method = "POST" if data is not None else "GET"
@@ -265,7 +265,7 @@ def normalize_chart(args: argparse.Namespace) -> None:
                     for member in sorted(source.getmembers(), key=lambda item: item.name):
                         name = pathlib.PurePosixPath(member.name)
                         if (name.is_absolute() or ".." in name.parts or
-                                not member.name.startswith("kubeseer/") or
+                                not member.name.startswith("kubefacet/") or
                                 not member.isfile() or member.name in seen):
                             fail(f"unsafe or duplicate Helm archive member: {member.name}")
                         seen.add(member.name)

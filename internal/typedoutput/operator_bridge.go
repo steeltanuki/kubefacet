@@ -20,21 +20,21 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // ConvertConfiguredMatch converts one already-decoded operator operand with
 // the exact conversion core used for observed extraction matches. The
 // operator layer supplies the branch-specific native value; this function
 // does not infer a field type or add coercions.
-func ConvertConfiguredMatch(sourceID, fieldName string, typeName v1alpha1.KubeseerValueType, native any) (Match, error) {
+func ConvertConfiguredMatch(sourceID, fieldName string, typeName v1alpha1.FacetValueType, native any) (Match, error) {
 	return ConvertMatch(FieldPlan{sourceID: sourceID, name: fieldName, typeName: typeName}, native, nil)
 }
 
 // NullMatch returns the explicit null representation for one supported field
 // type through the same configured-value conversion path.
-func NullMatch(sourceID, fieldName string, typeName v1alpha1.KubeseerValueType) (Match, error) {
+func NullMatch(sourceID, fieldName string, typeName v1alpha1.FacetValueType) (Match, error) {
 	return ConvertConfiguredMatch(sourceID, fieldName, typeName, nil)
 }
 
@@ -172,18 +172,18 @@ func ReplaceFieldMatches(field FieldOutcome, matches []Match) (FieldOutcome, err
 
 // ProjectFieldResult serializes one immutable typed field through the
 // existing structural result contract without status writes.
-func ProjectFieldResult(field FieldOutcome) (v1alpha1.KubeseerFieldResult, error) {
+func ProjectFieldResult(field FieldOutcome) (v1alpha1.FacetFieldResult, error) {
 	return buildFieldResult(field)
 }
 
 // ProjectResourceResult serializes one resource provenance and its immutable
 // typed fields through the existing structural result contract.
-func ProjectResourceResult(provenance selection.Provenance, fields []FieldOutcome) (v1alpha1.KubeseerResourceResult, error) {
+func ProjectResourceResult(provenance selection.Provenance, fields []FieldOutcome) (v1alpha1.FacetResourceResult, error) {
 	return buildResourceResult(ResourceOutcome{provenance: provenance, fields: fields})
 }
 
 // ProjectResultError maps an internal source or typed-output error to the
 // existing sanitized public result error contract.
-func ProjectResultError(err error) *v1alpha1.KubeseerResultError {
+func ProjectResultError(err error) *v1alpha1.FacetResultError {
 	return publicResultError(err)
 }

@@ -31,8 +31,8 @@ func assertPackagingWorkloadScenarios(t *testing.T) {
 	if !ok {
 		t.Fatal("locate integration test source")
 	}
-	chartDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubeseer")
-	command := exec.Command("helm", "template", "kubeseer", chartDir,
+	chartDir := filepath.Join(filepath.Dir(sourceFile), "..", "..", "charts", "kubefacet")
+	command := exec.Command("helm", "template", "kubefacet", chartDir,
 		"--namespace", "team-a", "--kube-version", "1.35.6", "--include-crds")
 	output, err := command.CombinedOutput()
 	if err != nil {
@@ -42,7 +42,7 @@ func assertPackagingWorkloadScenarios(t *testing.T) {
 	for _, fragment := range []string{
 		"kind: Deployment",
 		"namespace: team-a",
-		"image: \"ghcr.io/steeltanuki/kubeseer:" + packagingAppVersion(t, chartDir) + "\"",
+		"image: \"ghcr.io/steeltanuki/kubefacet:" + packagingAppVersion(t, chartDir) + "\"",
 		"maxUnavailable: 0",
 		"maxSurge: 1",
 		"readOnlyRootFilesystem: true",
@@ -64,13 +64,13 @@ func assertPackagingWorkloadScenarios(t *testing.T) {
 		t.Fatal("rendered workload enables host networking or privileged mode")
 	}
 
-	disabledMetrics := exec.Command("helm", "template", "kubeseer", chartDir,
+	disabledMetrics := exec.Command("helm", "template", "kubefacet", chartDir,
 		"--namespace", "team-a", "--kube-version", "1.35.6", "--set", "metrics.service.enabled=false")
 	disabledOutput, err := disabledMetrics.CombinedOutput()
 	if err != nil {
 		t.Fatalf("render workload with metrics disabled: %v\n%s", err, disabledOutput)
 	}
-	if strings.Contains(string(disabledOutput), "name: kubeseer-metrics") {
+	if strings.Contains(string(disabledOutput), "name: kubefacet-metrics") {
 		t.Fatal("metrics Service was rendered while disabled")
 	}
 

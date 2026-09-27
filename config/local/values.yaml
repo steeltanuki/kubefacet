@@ -21,14 +21,14 @@ certificate:
 accessPolicy:
   mode: managed
   explicitNamespaces:
-    - kubeseer-example-builtin
-    - kubeseer-example-typed
-    - kubeseer-example-operator
-    - kubeseer-example-aggregation-a
-    - kubeseer-example-aggregation-b
-    - kubeseer-example-custom
-    - kubeseer-example-denial
-    - kubeseer-example-degraded
+    - kubefacet-example-builtin
+    - kubefacet-example-typed
+    - kubefacet-example-operator
+    - kubefacet-example-aggregation-a
+    - kubefacet-example-aggregation-b
+    - kubefacet-example-custom
+    - kubefacet-example-denial
+    - kubefacet-example-degraded
   systemNamespaces:
     - kube-system
     - kube-public
@@ -42,7 +42,7 @@ accessPolicy:
     # its verifier then narrows the live policy before asserting runtime denial.
     - apiGroups: [""]
       kinds: ["Service"]
-    - apiGroups: ["fixtures.kubeseer.io"]
+    - apiGroups: ["fixtures.kubefacet.steeltanuki.it"]
       kinds: ["Widget", "DegradedWidget"]
   allowClusterScoped: false
 
@@ -51,55 +51,55 @@ accessPolicy:
 rbac:
   observed:
     namespaced:
-      - namespace: kubeseer-example-builtin
+      - namespace: kubefacet-example-builtin
         apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-typed
+      - namespace: kubefacet-example-typed
         apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-operator
+      - namespace: kubefacet-example-operator
         apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-aggregation-a
+      - namespace: kubefacet-example-aggregation-a
         apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-aggregation-b
+      - namespace: kubefacet-example-aggregation-b
         apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-custom
-        apiGroups: ["fixtures.kubeseer.io"]
+      - namespace: kubefacet-example-custom
+        apiGroups: ["fixtures.kubefacet.steeltanuki.it"]
         resources: ["widgets"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-denial
+      - namespace: kubefacet-example-denial
         apiGroups: [""]
         resources: ["pods"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-denial
+      - namespace: kubefacet-example-denial
         apiGroups: [""]
         resources: ["services"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-degraded
+      - namespace: kubefacet-example-degraded
         apiGroups: ["apps"]
         resources: ["deployments"]
         verbs: ["get", "list", "watch"]
-      - namespace: kubeseer-example-degraded
-        apiGroups: ["fixtures.kubeseer.io"]
+      - namespace: kubefacet-example-degraded
+        apiGroups: ["fixtures.kubefacet.steeltanuki.it"]
         resources: ["degradedwidgets"]
         verbs: ["get", "list", "watch"]
     clusterScoped: []
   authors:
     namespaces:
-      - kubeseer-example-builtin
-      - kubeseer-example-typed
-      - kubeseer-example-operator
-      - kubeseer-example-aggregation-a
-      - kubeseer-example-aggregation-b
-      - kubeseer-example-custom
-      - kubeseer-example-denial
-      - kubeseer-example-degraded
+      - kubefacet-example-builtin
+      - kubefacet-example-typed
+      - kubefacet-example-operator
+      - kubefacet-example-aggregation-a
+      - kubefacet-example-aggregation-b
+      - kubefacet-example-custom
+      - kubefacet-example-denial
+      - kubefacet-example-degraded
     subjects: []

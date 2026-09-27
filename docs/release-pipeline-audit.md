@@ -1,8 +1,13 @@
-# Release pipeline audit and automation proposal
+# Historical release pipeline audit and automation proposal
 
-Audit date: 2026-09-25. Source inspected: `cef971dc999266ec25f9dd5677bfc924b1d946d1`
-(`main`, tagged `v0.1.5`). The corrections described below are local changes on
-`fix/release-pipeline-preflight`; the proposed release automation is not implemented.
+Historical report dated 2026-09-25. It records the v0.1.x release pipeline as
+observed at source `cef971dc999266ec25f9dd5677bfc924b1d946d1` (`main`, tagged
+`v0.1.5`). Its run results and package observations are historical facts, not
+current KubeFacet installation instructions. The corrections described below
+were local changes on `fix/release-pipeline-preflight`; the automation remains
+a proposal and is not implemented by this migration. For current package and
+installation identity, use [the installation guide](installation.md) and
+[the migration guide](migration-from-kubeseer.md).
 
 ## Findings and corrections
 
@@ -122,7 +127,7 @@ preflight, candidate handoff, diagnostic uploads and further parallelization
 remain proposed work. Performance should be measured from checkout completion;
 runner queue/startup time is outside the validator's control.
 
-## GitHub setup and first-publication boundary
+## Historical GHCR observation and proposed first-publication boundary
 
 For unattended PR/tag creation, prefer a repository-scoped GitHub App with only
 the required contents/PR permissions and an installation token. Give that App
@@ -136,20 +141,22 @@ trigger behavior. An alternative is an explicit `workflow_dispatch`/reusable
 workflow design, which would require reviewing the publisher's existing
 push-only authorization checks. See [GitHub workflow triggering](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 
-GHCR makes a new package private by default; making the source repository public
-does not establish anonymous package access. This needs a one-time bootstrap
-procedure for **both** `steeltanuki/kubeseer` and
-`steeltanuki/charts/kubeseer`, as described in [GitHub's package visibility
-documentation](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility).
-The preparation preflight must distinguish ready public packages, inaccessible
-existing packages, and first publication. For a missing package, report the
-explicit bootstrap path before running expensive gates. After the first approved
+At the time of this audit, GHCR package visibility was unresolved for the
+v0.1.x package paths recorded above. The KubeFacet destinations prepared for a
+future v0.2.0 publication are `steeltanuki/kubefacet` and
+`steeltanuki/charts/kubefacet`; the maintainer must review their ownership,
+repository linkage, and anonymous visibility before publication. GHCR makes a
+new package private by default; making the source repository public does not
+establish anonymous package access. The proposed preflight would distinguish
+ready public packages, inaccessible existing packages, and first publication.
+It remains a proposal, not implemented automation. After the first approved
 publication creates a package, the maintainer may need to change its visibility
-in GitHub and resume the same immutable release. The existing publisher verifies
-the image before creating the chart, so these can require two visibility changes
+in GitHub and resume the same immutable release. The publisher verifies the
+image before creating the chart, so these can require two visibility changes
 and resumptions. Do not promise a completely unattended first GHCR publication.
 
-Before the next tag: integrate and run the repaired CI, prepare a new coherent
-version and notes, activate tag immutability, and resolve the GHCR prerequisite.
-`v0.1.5` cannot be repaired by rerunning it because its committed chart version is
-wrong. Changing chart or scripts requires a new commit and a new version tag.
+At the time of this historical audit, the next release required integrating
+and running the repaired CI, preparing a coherent version and notes, activating
+tag immutability, and resolving the GHCR prerequisite. The `v0.1.5` record
+cannot be repaired by rerunning it because its committed chart version was
+wrong. Changing chart or scripts required a new commit and version tag.

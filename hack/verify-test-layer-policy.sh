@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-readonly ROOT_DIR="${KUBESEER_VERIFY_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+readonly ROOT_DIR="${KUBEFACET_VERIFY_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
 readonly MAKEFILE="$ROOT_DIR/Makefile"
 
 failures=0
@@ -56,7 +56,7 @@ for production_root in api internal; do
 	while IFS= read -r file; do
 		relative_path="${file#"$ROOT_DIR"/}"
 		case "$relative_path" in
-		api/v1alpha1/kubeseer_envtest_test.go|internal/discovery/envtest_test.go|internal/selection/envtest_test.go)
+		api/v1alpha1/facet_envtest_test.go|internal/discovery/envtest_test.go|internal/selection/envtest_test.go)
 			;;
 		*)
 			violation "$relative_path is a package-local test file outside the approved envtest suites"
@@ -65,7 +65,7 @@ for production_root in api internal; do
 	done < <(find "$root" -type f -name '*_test.go' -print | sort)
 done
 
-check_envtest_suite api/v1alpha1/kubeseer_envtest_test.go TestAPIContract
+check_envtest_suite api/v1alpha1/facet_envtest_test.go TestAPIContract
 check_envtest_suite internal/discovery/envtest_test.go TestEnvtestDiscovery
 check_envtest_suite internal/selection/envtest_test.go TestEnvtestSelection
 check_envtest_suite test/envtest/admission_validation_envtest_test.go TestEnvtestAdmissionValidation

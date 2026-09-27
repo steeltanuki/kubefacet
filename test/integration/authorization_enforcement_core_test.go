@@ -22,10 +22,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -128,10 +128,10 @@ func assertAuthorizationEnforcementCoreScenarios(t *testing.T, ctx context.Conte
 	t.Run("terminal states deny without cached capability and preserve only present identity", func(t *testing.T) {
 		invalidPolicy := policy.DeepCopy()
 		invalidPolicy.Spec.Namespaces.Mode = v1alpha1.NamespaceMode("invalid")
-		invalidSnapshot := accesspolicy.Load(ctx, accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		invalidSnapshot := accesspolicy.Load(ctx, accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			return invalidPolicy.DeepCopy(), nil
 		}))
-		unavailableSnapshot := accesspolicy.Load(ctx, accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+		unavailableSnapshot := accesspolicy.Load(ctx, accesspolicy.PolicySourceFunc(func(context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 			return nil, errors.New("raw-upstream-payload-sentinel")
 		}))
 		cases := []struct {

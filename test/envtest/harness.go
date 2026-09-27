@@ -406,7 +406,7 @@ func (h *Harness) createNamespace() error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: h.scope.Namespace,
 			Labels: map[string]string{
-				"kubeseer.io/test-scope": h.scope.Prefix,
+				"kubefacet.steeltanuki.it/test-scope": h.scope.Prefix,
 			},
 		},
 	}, metav1.CreateOptions{})
@@ -564,7 +564,7 @@ func newScope(t testing.TB) Scope {
 	seed := fmt.Sprintf("%s-%d-%d", t.Name(), time.Now().UnixNano(), scopeCounter.Add(1))
 	digest := sha256.Sum256([]byte(seed))
 	token := hex.EncodeToString(digest[:])[:12]
-	prefix := "kubeseer-" + token
+	prefix := "kubefacet-" + token
 	return Scope{
 		Prefix:    prefix,
 		Namespace: prefix + "-ns",

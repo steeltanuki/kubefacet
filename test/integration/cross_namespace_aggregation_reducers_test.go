@@ -18,9 +18,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 func assertCrossNamespaceAggregationReducerScenarios(t *testing.T) {
@@ -28,7 +28,7 @@ func assertCrossNamespaceAggregationReducerScenarios(t *testing.T) {
 	t.Run("closed reducers cover every compatible logical type", func(t *testing.T) {
 		type fieldCase struct {
 			name      string
-			typeName  v1alpha1.KubeseerValueType
+			typeName  v1alpha1.FacetValueType
 			first     any
 			second    any
 			wantCount int
@@ -44,21 +44,21 @@ func assertCrossNamespaceAggregationReducerScenarios(t *testing.T) {
 			{name: "object", typeName: v1alpha1.ValueTypeObject, first: map[string]any{"b": int64(2), "a": true}, second: map[string]any{"a": true, "b": int64(2)}, wantCount: 2},
 			{name: "list", typeName: v1alpha1.ValueTypeList, first: []any{"b", int64(2)}, second: []any{"a", int64(1)}, wantCount: 2},
 		}
-		source := v1alpha1.KubeseerSource{ID: "reducer-types"}
+		source := v1alpha1.FacetSource{ID: "reducer-types"}
 		for _, test := range cases {
-			source.Fields = append(source.Fields, v1alpha1.KubeseerField{Name: test.name, Path: "{.data." + test.name + "}", Type: test.typeName})
-			for _, function := range []v1alpha1.KubeseerAggregationFunction{
+			source.Fields = append(source.Fields, v1alpha1.FacetField{Name: test.name, Path: "{.data." + test.name + "}", Type: test.typeName})
+			for _, function := range []v1alpha1.FacetAggregationFunction{
 				v1alpha1.AggregationCollect, v1alpha1.AggregationCount,
 				v1alpha1.AggregationFirst, v1alpha1.AggregationLast,
 				v1alpha1.AggregationDistinct,
 			} {
-				source.Aggregations = append(source.Aggregations, v1alpha1.KubeseerAggregation{
+				source.Aggregations = append(source.Aggregations, v1alpha1.FacetAggregation{
 					Name: test.name + "-" + string(function), Function: function, Field: test.name, IncludeProvenance: true,
 				})
 			}
 			if test.typeName == v1alpha1.ValueTypeString || test.typeName == v1alpha1.ValueTypeInteger || test.typeName == v1alpha1.ValueTypeNumber || test.typeName == v1alpha1.ValueTypeTimestamp || test.typeName == v1alpha1.ValueTypeDuration || test.typeName == v1alpha1.ValueTypeQuantity {
-				for _, function := range []v1alpha1.KubeseerAggregationFunction{v1alpha1.AggregationMin, v1alpha1.AggregationMax} {
-					source.Aggregations = append(source.Aggregations, v1alpha1.KubeseerAggregation{Name: test.name + "-" + string(function), Function: function, Field: test.name})
+				for _, function := range []v1alpha1.FacetAggregationFunction{v1alpha1.AggregationMin, v1alpha1.AggregationMax} {
+					source.Aggregations = append(source.Aggregations, v1alpha1.FacetAggregation{Name: test.name + "-" + string(function), Function: function, Field: test.name})
 				}
 			}
 		}
@@ -105,10 +105,10 @@ func assertCrossNamespaceAggregationReducerScenarios(t *testing.T) {
 	})
 
 	t.Run("empty groups expose exact reducer states and provenance is opt-in", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID:     "empty-reducers",
-			Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}},
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "collect", Function: v1alpha1.AggregationCollect, Field: "value"},
 				{Name: "count", Function: v1alpha1.AggregationCount, Field: "value"},
 				{Name: "distinct", Function: v1alpha1.AggregationDistinct, Field: "value"},
@@ -149,7 +149,7 @@ func assertCrossNamespaceAggregationReducerScenarios(t *testing.T) {
 		}
 
 		provenanceSource := source
-		provenanceSource.Aggregations = []v1alpha1.KubeseerAggregation{{Name: "collect", Function: v1alpha1.AggregationCollect, Field: "value", IncludeProvenance: false}}
+		provenanceSource.Aggregations = []v1alpha1.FacetAggregation{{Name: "collect", Function: v1alpha1.AggregationCollect, Field: "value", IncludeProvenance: false}}
 		resource := aggregationSelectedResource("team-a", "one", "one", map[string]any{"value": int64(1)})
 		provenanceOutcome := evaluateAggregationSource(t, provenanceSource, []selection.SelectedResource{resource}, aggregation.Limits{})
 		group := provenanceOutcome.Aggregates()[0].Groups()[0]
@@ -159,7 +159,7 @@ func assertCrossNamespaceAggregationReducerScenarios(t *testing.T) {
 	})
 }
 
-func evaluateAggregationSource(t *testing.T, source v1alpha1.KubeseerSource, resources []selection.SelectedResource, limits aggregation.Limits) aggregation.SourceOutcome {
+func evaluateAggregationSource(t *testing.T, source v1alpha1.FacetSource, resources []selection.SelectedResource, limits aggregation.Limits) aggregation.SourceOutcome {
 	t.Helper()
 	operatorOutcome, _ := evaluateOperatorSource(t, source, resources)
 	plan := aggregation.PlanSource(source, limits)

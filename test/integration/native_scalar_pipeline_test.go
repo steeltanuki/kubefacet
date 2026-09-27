@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/operators"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/operators"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertNativeScalarPipelineScenarios(t *testing.T) {
 	t.Helper()
 
 	t.Run("extraction conversion and public projection preserve isolation", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "native-scalar-pipeline",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "quantity-nano", Path: "{.data.quantityNano}", Type: v1alpha1.ValueTypeQuantity},
 				{Name: "quantity-micro", Path: "{.data.quantityMicro}", Type: v1alpha1.ValueTypeQuantity},
 				{Name: "duration-zero", Path: "{.data.durationZero}", Type: v1alpha1.ValueTypeDuration},
@@ -143,7 +143,7 @@ func assertNativeScalarPipelineScenarios(t *testing.T) {
 		if err != nil || len(public.Sources) != 1 || len(public.Sources[0].Resources) != 2 {
 			t.Fatalf("build public native scalar result: result=%#v err=%v", public, err)
 		}
-		publicFields := make(map[string]v1alpha1.KubeseerFieldResult, len(public.Sources[0].Resources[0].Fields))
+		publicFields := make(map[string]v1alpha1.FacetFieldResult, len(public.Sources[0].Resources[0].Fields))
 		for _, field := range public.Sources[0].Resources[0].Fields {
 			publicFields[field.Name] = field
 			if field.Type != sourceFieldType(source, field.Name) {
@@ -178,17 +178,17 @@ func assertNativeScalarPipelineScenarios(t *testing.T) {
 	})
 
 	t.Run("operators and aggregations consume corrected scalars", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "native-scalar-consumers",
-			Fields: []v1alpha1.KubeseerField{
-				{Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorGte, Value: quantityOperand("100n")}}},
-				{Name: "duration", Path: "{.data.duration}", Type: v1alpha1.ValueTypeDuration, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorGte, Value: durationOperand("1μs")}}},
+			Fields: []v1alpha1.FacetField{
+				{Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorGte, Value: quantityOperand("100n")}}},
+				{Name: "duration", Path: "{.data.duration}", Type: v1alpha1.ValueTypeDuration, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorGte, Value: durationOperand("1μs")}}},
 				{Name: "quantity-decimal", Path: "{.data.quantityDecimal}", Type: v1alpha1.ValueTypeQuantity},
 				{Name: "quantity-exponent", Path: "{.data.quantityExponent}", Type: v1alpha1.ValueTypeQuantity},
 				{Name: "quantity-binary", Path: "{.data.quantityBinary}", Type: v1alpha1.ValueTypeQuantity},
 				{Name: "duration-compound", Path: "{.data.durationCompound}", Type: v1alpha1.ValueTypeDuration},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "quantity-sum", Function: v1alpha1.AggregationSum, Field: "quantity"},
 				{Name: "duration-sum", Function: v1alpha1.AggregationSum, Field: "duration"},
 			},
@@ -217,7 +217,7 @@ func assertNativeScalarPipelineScenarios(t *testing.T) {
 		if err != nil || len(aggregatePublic.Sources) != 1 || len(aggregatePublic.Sources[0].Aggregates) != 2 {
 			t.Fatalf("project corrected scalar aggregate result: result=%#v err=%v", aggregatePublic, err)
 		}
-		byName := make(map[string]v1alpha1.KubeseerAggregateResult, len(aggregatePublic.Sources[0].Aggregates))
+		byName := make(map[string]v1alpha1.FacetAggregateResult, len(aggregatePublic.Sources[0].Aggregates))
 		for _, aggregate := range aggregatePublic.Sources[0].Aggregates {
 			byName[aggregate.Name] = aggregate
 			if aggregate.State != v1alpha1.AggregateStateValues || len(aggregate.Groups) != 1 || len(aggregate.Groups[0].Value.Matches) != 1 {
@@ -233,11 +233,11 @@ func assertNativeScalarPipelineScenarios(t *testing.T) {
 			t.Fatalf("corrected duration aggregate = %#v", byName["duration-sum"])
 		}
 
-		invalidSource := v1alpha1.KubeseerSource{
+		invalidSource := v1alpha1.FacetSource{
 			ID: "native-scalar-invalid-consumer",
-			Fields: []v1alpha1.KubeseerField{
-				{Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorExists}}},
-				{Name: "duration", Path: "{.data.duration}", Type: v1alpha1.ValueTypeDuration, Operators: []v1alpha1.KubeseerOperator{{Operator: v1alpha1.OperatorExists}}},
+			Fields: []v1alpha1.FacetField{
+				{Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorExists}}},
+				{Name: "duration", Path: "{.data.duration}", Type: v1alpha1.ValueTypeDuration, Operators: []v1alpha1.FacetOperator{{Operator: v1alpha1.OperatorExists}}},
 			},
 		}
 		invalid := aggregationSelectedResource("team-a", "invalid-consumer", "invalid-consumer-uid", map[string]any{"quantity": "0.0000000001", "duration": "0.1ns"})
@@ -256,7 +256,7 @@ func nativeScalarFieldsByName(fields []typedoutput.FieldOutcome) map[string]type
 	return byName
 }
 
-func sourceFieldType(source v1alpha1.KubeseerSource, name string) v1alpha1.KubeseerValueType {
+func sourceFieldType(source v1alpha1.FacetSource, name string) v1alpha1.FacetValueType {
 	for _, field := range source.Fields {
 		if field.Name == name {
 			return field.Type

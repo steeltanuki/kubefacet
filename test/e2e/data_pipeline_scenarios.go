@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,11 +44,11 @@ func scenarioSameNamespaceDeployment(ctx context.Context, t *testing.T, session 
 	if err != nil {
 		t.Fatalf("E2E-002 Deployment: %v", err)
 	}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{
 		"sources": []interface{}{sourceSpec("deployment", "apps/v1", "Deployment", []string{namespace}, map[string]interface{}{"name": deploymentName}, nil, []map[string]interface{}{{"name": "replicas", "path": "{.spec.replicas}", "type": "integer"}}, nil)},
 	})
 	if err != nil {
-		t.Fatalf("E2E-002 Kubeseer: %v", err)
+		t.Fatalf("E2E-002 Facet: %v", err)
 	}
 	snapshot := mustReadySnapshot(t, session, ctx, object, "E2E-002")
 	assertReadyStatus(t, snapshot, []string{"deployment"})
@@ -93,11 +93,11 @@ func scenarioMultiNamespacePods(ctx context.Context, t *testing.T, session *Clus
 	if err != nil {
 		t.Fatalf("E2E-003 second Pod: %v", err)
 	}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{
 		"sources": []interface{}{sourceSpec("pods", "v1", "Pod", []string{secondNamespace, firstNamespace}, nil, nil, []map[string]interface{}{{"name": "value", "path": "{.metadata.annotations.value}", "type": "string"}}, nil)},
 	})
 	if err != nil {
-		t.Fatalf("E2E-003 Kubeseer: %v", err)
+		t.Fatalf("E2E-003 Facet: %v", err)
 	}
 	snapshot := mustReadySnapshot(t, session, ctx, object, "E2E-003")
 	assertReadyStatus(t, snapshot, []string{"pods"})
@@ -122,7 +122,7 @@ func scenarioCustomResourceLabels(ctx context.Context, t *testing.T, session *Cl
 	}
 	previous := mustPolicy(t, session, ctx)
 	defer restorePolicy(t, session, ctx, previous)
-	setPolicy(t, session, ctx, []string{namespace}, []resourceRule{{APIGroups: []string{"fixtures.kubeseer.io"}, Kinds: []string{"Widget"}}})
+	setPolicy(t, session, ctx, []string{namespace}, []resourceRule{{APIGroups: []string{"fixtures.kubefacet.steeltanuki.it"}, Kinds: []string{"Widget"}}})
 	gold, err := fixtures.CreateWidget(ctx, fixtures.scopedName("gold"), namespace, map[string]interface{}{"name": "gold", "replicas": int64(3)}, map[string]string{"tier": "gold"})
 	if err != nil {
 		t.Fatalf("E2E-004 gold Widget: %v", err)
@@ -130,11 +130,11 @@ func scenarioCustomResourceLabels(ctx context.Context, t *testing.T, session *Cl
 	if _, err := fixtures.CreateWidget(ctx, fixtures.scopedName("silver"), namespace, map[string]interface{}{"name": "silver", "replicas": int64(1)}, map[string]string{"tier": "silver"}); err != nil {
 		t.Fatalf("E2E-004 silver Widget: %v", err)
 	}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{
-		"sources": []interface{}{sourceSpec("widgets", "fixtures.kubeseer.io/v1alpha1", "Widget", []string{namespace}, nil, map[string]interface{}{"matchLabels": map[string]interface{}{"tier": "gold"}}, []map[string]interface{}{{"name": "replicas", "path": "{.spec.replicas}", "type": "integer"}}, nil)},
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{
+		"sources": []interface{}{sourceSpec("widgets", "fixtures.kubefacet.steeltanuki.it/v1alpha1", "Widget", []string{namespace}, nil, map[string]interface{}{"matchLabels": map[string]interface{}{"tier": "gold"}}, []map[string]interface{}{{"name": "replicas", "path": "{.spec.replicas}", "type": "integer"}}, nil)},
 	})
 	if err != nil {
-		t.Fatalf("E2E-004 Kubeseer: %v", err)
+		t.Fatalf("E2E-004 Facet: %v", err)
 	}
 	snapshot := mustReadySnapshot(t, session, ctx, object, "E2E-004")
 	assertReadyStatus(t, snapshot, []string{"widgets"})
@@ -166,9 +166,9 @@ func scenarioExtractionTypingOperators(ctx context.Context, t *testing.T, sessio
 		{"name": "list", "path": "{.spec.containers}", "type": "list"},
 		{"name": "converted", "path": "{.metadata.annotations.value}", "type": "integer"},
 	}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("pods", "v1", "Pod", []string{namespace}, nil, nil, fields, nil)}})
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("pods", "v1", "Pod", []string{namespace}, nil, nil, fields, nil)}})
 	if err != nil {
-		t.Fatalf("E2E-005 Kubeseer: %v", err)
+		t.Fatalf("E2E-005 Facet: %v", err)
 	}
 	snapshot := mustObservedSnapshot(t, session, ctx, object, "E2E-005", func(snapshot StatusSnapshot) bool {
 		return snapshot.Result != nil && len(snapshot.Result.Sources) == 1 && len(snapshot.Result.Sources[0].Resources) == 1 && conditionStatus(snapshot.Conditions, "Degraded", metav1.ConditionTrue)
@@ -184,7 +184,7 @@ func scenarioExtractionTypingOperators(ctx context.Context, t *testing.T, sessio
 	if len(resources[0].Fields) != 3 {
 		t.Fatalf("E2E-005 field results = %#v", resources[0].Fields)
 	}
-	fieldsByName := make(map[string]v1alpha1.KubeseerFieldResult, len(resources[0].Fields))
+	fieldsByName := make(map[string]v1alpha1.FacetFieldResult, len(resources[0].Fields))
 	for _, field := range resources[0].Fields {
 		fieldsByName[field.Name] = field
 	}
@@ -239,9 +239,9 @@ func scenarioNumericAggregation(ctx context.Context, t *testing.T, session *Clus
 	}
 	fields := []map[string]interface{}{{"name": "group", "path": "{.metadata.annotations.group}", "type": "string"}, {"name": "value", "path": "{.metadata.annotations.value}", "type": "integer"}}
 	aggregations := []map[string]interface{}{{"name": "sum-by-group", "function": "sum", "field": "value", "groupBy": []interface{}{"group"}, "includeProvenance": true}, {"name": "average", "function": "average", "field": "value", "includeProvenance": true}}
-	object, err := fixtures.CreateKubeseer(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("pods", "v1", "Pod", []string{firstNamespace, secondNamespace}, nil, nil, fields, aggregations)}})
+	object, err := fixtures.CreateFacet(ctx, fixtures.scopedName("owner"), map[string]interface{}{"sources": []interface{}{sourceSpec("pods", "v1", "Pod", []string{firstNamespace, secondNamespace}, nil, nil, fields, aggregations)}})
 	if err != nil {
-		t.Fatalf("E2E-006 Kubeseer: %v", err)
+		t.Fatalf("E2E-006 Facet: %v", err)
 	}
 	snapshot := mustObservedSnapshot(t, session, ctx, object, "E2E-006", func(snapshot StatusSnapshot) bool {
 		return snapshot.Result != nil && len(snapshot.Result.Sources) == 1 && len(snapshot.Result.Sources[0].Aggregates) == 2
@@ -249,7 +249,7 @@ func scenarioNumericAggregation(ctx context.Context, t *testing.T, session *Clus
 	if snapshot.Result.Sources[0].State != v1alpha1.SourceStateValues || len(snapshot.Result.Sources[0].Resources) != 4 {
 		t.Fatalf("E2E-006 source result = %#v", snapshot.Result.Sources[0])
 	}
-	aggregatesByName := make(map[string]v1alpha1.KubeseerAggregateResult, len(snapshot.Result.Sources[0].Aggregates))
+	aggregatesByName := make(map[string]v1alpha1.FacetAggregateResult, len(snapshot.Result.Sources[0].Aggregates))
 	for _, aggregate := range snapshot.Result.Sources[0].Aggregates {
 		aggregatesByName[aggregate.Name] = aggregate
 	}

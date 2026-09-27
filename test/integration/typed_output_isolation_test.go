@@ -20,23 +20,23 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/extraction"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/extraction"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func assertTypedOutputIsolationScenarios(t *testing.T) {
 	t.Helper()
 
-	first := v1alpha1.KubeseerSource{
+	first := v1alpha1.FacetSource{
 		ID: "isolation-first",
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "good", Path: "{.data.good}", Type: v1alpha1.ValueTypeString},
 			{Name: "bad", Path: "{.data.bad}", Type: v1alpha1.ValueTypeInteger},
 		},
 	}
-	second := v1alpha1.KubeseerSource{ID: "isolation-second", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
+	second := v1alpha1.FacetSource{ID: "isolation-second", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
 	firstExtraction := extraction.ExtractBatch(context.Background(), []extraction.SourceInput{{
 		Source: first,
 		Selection: selection.SelectionOutcome{
@@ -83,10 +83,10 @@ func assertTypedOutputIsolationScenarios(t *testing.T) {
 	}
 
 	t.Run("planning failures are recorded once and empty outcomes remain successful", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{ID: "planning-isolation", Fields: []v1alpha1.KubeseerField{
+		source := v1alpha1.FacetSource{ID: "planning-isolation", Fields: []v1alpha1.FacetField{
 			{Name: "valid", Path: "{.data.value}", Type: v1alpha1.ValueTypeString},
 			{Name: "missing", Path: "{.data.missing}"},
-			{Name: "unsupported", Path: "{.data.unsupported}", Type: v1alpha1.KubeseerValueType("decimal")},
+			{Name: "unsupported", Path: "{.data.unsupported}", Type: v1alpha1.FacetValueType("decimal")},
 		}}
 		extracted := extraction.ExtractBatch(context.Background(), []extraction.SourceInput{{
 			Source:    source,
@@ -101,7 +101,7 @@ func assertTypedOutputIsolationScenarios(t *testing.T) {
 			t.Fatalf("planning failures = %#v", failures)
 		}
 
-		emptyResourceSource := v1alpha1.KubeseerSource{ID: "empty-resource", Fields: []v1alpha1.KubeseerField{}}
+		emptyResourceSource := v1alpha1.FacetSource{ID: "empty-resource", Fields: []v1alpha1.FacetField{}}
 		emptyResource := extraction.SourceOutcome{
 			SourceID: emptyResourceSource.ID,
 			Resources: []extraction.ResourceOutcome{{
@@ -117,7 +117,7 @@ func assertTypedOutputIsolationScenarios(t *testing.T) {
 	t.Run("upstream errors and identity mismatches remain scoped", func(t *testing.T) {
 		upstream := selection.NewSelectionError("upstream", selection.ReasonReadUnavailable, "resource read unavailable")
 		upstreamInput := typedoutput.SourceInput{
-			Source:     v1alpha1.KubeseerSource{ID: "upstream", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}},
+			Source:     v1alpha1.FacetSource{ID: "upstream", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}},
 			Extraction: extraction.SourceOutcome{SourceID: "upstream", Err: upstream},
 		}
 		upstreamOutcome := typedoutput.ConvertBatch(context.Background(), []typedoutput.SourceInput{upstreamInput})[0]
@@ -125,7 +125,7 @@ func assertTypedOutputIsolationScenarios(t *testing.T) {
 			t.Fatalf("upstream error was not preserved exactly = %#v", upstreamOutcome)
 		}
 
-		declaration := v1alpha1.KubeseerSource{ID: "declared", Fields: []v1alpha1.KubeseerField{{Name: "declared-field", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
+		declaration := v1alpha1.FacetSource{ID: "declared", Fields: []v1alpha1.FacetField{{Name: "declared-field", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
 		mismatch := typedoutput.ConvertBatch(context.Background(), []typedoutput.SourceInput{{
 			Source:     declaration,
 			Extraction: extraction.SourceOutcome{SourceID: "different"},
@@ -149,10 +149,10 @@ func assertTypedOutputIsolationScenarios(t *testing.T) {
 	})
 
 	t.Run("equivalent inputs are deterministic and cancellation partitions sources", func(t *testing.T) {
-		firstSource := v1alpha1.KubeseerSource{ID: "cancel-completed", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
-		laterSource := v1alpha1.KubeseerSource{ID: "cancel-unstarted", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
-		thirdSource := v1alpha1.KubeseerSource{ID: "cancel-also-unstarted", Fields: []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
-		makeExtraction := func(source v1alpha1.KubeseerSource) extraction.SourceOutcome {
+		firstSource := v1alpha1.FacetSource{ID: "cancel-completed", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
+		laterSource := v1alpha1.FacetSource{ID: "cancel-unstarted", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
+		thirdSource := v1alpha1.FacetSource{ID: "cancel-also-unstarted", Fields: []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeString}}}
+		makeExtraction := func(source v1alpha1.FacetSource) extraction.SourceOutcome {
 			return extraction.ExtractBatch(context.Background(), []extraction.SourceInput{{
 				Source:    source,
 				Selection: selection.SelectionOutcome{SourceID: source.ID, Resources: []selection.SelectedResource{selectedExtractionResourceWithObject(map[string]any{"data": map[string]any{"value": source.ID}})}},

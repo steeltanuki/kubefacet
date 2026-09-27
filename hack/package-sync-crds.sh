@@ -10,10 +10,10 @@
 set -euo pipefail
 
 readonly source_dir="config/crd/bases"
-readonly destination_dir="charts/kubeseer/crds"
+readonly destination_dir="charts/kubefacet/crds"
 
 mkdir -p "$destination_dir"
-for name in kubeseer.io_kubeseers.yaml kubeseer.io_kubeseeraccesspolicies.yaml; do
+for name in kubefacet.steeltanuki.it_facets.yaml kubefacet.steeltanuki.it_facetaccesspolicies.yaml; do
 	source="$source_dir/$name"
 	destination="$destination_dir/$name"
 	[[ -f "$source" ]] || { printf 'missing generated CRD: %s\n' "$source" >&2; exit 1; }

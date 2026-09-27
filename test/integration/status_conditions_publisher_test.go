@@ -19,9 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -35,8 +35,8 @@ func assertStatusAndConditionsPublisherScenarios(t *testing.T, ctx context.Conte
 		current := runtimeStatusObject(key, "publisher-equivalent-uid", 3, evaluation.Result)
 		composeStatusFixture(t, current, evaluation)
 		current.Status.Conditions = append(current.Status.Conditions[2:], current.Status.Conditions[:2]...)
-		current.Status.Result.Sources[0].FieldErrors = []v1alpha1.KubeseerFieldError{}
-		current.Status.Result.Sources[0].Resources[0].Fields[1].Matches = []v1alpha1.KubeseerTypedMatch{}
+		current.Status.Result.Sources[0].FieldErrors = []v1alpha1.FacetFieldError{}
+		current.Status.Result.Sources[0].Resources[0].Fields[1].Matches = []v1alpha1.FacetTypedMatch{}
 		writer := &runtimeStatusWriter{}
 		tracker := reconciliation.NewFreshnessTracker()
 		lease, release := runtimeStatusLease(t, tracker, current)
@@ -52,17 +52,17 @@ func assertStatusAndConditionsPublisherScenarios(t *testing.T, ctx context.Conte
 	t.Run("summary hash result and canonical condition differences each repair once", func(t *testing.T) {
 		mutations := []struct {
 			name   string
-			mutate func(*v1alpha1.Kubeseer)
+			mutate func(*v1alpha1.Facet)
 		}{
-			{name: "summary count", mutate: func(object *v1alpha1.Kubeseer) { object.Status.Summary.SuccessfulSources++ }},
-			{name: "result hash", mutate: func(object *v1alpha1.Kubeseer) {
+			{name: "summary count", mutate: func(object *v1alpha1.Facet) { object.Status.Summary.SuccessfulSources++ }},
+			{name: "result hash", mutate: func(object *v1alpha1.Facet) {
 				object.Status.ResultHash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 			}},
-			{name: "result value", mutate: func(object *v1alpha1.Kubeseer) {
+			{name: "result value", mutate: func(object *v1alpha1.Facet) {
 				value := "publisher-changed-value"
 				object.Status.Result.Sources[0].Resources[0].Fields[0].Matches[0].StringValue = &value
 			}},
-			{name: "canonical message", mutate: func(object *v1alpha1.Kubeseer) { object.Status.Conditions[0].Message = "stale canonical message" }},
+			{name: "canonical message", mutate: func(object *v1alpha1.Facet) { object.Status.Conditions[0].Message = "stale canonical message" }},
 		}
 		for _, test := range mutations {
 			t.Run(test.name, func(t *testing.T) {
@@ -114,7 +114,7 @@ func assertStatusAndConditionsPublisherScenarios(t *testing.T, ctx context.Conte
 		changed := evaluation
 		changed.Result = evaluation.Result.DeepCopy()
 		changed.Result.Sources[0].State = v1alpha1.SourceStateError
-		changed.Result.Sources[0].Error = &v1alpha1.KubeseerResultError{Reason: "ReadUnavailable", Message: "sanitized"}
+		changed.Result.Sources[0].Error = &v1alpha1.FacetResultError{Reason: "ReadUnavailable", Message: "sanitized"}
 		writer = &runtimeStatusWriter{}
 		if err := reconciliation.NewStatusPublisher(newRuntimeStatusReader(current), writer, tracker).Publish(ctx, lease, changed); err != nil {
 			t.Fatalf("changed transition publish: %v", err)
@@ -179,7 +179,7 @@ func assertStatusAndConditionsPublisherScenarios(t *testing.T, ctx context.Conte
 	})
 }
 
-func publisherEvaluation(result v1alpha1.KubeseerResult) statuscontract.Evaluation {
+func publisherEvaluation(result v1alpha1.FacetResult) statuscontract.Evaluation {
 	return statuscontract.Evaluation{
 		Result: result.DeepCopy(),
 		Sources: []statuscontract.SourceAssessment{{
@@ -191,7 +191,7 @@ func publisherEvaluation(result v1alpha1.KubeseerResult) statuscontract.Evaluati
 	}
 }
 
-func composeStatusFixture(t *testing.T, object *v1alpha1.Kubeseer, evaluation statuscontract.Evaluation) {
+func composeStatusFixture(t *testing.T, object *v1alpha1.Facet, evaluation statuscontract.Evaluation) {
 	t.Helper()
 	composed, err := statuscontract.Compose(object.Generation, object.Status.Conditions, evaluation)
 	if err != nil {
@@ -200,7 +200,7 @@ func composeStatusFixture(t *testing.T, object *v1alpha1.Kubeseer, evaluation st
 	object.Status = composed
 }
 
-func evaluationSummary(t *testing.T, evaluation statuscontract.Evaluation) *v1alpha1.KubeseerSummary {
+func evaluationSummary(t *testing.T, evaluation statuscontract.Evaluation) *v1alpha1.FacetSummary {
 	t.Helper()
 	derived, err := statuscontract.DeriveResult(evaluation.Result)
 	if err != nil {
@@ -213,7 +213,7 @@ func statusTestKey() types.NamespacedName {
 	return types.NamespacedName{Namespace: "team-a", Name: "status-publisher-owner"}
 }
 
-func assertPublisherCondition(t *testing.T, candidate v1alpha1.KubeseerStatus, conditionType string, conditionStatus metav1.ConditionStatus, reason string) {
+func assertPublisherCondition(t *testing.T, candidate v1alpha1.FacetStatus, conditionType string, conditionStatus metav1.ConditionStatus, reason string) {
 	t.Helper()
 	for _, condition := range candidate.Conditions {
 		if condition.Type == conditionType {

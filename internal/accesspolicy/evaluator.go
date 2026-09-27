@@ -17,7 +17,7 @@ package accesspolicy
 import (
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 

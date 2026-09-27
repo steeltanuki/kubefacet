@@ -1,0 +1,20 @@
+# Copyright 2026 Alessandro Rontani
+# Licensed under the Apache License, Version 2.0.
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
+metadata:
+  name: degraded
+  namespace: kubefacet-example-degraded
+  labels: {kubefacet.steeltanuki.it/example: partial-degradation}
+spec:
+  sources:
+    - id: successful-deployment
+      resource: {apiVersion: apps/v1, kind: Deployment}
+      namespaces: {names: [kubefacet-example-degraded]}
+      selector: {name: degraded}
+      fields: [{name: replicas, path: "{.spec.replicas}", type: integer}]
+    - id: unavailable-widget
+      resource: {apiVersion: fixtures.kubefacet.steeltanuki.it/v1alpha1, kind: DegradedWidget}
+      namespaces: {names: [kubefacet-example-degraded]}
+      selector: {name: degraded-widget}
+      fields: [{name: size, path: "{.spec.size}", type: integer}]

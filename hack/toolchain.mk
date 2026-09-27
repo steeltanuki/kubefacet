@@ -32,11 +32,11 @@ KUBECTL_MIN_VERSION ?= 1.27
 HELM_MIN_VERSION ?= 3.12
 CURL_MIN_VERSION ?= 7.81
 
-LOCAL_CLUSTER_NAME ?= kubeseer-local
-LOCAL_KUBE_CONTEXT ?= kind-kubeseer-local
-LOCAL_NAMESPACE ?= kubeseer-system
-LOCAL_RELEASE ?= kubeseer
-LOCAL_PROVIDER ?= podman
+KUBEFACET_LOCAL_CLUSTER_NAME ?= kubefacet-local
+KUBEFACET_LOCAL_KUBE_CONTEXT ?= kind-kubefacet-local
+KUBEFACET_LOCAL_NAMESPACE ?= kubefacet-system
+KUBEFACET_LOCAL_RELEASE ?= kubefacet
+KUBEFACET_LOCAL_PROVIDER ?= podman
 
 GO_MODULE_CACHE := $(shell go env GOMODCACHE)
 LOCAL_GO_PROXY := file://$(GO_MODULE_CACHE)/cache/download

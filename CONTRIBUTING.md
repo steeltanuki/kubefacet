@@ -1,4 +1,9 @@
-# Contributing to Kubeseer
+# Contributing to KubeFacet
+
+The supported Kubernetes API resource is `Facet`; see the
+[migration guide](docs/migration-from-kubeseer.md) for the breaking change
+from the historical project identity. Historical Walden feature IDs remain
+stable and are explained in [the current identity contract](.walden/current-identity.md).
 
 Contributions are welcome through issues and pull requests. This guide covers
 bug reports, proposals, code, documentation, and examples. For the development
@@ -33,8 +38,8 @@ required to install Walden or produce its records.
 
 ## Before you start
 
-Search the existing [issues](https://github.com/steeltanuki/kubeseer/issues)
-and [pull requests](https://github.com/steeltanuki/kubeseer/pulls) before
+Search the existing [issues](https://github.com/steeltanuki/kubefacet/issues)
+and [pull requests](https://github.com/steeltanuki/kubefacet/pulls) before
 opening a new one. Small, focused fixes and documentation improvements can go
 straight to a pull request. For a substantial change to behavior, the public
 API, packaging, or architecture, open an issue first to discuss the problem and
@@ -42,7 +47,7 @@ proposed approach with the maintainer.
 
 When reporting a bug, include:
 
-- the Kubeseer version or commit and relevant Kubernetes, Helm, or local
+- the KubeFacet version or commit and relevant Kubernetes, Helm, or local
   environment versions;
 - steps to reproduce it, the expected result, and the actual result;
 - a minimal manifest or example and relevant logs, with credentials and other
@@ -115,7 +120,7 @@ image/chart aliases do not publish artifacts.
 Be respectful and constructive in issues, reviews, and pull requests. Discuss
 ideas and code without personal attacks, harassment, or spam.
 
-Kubeseer is licensed under [Apache License 2.0](LICENSE). Submit only work you
+KubeFacet is licensed under [Apache License 2.0](LICENSE). Submit only work you
 have the right to license under its contribution terms, preserve existing
 license and attribution notices, and identify any third-party material in the
 pull request.

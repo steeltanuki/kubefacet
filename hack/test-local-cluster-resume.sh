@@ -11,11 +11,11 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ORIGINAL_PATH="$PATH"
-readonly RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-local-resume.XXXXXX")"
+readonly RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-local-resume.XXXXXX")"
 readonly RUN_ID="$(printf '%s' "${RUN_DIR##*.}" | tr '[:upper:]' '[:lower:]')"
-readonly FIXTURE_CLUSTER_NAME="kubeseer-resume-${RUN_ID}"
+readonly FIXTURE_CLUSTER_NAME="kubefacet-resume-${RUN_ID}"
 readonly FIXTURE_CONTEXT="kind-${FIXTURE_CLUSTER_NAME}"
-readonly LOCAL_NAMESPACE="kubeseer-resume-proof"
+readonly KUBEFACET_LOCAL_NAMESPACE="kubefacet-resume-proof"
 readonly CONFIGMAP_NAME="resume-persistence-proof"
 readonly STATE_DIR="$RUN_DIR/state"
 readonly CACHE_DIR="$RUN_DIR/cache"
@@ -72,9 +72,9 @@ done
 run_make() {
 	PATH="$BIN_DIR:$ORIGINAL_PATH" \
 	PODMAN_REAL_BINARY="$REAL_PODMAN_BINARY" PODMAN_CALL_TRACE_FILE="$PODMAN_TRACE" \
-	LOCAL_CLUSTER_NAME="$FIXTURE_CLUSTER_NAME" LOCAL_KUBE_CONTEXT="$FIXTURE_CONTEXT" \
-	KUBESEER_LOCAL_STATE_DIR="$STATE_DIR" KUBESEER_LOCAL_CACHE_DIR="$CACHE_DIR" \
-	KUBESEER_LOCAL_READYZ_PORT="$readyz_port" KUBESEER_LOCAL_METRICS_PORT="$metrics_port" \
+	KUBEFACET_LOCAL_CLUSTER_NAME="$FIXTURE_CLUSTER_NAME" KUBEFACET_LOCAL_KUBE_CONTEXT="$FIXTURE_CONTEXT" \
+	KUBEFACET_LOCAL_STATE_DIR="$STATE_DIR" KUBEFACET_LOCAL_CACHE_DIR="$CACHE_DIR" \
+	KUBEFACET_LOCAL_READYZ_PORT="$readyz_port" KUBEFACET_LOCAL_METRICS_PORT="$metrics_port" \
 	make --no-print-directory "$@"
 }
 
@@ -130,7 +130,7 @@ prove_owned_container() {
 }
 
 configmap_identity() {
-	kp_run_kubectl "$STATE_DIR/kubeconfig" "$FIXTURE_CONTEXT" --namespace "$LOCAL_NAMESPACE" \
+	kp_run_kubectl "$STATE_DIR/kubeconfig" "$FIXTURE_CONTEXT" --namespace "$KUBEFACET_LOCAL_NAMESPACE" \
 		get configmap "$CONFIGMAP_NAME" -o 'jsonpath={.metadata.uid}|{.data.marker}'
 }
 
@@ -154,7 +154,7 @@ cleanup() {
 		fi
 	fi
 	if ((preserve_run_dir)); then
-		printf 'LOCAL_CLUSTER_RESUME_CLEANUP=retained state=%s cluster=%s context=%s command="LOCAL_CLUSTER_NAME=%s LOCAL_KUBE_CONTEXT=%s KUBESEER_LOCAL_STATE_DIR=%s KUBESEER_LOCAL_CACHE_DIR=%s make local-down"\n' \
+		printf 'LOCAL_CLUSTER_RESUME_CLEANUP=retained state=%s cluster=%s context=%s command="KUBEFACET_LOCAL_CLUSTER_NAME=%s KUBEFACET_LOCAL_KUBE_CONTEXT=%s KUBEFACET_LOCAL_STATE_DIR=%s KUBEFACET_LOCAL_CACHE_DIR=%s make local-down"\n' \
 			"$STATE_DIR" "$FIXTURE_CLUSTER_NAME" "$FIXTURE_CONTEXT" "$FIXTURE_CLUSTER_NAME" "$FIXTURE_CONTEXT" "$STATE_DIR" "$CACHE_DIR" >&2
 		((status != 0)) || status=1
 	else
@@ -198,8 +198,8 @@ container_id="$(prove_owned_container)"
 
 run_make local-check >/dev/null
 run_make local-status >/dev/null
-kp_run_kubectl "$STATE_DIR/kubeconfig" "$FIXTURE_CONTEXT" create namespace "$LOCAL_NAMESPACE" >/dev/null
-kp_run_kubectl "$STATE_DIR/kubeconfig" "$FIXTURE_CONTEXT" --namespace "$LOCAL_NAMESPACE" \
+kp_run_kubectl "$STATE_DIR/kubeconfig" "$FIXTURE_CONTEXT" create namespace "$KUBEFACET_LOCAL_NAMESPACE" >/dev/null
+kp_run_kubectl "$STATE_DIR/kubeconfig" "$FIXTURE_CONTEXT" --namespace "$KUBEFACET_LOCAL_NAMESPACE" \
 	create configmap "$CONFIGMAP_NAME" --from-literal=marker='owned-resume-workload-data' >/dev/null
 before_workload="$(configmap_identity)"
 [[ "$before_workload" == *'|owned-resume-workload-data' ]] || {

@@ -22,25 +22,25 @@ fi
 
 readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ACTION="$1"
-readonly LOCAL_CLUSTER_NAME="${LOCAL_CLUSTER_NAME:-kubeseer-local}"
-readonly LOCAL_KUBE_CONTEXT="${LOCAL_KUBE_CONTEXT:-kind-kubeseer-local}"
-readonly LOCAL_NAMESPACE="${LOCAL_NAMESPACE:-kubeseer-system}"
-readonly LOCAL_RELEASE="${LOCAL_RELEASE:-kubeseer}"
-readonly LOCAL_PROVIDER="${LOCAL_PROVIDER:-podman}"
+readonly KUBEFACET_LOCAL_CLUSTER_NAME="${KUBEFACET_LOCAL_CLUSTER_NAME:-kubefacet-local}"
+readonly KUBEFACET_LOCAL_KUBE_CONTEXT="${KUBEFACET_LOCAL_KUBE_CONTEXT:-kind-kubefacet-local}"
+readonly KUBEFACET_LOCAL_NAMESPACE="${KUBEFACET_LOCAL_NAMESPACE:-kubefacet-system}"
+readonly KUBEFACET_LOCAL_RELEASE="${KUBEFACET_LOCAL_RELEASE:-kubefacet}"
+readonly KUBEFACET_LOCAL_PROVIDER="${KUBEFACET_LOCAL_PROVIDER:-podman}"
 readonly CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.18.2}"
 readonly KUBERNETES_VERSION="${KUBERNETES_VERSION:-1.35.6}"
-readonly LOCAL_READYZ_PORT="${KUBESEER_LOCAL_READYZ_PORT:-18081}"
-readonly LOCAL_METRICS_PORT="${KUBESEER_LOCAL_METRICS_PORT:-18080}"
-readonly LOCAL_FIELD_MANAGER="kubeseer-local-environment"
+readonly LOCAL_READYZ_PORT="${KUBEFACET_LOCAL_READYZ_PORT:-18081}"
+readonly LOCAL_METRICS_PORT="${KUBEFACET_LOCAL_METRICS_PORT:-18080}"
+readonly LOCAL_FIELD_MANAGER="kubefacet-local-environment"
 readonly LOCAL_EXAMPLE_NAMESPACES=(
-	kubeseer-example-builtin
-	kubeseer-example-typed
-	kubeseer-example-operator
-	kubeseer-example-aggregation-a
-	kubeseer-example-aggregation-b
-	kubeseer-example-custom
-	kubeseer-example-denial
-	kubeseer-example-degraded
+	kubefacet-example-builtin
+	kubefacet-example-typed
+	kubefacet-example-operator
+	kubefacet-example-aggregation-a
+	kubefacet-example-aggregation-b
+	kubefacet-example-custom
+	kubefacet-example-denial
+	kubefacet-example-degraded
 )
 readonly SANITIZED_VARIABLES=(
 	KUBECONFIG USE_EXISTING_CLUSTER KIND_EXPERIMENTAL_PROVIDER
@@ -132,10 +132,10 @@ home_dir="$(readlink -m -- "${HOME:?HOME is required}")"
 
 resolve_paths() {
 	local state_default cache_default
-	state_default="${XDG_STATE_HOME:-${HOME:?HOME is required}/.local/state}/kubeseer/local"
-	cache_default="${XDG_CACHE_HOME:-${HOME:?HOME is required}/.cache}/kubeseer/local"
-	state_dir="$(resolve_path "${KUBESEER_LOCAL_STATE_DIR:-$state_default}" state-dir)" || return 1
-	cache_dir="$(resolve_path "${KUBESEER_LOCAL_CACHE_DIR:-$cache_default}" cache-dir)" || return 1
+	state_default="${XDG_STATE_HOME:-${HOME:?HOME is required}/.local/state}/kubefacet/local"
+	cache_default="${XDG_CACHE_HOME:-${HOME:?HOME is required}/.cache}/kubefacet/local"
+	state_dir="$(resolve_path "${KUBEFACET_LOCAL_STATE_DIR:-$state_default}" state-dir)" || return 1
+	cache_dir="$(resolve_path "${KUBEFACET_LOCAL_CACHE_DIR:-$cache_default}" cache-dir)" || return 1
 	if [[ "$state_dir" == "$cache_dir" || "$state_dir" == "$cache_dir/"* || "$cache_dir" == "$state_dir/"* ]]; then
 		printf '%s\n' 'state-dir and cache-dir must be distinct non-nested roots' >&2
 		return 1
@@ -183,8 +183,12 @@ preflight() {
 	if [[ -n "$output" && "$output" != *true* && "$output" != *True* ]]; then
 		printf 'Podman is not operating rootlessly\n' >&2; return 1
 	fi
-	if ! output="$(kp_run_kind "$LOCAL_PROVIDER" version 2>&1)"; then
-		printf 'kind cannot select provider %s: %s\n' "$LOCAL_PROVIDER" "$output" >&2; return 1
+	if [[ "$KUBEFACET_LOCAL_PROVIDER" != podman ]]; then
+		printf 'KubeFacet local development requires the Podman provider\n' >&2
+		return 1
+	fi
+	if ! output="$(kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" version 2>&1)"; then
+		printf 'kind cannot select provider %s: %s\n' "$KUBEFACET_LOCAL_PROVIDER" "$output" >&2; return 1
 	fi
 }
 
@@ -223,8 +227,8 @@ write_metadata() {
 	temporary="$(mktemp "$state_dir/metadata.v1.XXXXXX")"
 	chmod 600 -- "$temporary"
 	{
-		printf 'schema_version=1\nstate=%s\ncluster_name=%s\ncontext=%s\n' "$state" "$LOCAL_CLUSTER_NAME" "$LOCAL_KUBE_CONTEXT"
-		printf 'kubernetes_version=%s\nkind_node_image=%s\nkubeconfig=%s\nnamespace=%s\nrelease=%s\n' "$KUBERNETES_VERSION" "$kind_node_image" "$kubeconfig_path" "$LOCAL_NAMESPACE" "$LOCAL_RELEASE"
+		printf 'schema_version=1\nstate=%s\ncluster_name=%s\ncontext=%s\n' "$state" "$KUBEFACET_LOCAL_CLUSTER_NAME" "$KUBEFACET_LOCAL_KUBE_CONTEXT"
+		printf 'kubernetes_version=%s\nkind_node_image=%s\nkubeconfig=%s\nnamespace=%s\nrelease=%s\n' "$KUBERNETES_VERSION" "$kind_node_image" "$kubeconfig_path" "$KUBEFACET_LOCAL_NAMESPACE" "$KUBEFACET_LOCAL_RELEASE"
 		printf 'source_revision=%s\nsource_identity=sha256:%s\nimage_reference=%s\nimage_id=%s\n' "$source_revision" "$source_identity" "$image_ref" "$image_id"
 	} >"$temporary"
 	mv -f -- "$temporary" "$metadata_path"
@@ -248,11 +252,11 @@ read_metadata() {
 		[[ -n "${seen[$key]+set}" ]] || { printf 'missing ownership metadata field: %s\n' "$key" >&2; return 1; }
 	done
 	[[ "$(sed -n 's/^schema_version=//p' "$metadata_path")" == 1 ]] || { printf 'unsupported ownership metadata schema\n' >&2; return 1; }
-	[[ "$(sed -n 's/^cluster_name=//p' "$metadata_path")" == "$LOCAL_CLUSTER_NAME" ]] || return 1
-	[[ "$(sed -n 's/^context=//p' "$metadata_path")" == "$LOCAL_KUBE_CONTEXT" ]] || return 1
+	[[ "$(sed -n 's/^cluster_name=//p' "$metadata_path")" == "$KUBEFACET_LOCAL_CLUSTER_NAME" ]] || return 1
+	[[ "$(sed -n 's/^context=//p' "$metadata_path")" == "$KUBEFACET_LOCAL_KUBE_CONTEXT" ]] || return 1
 	[[ "$(sed -n 's/^kubeconfig=//p' "$metadata_path")" == "$kubeconfig_path" ]] || return 1
-	[[ "$(sed -n 's/^namespace=//p' "$metadata_path")" == "$LOCAL_NAMESPACE" ]] || return 1
-	[[ "$(sed -n 's/^release=//p' "$metadata_path")" == "$LOCAL_RELEASE" ]] || return 1
+	[[ "$(sed -n 's/^namespace=//p' "$metadata_path")" == "$KUBEFACET_LOCAL_NAMESPACE" ]] || return 1
+	[[ "$(sed -n 's/^release=//p' "$metadata_path")" == "$KUBEFACET_LOCAL_RELEASE" ]] || return 1
 	local state source_revision source_identity image_reference image_id
 	state="$(sed -n 's/^state=//p' "$metadata_path")"
 	source_revision="$(sed -n 's/^source_revision=//p' "$metadata_path")"
@@ -263,7 +267,7 @@ read_metadata() {
 	[[ "$source_revision" =~ ^[0-9a-fA-F]{40,64}$ ]] || { printf 'invalid source revision in ownership metadata\n' >&2; return 1; }
 	[[ "$source_identity" =~ ^sha256:[0-9a-f]{64}$ ]] || { printf 'invalid source identity in ownership metadata\n' >&2; return 1; }
 	if [[ -n "$image_reference" ]]; then
-		[[ "$image_reference" =~ ^localhost/kubeseer-local:[0-9a-f]{32}$ ]] || { printf 'invalid image reference in ownership metadata\n' >&2; return 1; }
+		[[ "$image_reference" =~ ^localhost/kubefacet-local:[0-9a-f]{32}$ ]] || { printf 'invalid image reference in ownership metadata\n' >&2; return 1; }
 	fi
 	# A cluster is promoted to owned before image/package convergence so a
 	# failed build preserves the exact target for diagnosis. Empty image fields
@@ -276,12 +280,12 @@ read_metadata() {
 
 cluster_exists() {
 	local clusters
-	clusters="$(kp_run_kind "$LOCAL_PROVIDER" get clusters 2>/dev/null || true)"
-	printf '%s\n' "$clusters" | awk -v wanted="$LOCAL_CLUSTER_NAME" '$0 == wanted {found=1} END {exit(found ? 0 : 1)}'
+	clusters="$(kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" get clusters 2>/dev/null || true)"
+	printf '%s\n' "$clusters" | awk -v wanted="$KUBEFACET_LOCAL_CLUSTER_NAME" '$0 == wanted {found=1} END {exit(found ? 0 : 1)}'
 }
 
 cluster_nodes() {
-	kp_kind_nodes "$LOCAL_PROVIDER" "$LOCAL_CLUSTER_NAME"
+	kp_kind_nodes "$KUBEFACET_LOCAL_PROVIDER" "$KUBEFACET_LOCAL_CLUSTER_NAME"
 }
 
 loopback_ip() {
@@ -302,22 +306,22 @@ inspect_owned_control_plane() {
 	local binding binding_host binding_port binding_count=0 matched_binding=0
 	local -a bindings=()
 
-	expected_node="${LOCAL_CLUSTER_NAME}-control-plane"
+	expected_node="${KUBEFACET_LOCAL_CLUSTER_NAME}-control-plane"
 	if [[ -z "$inspect_target" ]]; then inspect_target="$expected_node"; else expected_container_id="$inspect_target"; fi
 	nodes="$(cluster_nodes)" || {
-		printf 'ownership conflict: kind node inventory is unavailable for %s\n' "$LOCAL_CLUSTER_NAME" >&2
+		printf 'ownership conflict: kind node inventory is unavailable for %s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2
 		return 1
 	}
 	if ! printf '%s\n' "$nodes" | rg -F -x -q -- "$expected_node"; then
-		printf 'ownership conflict: expected kind node %s is absent from cluster %s\n' "$expected_node" "$LOCAL_CLUSTER_NAME" >&2
+		printf 'ownership conflict: expected kind node %s is absent from cluster %s\n' "$expected_node" "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2
 		return 1
 	fi
 	[[ -s "$kubeconfig_path" ]] || {
-		printf 'ownership conflict: saved kubeconfig is missing for %s\n' "$LOCAL_CLUSTER_NAME" >&2
+		printf 'ownership conflict: saved kubeconfig is missing for %s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2
 		return 1
 	}
-	api_server="$(kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" config view --minify -o 'jsonpath={.clusters[0].cluster.server}' 2>&1)" || {
-		printf 'ownership conflict: cannot read the API endpoint from the owned kubeconfig for context %s\n' "$LOCAL_KUBE_CONTEXT" >&2
+	api_server="$(kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" config view --minify -o 'jsonpath={.clusters[0].cluster.server}' 2>&1)" || {
+		printf 'ownership conflict: cannot read the API endpoint from the owned kubeconfig for context %s\n' "$KUBEFACET_LOCAL_KUBE_CONTEXT" >&2
 		return 1
 	}
 	if [[ "$api_server" =~ ^https://(\[[^]]+\]|[^/:]+):([0-9]+)$ ]]; then
@@ -349,8 +353,8 @@ inspect_owned_control_plane() {
 	IFS='|' read -r container_id container_name container_state cluster_label role_label published_api extra <<<"$inspect_output"
 	container_name="${container_name#/}"
 	if [[ -n "$extra" || ! "$container_id" =~ ^[0-9a-f]{12,64}$ || "$container_name" != "$expected_node" ||
-		"$cluster_label" != "$LOCAL_CLUSTER_NAME" || "$role_label" != control-plane ]]; then
-		printf 'ownership conflict: Podman identity does not match control-plane node %s in cluster %s\n' "$expected_node" "$LOCAL_CLUSTER_NAME" >&2
+		"$cluster_label" != "$KUBEFACET_LOCAL_CLUSTER_NAME" || "$role_label" != control-plane ]]; then
+		printf 'ownership conflict: Podman identity does not match control-plane node %s in cluster %s\n' "$expected_node" "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2
 		return 1
 	fi
 	if [[ -n "$expected_container_id" && "$container_id" != "$expected_container_id" ]]; then
@@ -419,7 +423,7 @@ release_lock() {
 
 cleanup_partial_cluster() {
 	if ((cluster_created)) && ((ownership_promoted == 0)); then
-		kp_run_kind "$LOCAL_PROVIDER" delete cluster --name "$LOCAL_CLUSTER_NAME" --kubeconfig "$kubeconfig_path" >/dev/null 2>&1 || true
+		kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" delete cluster --name "$KUBEFACET_LOCAL_CLUSTER_NAME" --kubeconfig "$kubeconfig_path" >/dev/null 2>&1 || true
 	fi
 }
 
@@ -428,37 +432,37 @@ validate_identity() {
 	[[ -s "$kubeconfig_path" ]] || { printf 'owned kubeconfig is missing: %s\n' "$kubeconfig_path" >&2; return 1; }
 	if [[ -n "$deadline" ]]; then
 		request_timeout="$(request_timeout_for_deadline "$deadline")" || {
-			printf 'Kubernetes API readiness wait expired for context %s\n' "$LOCAL_KUBE_CONTEXT" >&2
+			printf 'Kubernetes API readiness wait expired for context %s\n' "$KUBEFACET_LOCAL_KUBE_CONTEXT" >&2
 			return 1
 		}
 	else
 		request_timeout=5s
 	fi
-	server_output="$(kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" version --request-timeout="$request_timeout" --output=json 2>&1)" || {
-		printf 'Kubernetes API identity is unreachable for context %s: %s\n' "$LOCAL_KUBE_CONTEXT" "$server_output" >&2
+	server_output="$(kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" version --request-timeout="$request_timeout" --output=json 2>&1)" || {
+		printf 'Kubernetes API identity is unreachable for context %s: %s\n' "$KUBEFACET_LOCAL_KUBE_CONTEXT" "$server_output" >&2
 		return 1
 	}
 	if [[ "$server_output" != *'"serverVersion"'* || "$server_output" != *'"gitVersion"'* ]]; then
-		printf 'Kubernetes API identity conflicts with saved context %s\n' "$LOCAL_KUBE_CONTEXT" >&2
+		printf 'Kubernetes API identity conflicts with saved context %s\n' "$KUBEFACET_LOCAL_KUBE_CONTEXT" >&2
 		return 2
 	fi
-	kind_nodes="$(cluster_nodes)" || { printf 'kind node identity is unavailable for %s\n' "$LOCAL_CLUSTER_NAME" >&2; return 2; }
-	[[ -n "$kind_nodes" ]] || { printf 'kind returned no nodes for %s\n' "$LOCAL_CLUSTER_NAME" >&2; return 2; }
+	kind_nodes="$(cluster_nodes)" || { printf 'kind node identity is unavailable for %s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2; return 2; }
+	[[ -n "$kind_nodes" ]] || { printf 'kind returned no nodes for %s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2; return 2; }
 	if [[ -n "$deadline" ]]; then
 		request_timeout="$(request_timeout_for_deadline "$deadline")" || {
-			printf 'Kubernetes API readiness wait expired for context %s\n' "$LOCAL_KUBE_CONTEXT" >&2
+			printf 'Kubernetes API readiness wait expired for context %s\n' "$KUBEFACET_LOCAL_KUBE_CONTEXT" >&2
 			return 1
 		}
 	fi
-	api_nodes="$(kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" get nodes --request-timeout="$request_timeout" -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' 2>&1)" || {
-		printf 'Kubernetes API node identity is unavailable for context %s: %s\n' "$LOCAL_KUBE_CONTEXT" "$api_nodes" >&2
+	api_nodes="$(kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" get nodes --request-timeout="$request_timeout" -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' 2>&1)" || {
+		printf 'Kubernetes API node identity is unavailable for context %s: %s\n' "$KUBEFACET_LOCAL_KUBE_CONTEXT" "$api_nodes" >&2
 		return 1
 	}
 	kind_nodes="$(printf '%s\n' "$kind_nodes" | LC_ALL=C sort -u)"
 	api_nodes="$(printf '%s\n' "$api_nodes" | LC_ALL=C sort -u)"
 	if [[ -z "$api_nodes" || "$api_nodes" != "$kind_nodes" ]]; then
 		printf 'Kubernetes API node identity conflicts with kind cluster %s (kind=%s api=%s)\n' \
-			"$LOCAL_CLUSTER_NAME" "${kind_nodes//$'\n'/,}" "${api_nodes//$'\n'/,}" >&2
+			"$KUBEFACET_LOCAL_CLUSTER_NAME" "${kind_nodes//$'\n'/,}" "${api_nodes//$'\n'/,}" >&2
 		return 2
 	fi
 }
@@ -472,9 +476,9 @@ request_timeout_for_deadline() {
 }
 
 resume_owned_control_plane() {
-	local resume_timeout="${KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS:-120}"
+	local resume_timeout="${KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS:-120}"
 	local timeout_number deadline remaining start_output last_error='' validation_output validation_status
-	local node_name="${LOCAL_CLUSTER_NAME}-control-plane"
+	local node_name="${KUBEFACET_LOCAL_CLUSTER_NAME}-control-plane"
 	local resume_container_id="$owned_container_id"
 
 	if [[ "$owned_container_state" == running ]]; then
@@ -482,12 +486,12 @@ resume_owned_control_plane() {
 		return
 	fi
 	if [[ ! "$resume_timeout" =~ ^[0-9]{1,3}$ ]]; then
-		printf 'KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS must be an integer from 1 through 600\n' >&2
+		printf 'KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS must be an integer from 1 through 600\n' >&2
 		return 1
 	fi
 	timeout_number=$((10#$resume_timeout))
 	if ((timeout_number < 1 || timeout_number > 600)); then
-		printf 'KUBESEER_LOCAL_RESUME_TIMEOUT_SECONDS must be an integer from 1 through 600\n' >&2
+		printf 'KUBEFACET_LOCAL_RESUME_TIMEOUT_SECONDS must be an integer from 1 through 600\n' >&2
 		return 1
 	fi
 	if ! start_output="$(kp_run_podman container start "$resume_container_id" 2>&1)"; then
@@ -504,7 +508,7 @@ resume_owned_control_plane() {
 		remaining=$((deadline - SECONDS))
 		if ((remaining <= 0)); then
 			printf 'Kubernetes API readiness wait expired after %s seconds for node %s (context %s)\n' \
-				"$timeout_number" "$node_name" "$LOCAL_KUBE_CONTEXT" >&2
+				"$timeout_number" "$node_name" "$KUBEFACET_LOCAL_KUBE_CONTEXT" >&2
 			[[ -z "$last_error" ]] || printf 'last API check: %s\n' "$last_error" >&2
 			return 1
 		fi
@@ -530,7 +534,7 @@ compute_source_identity() {
 
 build_and_load_image() {
 	local archive nodes node node_archive
-	image_ref="localhost/kubeseer-local:${source_identity:0:32}"
+	image_ref="localhost/kubefacet-local:${source_identity:0:32}"
 	image_ref="$(printf '%s' "$image_ref" | tr '[:upper:]' '[:lower:]')"
 	if [[ -s "$metadata_path" && "$(sed -n 's/^source_identity=sha256://p' "$metadata_path" 2>/dev/null || true)" == "$source_identity" && -n "$(sed -n 's/^image_id=//p' "$metadata_path" 2>/dev/null || true)" ]]; then
 		local recorded_image_id existing_image_id
@@ -560,7 +564,7 @@ build_and_load_image() {
 	nodes="$(cluster_nodes)" || return 1
 	while IFS= read -r node; do
 		[[ -n "$node" ]] || continue
-		node_archive="/tmp/kubeseer-local-${LOCAL_CLUSTER_NAME}.oci.tar"
+		node_archive="/tmp/kubefacet-local-${KUBEFACET_LOCAL_CLUSTER_NAME}.oci.tar"
 		if ! kp_run_podman cp "$archive" "$node:$node_archive"; then printf 'image import failed for node %s\n' "$node" >&2; return 1; fi
 		if ! kp_run_podman exec "$node" ctr --namespace k8s.io images import "$node_archive"; then printf 'image import failed for node %s\n' "$node" >&2; return 1; fi
 		kp_run_podman exec "$node" rm -f "$node_archive" >/dev/null 2>&1 || true
@@ -570,7 +574,7 @@ build_and_load_image() {
 ensure_local_example_namespaces() {
 	local namespace
 	for namespace in "${LOCAL_EXAMPLE_NAMESPACES[@]}"; do
-		kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" apply --server-side \
+		kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" apply --server-side \
 			--field-manager="$LOCAL_FIELD_MANAGER" -f - <<EOF
 apiVersion: v1
 kind: Namespace
@@ -589,14 +593,14 @@ install_package() {
 		kp_run_curl --fail --silent --show-error --location --retry 3 --output "$cert_manifest" "$cert_url" || { printf 'pinned cert-manager %s could not be downloaded\n' "$CERT_MANAGER_VERSION" >&2; return 1; }
 	fi
 	[[ -s "$cert_manifest" ]] || { printf 'pinned cert-manager manifest is empty\n' >&2; return 1; }
-	kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" apply --server-side --field-manager=kubeseer-local-cert-manager -f "$cert_manifest" || return 1
-	kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" wait --for=condition=Established --timeout=5m \
+	kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" apply --server-side --field-manager=kubefacet-local-cert-manager -f "$cert_manifest" || return 1
+	kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" wait --for=condition=Established --timeout=5m \
 		crd/certificates.cert-manager.io crd/issuers.cert-manager.io crd/clusterissuers.cert-manager.io || return 1
-	kp_run_kubectl "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" --namespace cert-manager wait --for=condition=Available --timeout=10m deployment --all || return 1
+	kp_run_kubectl "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" --namespace cert-manager wait --for=condition=Available --timeout=10m deployment --all || return 1
 	[[ -f "$ROOT_DIR/config/local/values.yaml" ]] || { printf 'local Helm values profile is missing\n' >&2; return 1; }
 	ensure_local_example_namespaces || return 1
-	kp_run_helm "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" "$state_dir/helm/config" "$cache_dir/helm" "$state_dir/helm/data" \
-		upgrade --install "$LOCAL_RELEASE" "$ROOT_DIR/charts/kubeseer" --namespace "$LOCAL_NAMESPACE" --create-namespace \
+	kp_run_helm "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" "$state_dir/helm/config" "$cache_dir/helm" "$state_dir/helm/data" \
+		upgrade --install "$KUBEFACET_LOCAL_RELEASE" "$ROOT_DIR/charts/kubefacet" --namespace "$KUBEFACET_LOCAL_NAMESPACE" --create-namespace \
 		--values "$ROOT_DIR/config/local/values.yaml" --set "image.repository=${image_ref%:*}" --set "image.tag=$image_tag" \
 		--set image.pullPolicy=IfNotPresent --atomic --cleanup-on-fail --wait --timeout 10m || {
 		printf 'canonical Helm upgrade failed; prior release revision is preserved\n' >&2; return 1;
@@ -609,7 +613,7 @@ wait_for_local_http() {
 	mkdir -p -- "$state_dir"
 	# The port-forward process is deliberately scoped to this one bounded
 	# observation. It never becomes part of persistent cluster state.
-	kp_run_port_forward "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" "$LOCAL_NAMESPACE" "$target" "$local_port:$remote_port" >"$forward_log" 2>&1 &
+	kp_run_port_forward "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" "$KUBEFACET_LOCAL_NAMESPACE" "$target" "$local_port:$remote_port" >"$forward_log" 2>&1 &
 	forward_pid=$!
 	for attempt in {1..30}; do
 		if body="$(kp_run_curl --fail --silent --show-error --max-time 2 "http://127.0.0.1:${local_port}${path}" 2>/dev/null)" && [[ "$body" == *"$expected"* ]]; then
@@ -629,9 +633,9 @@ wait_for_local_http() {
 }
 
 probe() {
-	local command=(go run ./cmd/kubeseer-local)
-	if [[ -n "${KUBESEER_LOCAL_PROBE_BIN:-}" ]]; then command=("$KUBESEER_LOCAL_PROBE_BIN"); fi
-	"${command[@]}" "$1" --state-dir "$state_dir" --metadata "$metadata_path" --kubeconfig "$kubeconfig_path" --cluster-name "$LOCAL_CLUSTER_NAME" --context "$LOCAL_KUBE_CONTEXT" --timeout "${KUBESEER_LOCAL_TIMEOUT:-2m}" "${@:2}"
+	local command=(go run ./cmd/kubefacet-local)
+	if [[ -n "${KUBEFACET_LOCAL_PROBE_BIN:-}" ]]; then command=("$KUBEFACET_LOCAL_PROBE_BIN"); fi
+	"${command[@]}" "$1" --state-dir "$state_dir" --metadata "$metadata_path" --kubeconfig "$kubeconfig_path" --cluster-name "$KUBEFACET_LOCAL_CLUSTER_NAME" --context "$KUBEFACET_LOCAL_KUBE_CONTEXT" --timeout "${KUBEFACET_LOCAL_TIMEOUT:-2m}" "${@:2}"
 }
 
 create_or_validate_cluster() {
@@ -646,27 +650,27 @@ create_or_validate_cluster() {
 		fi
 		if [[ "$(sed -n 's/^state=//p' "$metadata_path")" == creating ]]; then
 			if ((existing)); then
-				kp_run_kind "$LOCAL_PROVIDER" delete cluster --name "$LOCAL_CLUSTER_NAME" --kubeconfig "$kubeconfig_path" || return 1
+				kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" delete cluster --name "$KUBEFACET_LOCAL_CLUSTER_NAME" --kubeconfig "$kubeconfig_path" || return 1
 			fi
 			rm -f -- "$metadata_path" "$kubeconfig_path"
 			existing=0
 		fi
 		if ((existing == 0)) && [[ -f "$metadata_path" ]]; then
-			printf 'ownership metadata claims an owned target but %s is absent; refusing adoption\n' "$LOCAL_CLUSTER_NAME" >&2
+			printf 'ownership metadata claims an owned target but %s is absent; refusing adoption\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2
 			return 1
 		fi
 	else
 		existing=0; cluster_exists && existing=1 || true
 	fi
 	if ((existing)); then
-		[[ -f "$metadata_path" ]] || { printf 'cluster %s exists without matching ownership metadata\n' "$LOCAL_CLUSTER_NAME" >&2; return 1; }
+		[[ -f "$metadata_path" ]] || { printf 'cluster %s exists without matching ownership metadata\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2; return 1; }
 		inspect_owned_control_plane || return 1
 		resume_owned_control_plane || return 1
 		return 0
 	fi
 	write_metadata creating
 	cluster_created=1
-	if ! kp_run_kind "$LOCAL_PROVIDER" create cluster --name "$LOCAL_CLUSTER_NAME" --image "$kind_node_image" --wait 5m --kubeconfig "$kubeconfig_path"; then
+	if ! kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" create cluster --name "$KUBEFACET_LOCAL_CLUSTER_NAME" --image "$kind_node_image" --wait 5m --kubeconfig "$kubeconfig_path"; then
 		cleanup_partial_cluster; rm -f -- "$metadata_path" "$kubeconfig_path"; printf 'kind creation failed; partial owned target was cleaned\n' >&2; return 1
 	fi
 	cluster_created=1
@@ -688,8 +692,8 @@ run_up() {
 	write_metadata owned
 	install_package || return 1
 	write_metadata owned
-	wait_for_local_http "deployment/$LOCAL_RELEASE" "$LOCAL_READYZ_PORT" 8081 /readyz ok || return 1
-	wait_for_local_http "service/${LOCAL_RELEASE}-metrics" "$LOCAL_METRICS_PORT" 8080 /metrics '# HELP' || return 1
+	wait_for_local_http "deployment/$KUBEFACET_LOCAL_RELEASE" "$LOCAL_READYZ_PORT" 8081 /readyz ok || return 1
+	wait_for_local_http "service/${KUBEFACET_LOCAL_RELEASE}-metrics" "$LOCAL_METRICS_PORT" 8080 /metrics '# HELP' || return 1
 	probe readiness || return 1
 	write_metadata owned
 	worktree_unchanged || { printf 'worktree drift detected; no files were changed by local-up\n' >&2; return 1; }
@@ -703,16 +707,16 @@ run_status() {
 	resolve_paths || return 1
 	if [[ ! -f "$metadata_path" ]]; then
 		if cluster_exists; then
-			printf 'LOCAL_STATUS=conflict cluster=%s metadata=%s\n' "$LOCAL_CLUSTER_NAME" "$metadata_path" >&2
+			printf 'LOCAL_STATUS=conflict cluster=%s metadata=%s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" "$metadata_path" >&2
 			return 1
 		fi
-		printf 'LOCAL_STATUS=absent cluster=%s context=%s state=%s\n' "$LOCAL_CLUSTER_NAME" "$LOCAL_KUBE_CONTEXT" "$state_dir"
+		printf 'LOCAL_STATUS=absent cluster=%s context=%s state=%s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" "$KUBEFACET_LOCAL_KUBE_CONTEXT" "$state_dir"
 		printf 'LOCAL_ENVIRONMENT=status STATUS=passed\n'; return 0
 	fi
 	read_metadata || { printf 'LOCAL_STATUS=conflict metadata=%s\n' "$metadata_path" >&2; return 1; }
 	capture_snapshot "$worktree_dir/before"
 	printf 'LOCAL_STATUS_IDENTITY state=%s kubeconfig=%s context=%s cluster=%s kubernetes_version=%s source_identity=sha256:%s\n' \
-		"$(sed -n 's/^state=//p' "$metadata_path")" "$kubeconfig_path" "$LOCAL_KUBE_CONTEXT" "$LOCAL_CLUSTER_NAME" \
+		"$(sed -n 's/^state=//p' "$metadata_path")" "$kubeconfig_path" "$KUBEFACET_LOCAL_KUBE_CONTEXT" "$KUBEFACET_LOCAL_CLUSTER_NAME" \
 		"$(sed -n 's/^kubernetes_version=//p' "$metadata_path")" "$(sed -n 's/^source_identity=sha256://p' "$metadata_path")"
 	probe status
 	worktree_unchanged || return 1
@@ -728,7 +732,7 @@ run_examples() {
 	capture_snapshot "$worktree_dir/before"
 	acquire_lock || return 1
 	trap 'release_lock' RETURN
-	KUBESEER_LOCAL_STATE_DIR="$state_dir" KUBESEER_LOCAL_CACHE_DIR="$cache_dir" \
+	KUBEFACET_LOCAL_STATE_DIR="$state_dir" KUBEFACET_LOCAL_CACHE_DIR="$cache_dir" \
 		"$ROOT_DIR/hack/local-examples.sh" apply "${EXAMPLE:-}" || return 1
 	worktree_unchanged || return 1
 	release_lock; trap - RETURN
@@ -740,14 +744,14 @@ run_verify() {
 	read_metadata || { printf 'local cluster ownership is unavailable\n' >&2; return 1; }
 	[[ "$(sed -n 's/^state=//p' "$metadata_path")" == owned ]] || { printf 'local cluster is still being created; retry after make local-up\n' >&2; return 1; }
 	capture_snapshot "$worktree_dir/before"
-	wait_for_local_http "deployment/$LOCAL_RELEASE" "$LOCAL_READYZ_PORT" 8081 /readyz ok || return 1
-	wait_for_local_http "service/${LOCAL_RELEASE}-metrics" "$LOCAL_METRICS_PORT" 8080 /metrics '# HELP' || return 1
+	wait_for_local_http "deployment/$KUBEFACET_LOCAL_RELEASE" "$LOCAL_READYZ_PORT" 8081 /readyz ok || return 1
+	wait_for_local_http "service/${KUBEFACET_LOCAL_RELEASE}-metrics" "$LOCAL_METRICS_PORT" 8080 /metrics '# HELP' || return 1
 	probe readiness >/dev/null || return 1
 	# The catalog executor owns the authorization-denial policy-drift fixture;
 	# it narrows and restores the live policy around that one probe assertion.
 	# Keep the public assertions in the typed local probe while letting the
 	# workflow layer control this intentional runtime transition.
-	KUBESEER_LOCAL_STATE_DIR="$state_dir" KUBESEER_LOCAL_CACHE_DIR="$cache_dir" \
+	KUBEFACET_LOCAL_STATE_DIR="$state_dir" KUBEFACET_LOCAL_CACHE_DIR="$cache_dir" \
 		"$ROOT_DIR/hack/local-examples.sh" verify
 	worktree_unchanged || return 1
 	printf 'LOCAL_ENVIRONMENT=verify STATUS=passed\n'
@@ -759,20 +763,20 @@ run_diagnostics() {
 	[[ "$(sed -n 's/^state=//p' "$metadata_path")" == owned ]] || { printf 'local cluster is still being created; retry after make local-up\n' >&2; return 1; }
 	capture_snapshot "$worktree_dir/before"
 	local kind_version podman_version kubectl_version helm_version curl_version destination
-	destination="${KUBESEER_LOCAL_DIAGNOSTICS_DIR:-}"
+	destination="${KUBEFACET_LOCAL_DIAGNOSTICS_DIR:-}"
 	if [[ -z "$destination" ]]; then
 		mkdir -p -- "$state_dir/diagnostics"
 		destination="$(mktemp -d "$state_dir/diagnostics/run.XXXXXX")" || return 1
 		chmod 700 -- "$destination"
 	fi
-	kind_version="$(kp_run_kind "$LOCAL_PROVIDER" version 2>/dev/null || true)"
+	kind_version="$(kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" version 2>/dev/null || true)"
 	podman_version="$(kp_run_podman --version 2>/dev/null || true)"
 	kubectl_version="$(kp_sanitized_env kubectl version --client=true 2>/dev/null || true)"
 	helm_version="$(kp_sanitized_env helm version --short 2>/dev/null || true)"
 	curl_version="$(kp_run_curl --version 2>/dev/null || true)"
-	KUBESEER_LOCAL_KIND_VERSION="$kind_version" KUBESEER_LOCAL_PODMAN_VERSION="$podman_version" \
-	KUBESEER_LOCAL_KUBECTL_VERSION="$kubectl_version" KUBESEER_LOCAL_HELM_VERSION="$helm_version" \
-	KUBESEER_LOCAL_CURL_VERSION="$curl_version" probe diagnostics --destination "$destination"
+	KUBEFACET_LOCAL_KIND_VERSION="$kind_version" KUBEFACET_LOCAL_PODMAN_VERSION="$podman_version" \
+	KUBEFACET_LOCAL_KUBECTL_VERSION="$kubectl_version" KUBEFACET_LOCAL_HELM_VERSION="$helm_version" \
+	KUBEFACET_LOCAL_CURL_VERSION="$curl_version" probe diagnostics --destination "$destination"
 	worktree_unchanged || return 1
 	printf 'LOCAL_ENVIRONMENT=diagnostics STATUS=passed\n'
 }
@@ -785,7 +789,7 @@ run_examples_down() {
 	capture_snapshot "$worktree_dir/before"
 	acquire_lock || return 1
 	trap 'release_lock' RETURN
-	KUBESEER_LOCAL_STATE_DIR="$state_dir" KUBESEER_LOCAL_CACHE_DIR="$cache_dir" \
+	KUBEFACET_LOCAL_STATE_DIR="$state_dir" KUBEFACET_LOCAL_CACHE_DIR="$cache_dir" \
 		"$ROOT_DIR/hack/local-examples.sh" down "${EXAMPLE:-}" || return 1
 	worktree_unchanged || return 1
 	release_lock; trap - RETURN
@@ -796,23 +800,23 @@ run_down() {
 	resolve_paths || return 1
 	if [[ ! -f "$metadata_path" ]]; then
 		if cluster_exists; then
-			printf 'ownership metadata is absent; refusing to delete cluster=%s\n' "$LOCAL_CLUSTER_NAME" >&2
+			printf 'ownership metadata is absent; refusing to delete cluster=%s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2
 			return 1
 		fi
-		printf 'LOCAL_STATUS=absent cluster=%s\n' "$LOCAL_CLUSTER_NAME"
+		printf 'LOCAL_STATUS=absent cluster=%s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME"
 		printf 'LOCAL_ENVIRONMENT=down STATUS=passed\n'; return 0
 	fi
 	preflight || return 1
-	read_metadata || { printf 'ownership conflict; refusing to delete %s\n' "$LOCAL_CLUSTER_NAME" >&2; return 1; }
+	read_metadata || { printf 'ownership conflict; refusing to delete %s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" >&2; return 1; }
 	[[ "$(sed -n 's/^state=//p' "$metadata_path")" == owned ]] || { printf 'cluster is not in owned state; refusing deletion\n' >&2; return 1; }
 	capture_snapshot "$worktree_dir/before"
 	acquire_lock || return 1
 	trap 'release_lock' RETURN
-	if ! kp_run_kind "$LOCAL_PROVIDER" delete cluster --name "$LOCAL_CLUSTER_NAME" --kubeconfig "$kubeconfig_path"; then
-		printf 'local cluster deletion failed; retained cluster=%s kubeconfig=%s metadata=%s\n' "$LOCAL_CLUSTER_NAME" "$kubeconfig_path" "$metadata_path" >&2; return 1
+	if ! kp_run_kind "$KUBEFACET_LOCAL_PROVIDER" delete cluster --name "$KUBEFACET_LOCAL_CLUSTER_NAME" --kubeconfig "$kubeconfig_path"; then
+		printf 'local cluster deletion failed; retained cluster=%s kubeconfig=%s metadata=%s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" "$kubeconfig_path" "$metadata_path" >&2; return 1
 	fi
 	rm -f -- "$metadata_path" "$kubeconfig_path"
-	printf 'LOCAL_CLEANUP=cluster=%s image-cache=%s tool-cache=%s\n' "$LOCAL_CLUSTER_NAME" "$cache_dir/images" "$cache_dir"
+	printf 'LOCAL_CLEANUP=cluster=%s image-cache=%s tool-cache=%s\n' "$KUBEFACET_LOCAL_CLUSTER_NAME" "$cache_dir/images" "$cache_dir"
 	worktree_unchanged || return 1
 	release_lock; trap - RETURN
 	printf 'LOCAL_ENVIRONMENT=down STATUS=passed\n'
@@ -820,10 +824,10 @@ run_down() {
 
 run_test() {
 	local test_dir state cache output status
-	test_dir="$(mktemp -d "${TMPDIR:-/tmp}/kubeseer-local-test.XXXXXX")"
+	test_dir="$(mktemp -d "${TMPDIR:-/tmp}/kubefacet-local-test.XXXXXX")"
 	state="$test_dir/state"; cache="$test_dir/cache"
 	set +e
-	output="$(KUBESEER_LOCAL_STATE_DIR="$state" KUBESEER_LOCAL_CACHE_DIR="$cache" "$ROOT_DIR/hack/local-environment-acceptance.sh" complete 2>&1)"
+	output="$(KUBEFACET_LOCAL_STATE_DIR="$state" KUBEFACET_LOCAL_CACHE_DIR="$cache" "$ROOT_DIR/hack/local-environment-acceptance.sh" complete 2>&1)"
 	status=$?
 	set -e
 	printf '%s\n' "$output"
@@ -855,7 +859,7 @@ case "$ACTION" in
 			acquire_lock || exit 1
 			trap 'release_lock' EXIT
 		fi
-		KUBESEER_LOCAL_STATE_DIR="$state_dir" KUBESEER_LOCAL_CACHE_DIR="$cache_dir" \
+		KUBEFACET_LOCAL_STATE_DIR="$state_dir" KUBEFACET_LOCAL_CACHE_DIR="$cache_dir" \
 			"$ROOT_DIR/hack/local-examples.sh" "$local_example_action" "$EXAMPLE"
 		if [[ "$local_example_action" == apply || "$local_example_action" == down ]]; then
 			release_lock

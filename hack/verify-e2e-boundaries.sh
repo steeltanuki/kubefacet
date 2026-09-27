@@ -57,7 +57,7 @@ for file in "$E2E_DIR"/*.go "$E2E_DIR"/fixtures/*.yaml; do
 	[[ "$first_line" == '// Copyright 2026 Alessandro Rontani' || "$first_line" == '# Copyright 2026 Alessandro Rontani' ]] || fail "missing Apache header: ${file#"$ROOT_DIR"/}"
 done
 
-if rg -n 'github\.com/steeltanuki/kubeseer/internal/|testing\.T\.Skip|testing\.TB\.Skip|time\.Sleep|(^|[[:space:]])sleep([[:space:]]|\(|$)' "$E2E_DIR" >/dev/null; then
+if rg -n 'github\.com/steeltanuki/kubefacet/internal/|testing\.T\.Skip|testing\.TB\.Skip|time\.Sleep|(^|[[:space:]])sleep([[:space:]]|\(|$)' "$E2E_DIR" >/dev/null; then
 	fail 'public-boundary suite contains a production import, skip, or sleep'
 fi
 if rg -n 'fake|envtest|test-seam|controller-runtime/pkg/client' "$E2E_DIR" --glob '*.go' >/dev/null; then
@@ -83,9 +83,9 @@ module_cache="${GOMODCACHE:-}"
 if [[ -z "$module_cache" || ! -d "$module_cache/k8s.io/apimachinery@v0.36.0" ]]; then
 	module_cache="$(env -u GOMODCACHE go env GOMODCACHE)"
 fi
-list_output="$(GOCACHE="${GOCACHE:-/tmp/kubeseer-e2e-go-build}" GOMODCACHE="$module_cache" GOPROXY=off go test -list '^TestEndToEnd$' ./test/e2e/... 2>&1)" || fail "suite listing failed: $list_output"
+list_output="$(GOCACHE="${GOCACHE:-/tmp/kubefacet-e2e-go-build}" GOMODCACHE="$module_cache" GOPROXY=off go test -list '^TestEndToEnd$' ./test/e2e/... 2>&1)" || fail "suite listing failed: $list_output"
 printf '%s\n' "$list_output" | rg -q '^TestEndToEnd$' || fail 'exact TestEndToEnd selection is not listed'
-GOCACHE="${GOCACHE:-/tmp/kubeseer-e2e-go-build}" GOMODCACHE="$module_cache" GOPROXY=off go test -run '^$' ./test/e2e/... >/dev/null || fail 'suite compilation failed'
+GOCACHE="${GOCACHE:-/tmp/kubefacet-e2e-go-build}" GOMODCACHE="$module_cache" GOPROXY=off go test -run '^$' ./test/e2e/... >/dev/null || fail 'suite compilation failed'
 
 case "$MODE" in
 	foundation)

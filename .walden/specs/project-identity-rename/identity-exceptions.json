@@ -1,0 +1,973 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "a09dc37581dbbe632d28022c384cf90521d5929d",
+  "purpose": "Exact occurrence selectors for reviewed migration explanations; hashes are never refreshed by verification.",
+  "text_exceptions": [
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS90YXNrcy5tZA==",
+      "line": 201,
+      "sha256": "64e3d58fdad7940a5376f6753b812c8614592f5a0ca3d98349b94249ce88e423",
+      "count": 1,
+      "reason": "Approved tasks document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9hcGktc2NoZW1hLWJhc2VsaW5lLmpzb24=",
+      "line": 7,
+      "sha256": "b98564b1c69fe0393bd315bcb3462c32ba0994e92f60387488088edd4fffe523",
+      "count": 2,
+      "reason": "Embedded source schema paths preserve original API provenance."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9hcGktc2NoZW1hLWJhc2VsaW5lLmpzb24=",
+      "line": 12,
+      "sha256": "7f7441db9809d508fd84d604b48cd1e2af48a166022ce44b013efbce303bf981",
+      "count": 2,
+      "reason": "Embedded source schema paths preserve original API provenance."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 36,
+      "sha256": "aeae61a0d5ae4fa8cbf50961b69581b5e6f261458c6bf951fc9084f87936eef8",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 37,
+      "sha256": "795facebfc2884dc1956bf3f9d35e1eb4d70427a30479cdff3dc6ab6e1bd31a3",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 38,
+      "sha256": "31b11f21c4c3b0a15a4fb255efd614acfb7348cd7171b8d6641bf9fa4ddf7510",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 39,
+      "sha256": "7ee3f3d8925bdb39820718ee703536a9e92ecb7b16acdb02849b99ac73365209",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 40,
+      "sha256": "c9e7aa5f47de673628f7f44a7059b40bd2da319fc14d5ad8e148073c9615c708",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 41,
+      "sha256": "381e34a657c0d93cc747b0aca429170084efe62e2f19249467cb11d18716049c",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 42,
+      "sha256": "319298bd47e200ce9d0fe206dc54c4f2063a54c71de8e7a212e5a908e1ff279b",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 43,
+      "sha256": "59fdd5912344db1a22fd0110c03d33267cb230952e7e0b5d8f6297d3d3b530e5",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 44,
+      "sha256": "1722757fd217ea4baf1cb57e06e7ec0453715c03b8c716455cc06660a66e4066",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 45,
+      "sha256": "4ca5dd7ec1813b8d7767800bbebc76307f9eed00d26f46cf2144310b5107c46f",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 46,
+      "sha256": "0a896a4a81198d53a14b2b5841b0d4768b2940a53dbfa2d8da2833bad8ef0fe3",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 47,
+      "sha256": "ef3eb12898e9455d219ef73e65c0f67314da1945d857ed368f6d29d6eec8ca07",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 49,
+      "sha256": "2fc874eb01c40f46846f282607241c86d71d09633c2c79657e48ee4c8a700ad6",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 50,
+      "sha256": "5eef281afe18c69449881b44712fa89de8b78d2cf4b6f986a56d0b4bbdeb55c5",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 51,
+      "sha256": "cb3584e944870f3ee786e5c63bb4ba17f1c4d0c0846994067f88e0ca29e5cc78",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 52,
+      "sha256": "e2019b2ee4f47d85e78d625220e38db8611a6860f98a92c111884d2e5b2b9489",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 53,
+      "sha256": "416ed23607feecb2bf8710f9730ea6a493caf8c0c318c647414f522d263e496b",
+      "count": 3,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 54,
+      "sha256": "5e4f0f120c171d989310d6ce279c0d9c0f39df523d9046ffa913babc46b740b9",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 55,
+      "sha256": "8b0d924b614211a38dff205f400aef6a5bcd9d1cab083a9ab40aab855796e322",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 56,
+      "sha256": "d031e161bca367b12b13885a99ecfb3db2f575822bd77795edc3bb8eaee34a7c",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 57,
+      "sha256": "fee6b89e151a2af11dae150747783042c6d26e98ae0579cabc2b95559849ba43",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 58,
+      "sha256": "fd02cf59865364cc10a7870ec16fab7a74c6d4016972666761d63419041d6728",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 59,
+      "sha256": "a66540c2b7216cd3820b65f6819f9fc06a29a8b33ea49a776e16d1b9b0a7d641",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 60,
+      "sha256": "ae6174e7b2d47fb9f56f25b9fb2f13585d19927bbe575a2bc03ad9af925d657b",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 61,
+      "sha256": "55ec5d7403bf19aa51c6e23505222f0a0fdb23cee97a54c268a4df7e49e08043",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 62,
+      "sha256": "aea0878b6a01551521d444c00f1e9d5985cc8a088063a2b5fc226e878edb1da4",
+      "count": 2,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 64,
+      "sha256": "e796b304fa5441ef2530e63f8c9d42ed55f64cde8d04311ea56045a86817bda1",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 100,
+      "sha256": "82179c994dddb8cd46c6f8244b51512543024f03831ed3042bd9571a5fb8fdf2",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 107,
+      "sha256": "9deb61d0d5c260773f3604ac0b38734bd8018cd4b88906f12c3966d888e8de33",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 122,
+      "sha256": "7d13d71f44d9fc2678f067ee18a90e8bbf889262477a24c5cd17a5fc5f4932f6",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 211,
+      "sha256": "6be654834a3cb689ca9604a1ac5bedc6ebb11bfddd6cb58d13ef898e0c92e092",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9kZXNpZ24ubWQ=",
+      "line": 251,
+      "sha256": "564e7afcb326f2621160c37042fe9f663bbfa277e3e957a85d22d089af14c6d9",
+      "count": 1,
+      "reason": "Approved design documents the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9oaXN0b3JpY2FsLWlkZW50aXR5LXJlY29yZHMuanNvbg==",
+      "line": 154,
+      "sha256": "ebae1e20fc9adc916f0a1faacfbb5d78f5de0433d8ddd1a458a6455332be2a5c",
+      "count": 1,
+      "reason": "The migration manifest names preserved historical source paths."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9oaXN0b3JpY2FsLWlkZW50aXR5LXJlY29yZHMuanNvbg==",
+      "line": 983,
+      "sha256": "9d7c30e9fb225aac1f8a5fcea7d48c139a934c6e97080e1cd3f6e51029ede870",
+      "count": 1,
+      "reason": "The migration manifest names preserved historical source paths."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9oaXN0b3JpY2FsLWlkZW50aXR5LXJlY29yZHMuanNvbg==",
+      "line": 1018,
+      "sha256": "73bb271dd2f37611cd0635c6a46fd35cd13c57cf0afea0fcecfc93203eb79d32",
+      "count": 1,
+      "reason": "The migration manifest names preserved historical source paths."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9oaXN0b3JpY2FsLWlkZW50aXR5LXJlY29yZHMuanNvbg==",
+      "line": 1049,
+      "sha256": "f9ea10275ba88b9dcbd17ae97123f6e412803d3d2646c977f7dbe2febd4d76fe",
+      "count": 1,
+      "reason": "The migration manifest names preserved historical source paths."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 11,
+      "sha256": "38c7d36bd349ac085956bfd4c99985d76a0d98981afab4b99f507ffe746395bd",
+      "count": 3,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 12,
+      "sha256": "370584a8b01f25a6b9dc21b239f5cd9d4de3b6a2c1b79f44e1eb24709f63fcaa",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 34,
+      "sha256": "3f48a686ec74624b2158c384dce911ce6eb424044b230af8a1b0baa9aa167c7b",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 35,
+      "sha256": "16766c58ea0c498713ba280337c1bb102e74645d851ee9176c975611a56df02c",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 36,
+      "sha256": "e42ade8b4c4cac9b21423f2815e30dfde7ede2abd9260df0dbff68acaa349d9a",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 88,
+      "sha256": "00cee614b9185c231ce6154f2ac98dcc654467aad828241ca00e7263061a7b05",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 119,
+      "sha256": "13227b9498f4e4fec5e2d982a5c27f9a50648c0a44cbf1597fd4bdb971f71365",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 122,
+      "sha256": "697d8fdfc7b4630adaa231113f67c85b175bd44722443b8b58a80839a74e3f55",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 124,
+      "sha256": "b3fbcbe08f7251bc543beb1c1a2fa259386ec9c043d1e0a7a2152e6f4d340cf7",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 127,
+      "sha256": "f2d846a18887a8e8862d36175a2f46a65a3831035664ccfddd63cfadf5223381",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 130,
+      "sha256": "76f6bffc4bd3ffc3b09b8c84d7e166fe021f771d4dec9e59b464e203027c476d",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 133,
+      "sha256": "b6302678e8f29a9f0b8b3bbbfa8ddf0af5b3a44a07537d57618d28c41998511d",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 135,
+      "sha256": "ad98b4bab18503a84160a9dc616e2f955c38cdf98382281e1634ec941c62f448",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 164,
+      "sha256": "c3eb017ea6ccb20d121f0b3ad5bffea314e9739d79168eb3c59bfc045ded54ff",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 165,
+      "sha256": "85bf11b3eb0417b9965974669f3ae0f9dedc6d6cb6defff8ffa2e261308714a1",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 166,
+      "sha256": "8b6306e3aa508a1007ad06cfa378b1d5ed71e23d7fe8b03dd2b6aaca5a1f4cdc",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 209,
+      "sha256": "0c8426024d29dfa8f62ee01e336adf24c6a85ded774dd863000d6832caf707e2",
+      "count": 2,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 210,
+      "sha256": "3043719362281d72537384a467c3d0675e86d5bc5faba029ea7523243574c7b9",
+      "count": 2,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 214,
+      "sha256": "b2a248a866f1dcc0a10cdcf6959901fa016d638e703a6fac42f0c818d6ca9286",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 215,
+      "sha256": "2c41b928bcc7a1d7920c8dc7d0a6c87dd6645aeedaa1bc1d30ba569bf81472c5",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 216,
+      "sha256": "8c25f3340b0b749fa8c10ac7ddbb85abefde9d77ab0e96d98fdce9b03e4d66d8",
+      "count": 3,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 217,
+      "sha256": "db8e736123965db1d2f37e526d0f564aafc633308c5ba74d016c14be412351f8",
+      "count": 3,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 218,
+      "sha256": "fb707c3cd1e1aa89422c4f1e74c9958c87f23e26cdfed67e41029cca2995bf12",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 219,
+      "sha256": "5a11a89f461bcecee7a3a2c216b5061b06c1a1faac4f18a3d15ba970dc4829b4",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 220,
+      "sha256": "d2c465fff4207d4ab2a55e9460a400b7b63f47bcc88df79b711dd11ede5f624d",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 221,
+      "sha256": "e0576f210e6283952325cdee5921ac6146d79242275d05b9a7cc528faa587931",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 222,
+      "sha256": "d5bc17772b6c35a7213a0045e3d0fca56b3ff3db7d3ba1f33e75b62381a8ee8f",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 223,
+      "sha256": "f862afb98dff9969fe42d97eaeeab48b62a3c96c1fba193281bd9df9b790f2d6",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 224,
+      "sha256": "0384686fc5a759495dc547e68cf1e7f64779e8243d7f753b0d5d2633ef4b78ba",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 225,
+      "sha256": "a17a9d634c0c5960693f22dedb840ea8ce1bdbbe0a7662249408df01c6d12cbd",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 226,
+      "sha256": "ce267bddcf070415df007dbcb347bc83e1081140df6543e10ccc6b29537f2b4f",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 227,
+      "sha256": "89a25f3c281776fc9a0879297a819e3e290f3e25fe5e2c0f9a00fd27643ca63e",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 228,
+      "sha256": "c0f1f237c975eade6eb69420b3ef931aa95cc8b5053b552ae975361afc6fc386",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 229,
+      "sha256": "7e2893eb529b1cdb35700f7a110c5a2bd10f2dd4d1c71c1aa30ae6a909dd5a9a",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 230,
+      "sha256": "cb3ea0dc99e80dfd0f4ccc07e4b4de6d288136a553c91434b0c863e33620d928",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 231,
+      "sha256": "4c6e8ad0838383ec129d550a3b37582cf725893065200aaa0606c96e288bca02",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 232,
+      "sha256": "f78c3de23b8951030624f145156ec058a1081ac8f2956b3f63442e7b808a91d1",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 233,
+      "sha256": "f2949614d2fe72c39e1bb99bc9e0329284ede96773352861e7093269daba7235",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 234,
+      "sha256": "aa95109f71878e7b66dc1fe1829b38a30be6c6f728f9ac4843bc108e77a588c1",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 235,
+      "sha256": "09613014cf2ebbec805fd15cd7f9c96187d48b3f136029b78cf97f0bdf7c0e1f",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 236,
+      "sha256": "315cd41d2f1c612a08c2aa1035a6b741ef8c664094a22b7da53324b0cbdbc9f8",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 237,
+      "sha256": "39cac3a3183ba147cf8a60ba348777dd7e2339daca436d10045f4b0a93a36a71",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 238,
+      "sha256": "ff430b4cbe348aaf11e07204d3ff02cab46dd00fc556cf393d4a1c5fe01c95db",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 239,
+      "sha256": "78d3c7eed54677705c5a311ede5351cdc06ce04226e4148dfdc79dd5738f8744",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 240,
+      "sha256": "4a78649083b998bf438c8330d4f10e38fa5aeb717942608d027830b294501a80",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 241,
+      "sha256": "8959b67c34ceecda859dabfdcd292d67f135742a47f8f2c14333ac207dbdb5eb",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 334,
+      "sha256": "f74b5a36dc3aed402665299702368cad76ac951607693e8c03a8d31fa23feabd",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 335,
+      "sha256": "8f30afcd2cb17fea4cb86d9eb78b9ebc26f152afe2cb001bb5b3d6ce66ecb16f",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 336,
+      "sha256": "bccb104088c75fd130f6ca2d3fa7049e15f69250e351d180170f46efc222d86d",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 409,
+      "sha256": "b9a8a0c989a086df82a28c1d878e3b47e278b4c6ae3fe3db871760a5495bfccd",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 410,
+      "sha256": "86640b9390c4ac6f61096f54761c0db0c55ec4430b116463c3d873e0eeed4190",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 411,
+      "sha256": "29a00de24924c3a548f530baa8bd29619e2851d9caf428ea533287bc3bb1cf70",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9pZGVudGl0eS1pbnZlbnRvcnkubWQ=",
+      "line": 424,
+      "sha256": "92b30a2b16c5eaa2651ad595039a148de47a93a786df62c2bfacafeb875954cb",
+      "count": 1,
+      "reason": "The pre-edit inventory records identifiers for scoped migration review."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 13,
+      "sha256": "254d362065e7fe5086ca563dcf8d752bb2708f1f2185b61b872f2fed38f9fdd0",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 27,
+      "sha256": "ae4c36dcaf89e3350fc27fe2261e989732af273b12dbbba81b35379ebe091c81",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 38,
+      "sha256": "d58b3c5819104e7ba27d5f1e502dfc7b68dedd6404dddb18eb81a91387fd415a",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 84,
+      "sha256": "728dfdb5b4e2ad59487ddfba4eb275f8467f3de99066a52b664dc30b88e3b3ff",
+      "count": 3,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 129,
+      "sha256": "7cb6ab05444da75ada77c954ac140a1de927f686b7a301a062c5d2458e0ee0f5",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 143,
+      "sha256": "8b602fb9903c11e0f759521e5bc6bab00169c3c4ad4243ea8cbdbf6b8d23d86d",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 219,
+      "sha256": "9c2ef7f6a06b835a972973aa7f285f1a6334f7bc6bd0d43742c5f7f41e742b75",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9zcGVjcy9wcm9qZWN0LWlkZW50aXR5LXJlbmFtZS9yZXF1aXJlbWVudHMubWQ=",
+      "line": 221,
+      "sha256": "056a48de3d9fe173bd60fc1164bb753359dc30a25232ac26abfad72cca7d534c",
+      "count": 1,
+      "reason": "Approved requirements document the intentional breaking identity mapping."
+    },
+    {
+      "path_b64": "LndhbGRlbi9jb25zdGl0dXRpb24ubWQ=",
+      "line": 128,
+      "sha256": "96e94be080aa2f4b6bb39973884122a0d4df936df600e5049b09a52bdeeeffb2",
+      "count": 1,
+      "reason": "The current feature map retains the approved API foundation directory ID."
+    },
+    {
+      "path_b64": "LndhbGRlbi9jdXJyZW50LWlkZW50aXR5Lm1k",
+      "line": 19,
+      "sha256": "8c666b558d3fa479256791b17f36c68a0c0303e691bd42d8ac3d76abfbffe7a2",
+      "count": 2,
+      "reason": "The identity overlay links the approved API contract by its stable historical feature ID."
+    },
+    {
+      "path_b64": "Q09OVFJJQlVUSU5HLm1k",
+      "line": 4,
+      "sha256": "6c7a687dff6718d147007d13b79f32e3d15d885566719e495cb7ec16bdf401b1",
+      "count": 1,
+      "reason": "Contributor guidance links the breaking migration procedure."
+    },
+    {
+      "path_b64": "UkVBRE1FLm1k",
+      "line": 237,
+      "sha256": "1b7c87deacc82b6f44b35edfa893c0522fdb8df02b62589c82773f047146c164",
+      "count": 2,
+      "reason": "The README labels and links the breaking migration guide."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 52,
+      "sha256": "db81b34b544182553be3a610a742ae9b65184cd9b66a901602f9e690ee882c6b",
+      "count": 2,
+      "reason": "The current feature overview links the identity overlay and migration procedure."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 73,
+      "sha256": "e31b62e8e0eb702d2fa0bd40ac5d7d1370636a1e3a19ce4deef9c86f8bcb7b36",
+      "count": 1,
+      "reason": "The feature map retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 98,
+      "sha256": "02e5825545635041801e00944592e26d7a78527277586ded6b92b404d3028128",
+      "count": 1,
+      "reason": "The feature heading retains its original approved directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 180,
+      "sha256": "b5854340289aba3c67bc62869ddfa6ef454cca07dd6797b7855514c48159fcc5",
+      "count": 1,
+      "reason": "A prerequisite reference retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 213,
+      "sha256": "b5854340289aba3c67bc62869ddfa6ef454cca07dd6797b7855514c48159fcc5",
+      "count": 1,
+      "reason": "A prerequisite reference retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 272,
+      "sha256": "522de7e0ecf3bfb57e3cc138ab040fc7b5f33fb7d7537ece960a4c1759f1f955",
+      "count": 1,
+      "reason": "A dependency reference retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 977,
+      "sha256": "3b72ad9651fbb1244cdc75bc81485217c751ba864b62b6fe9e4afe0d919b70e6",
+      "count": 1,
+      "reason": "The delivery sequence retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 1031,
+      "sha256": "0154dcaf3d72b10d6fe128343921f112acc3b411a5cd4b3991eb76e986183944",
+      "count": 1,
+      "reason": "The dependency diagram retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 1035,
+      "sha256": "0154dcaf3d72b10d6fe128343921f112acc3b411a5cd4b3991eb76e986183944",
+      "count": 1,
+      "reason": "The dependency diagram retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "U1BFQ0lGSUNBVElPTlMubWQ=",
+      "line": 1118,
+      "sha256": "a08fd03cccac3e82bfc7f9029b63c00fea1524fcd6e2f240c37fb24427023782",
+      "count": 1,
+      "reason": "The corrective feature mapping retains the original API foundation directory ID."
+    },
+    {
+      "path_b64": "Y2hhcnRzL2t1YmVmYWNldC9SRUFETUUubWQ=",
+      "line": 14,
+      "sha256": "99c46052418d65c963b19c9e932512d129afb8f8127014b0886edf2f5911faa0",
+      "count": 1,
+      "reason": "The chart guide links to the breaking migration procedure."
+    },
+    {
+      "path_b64": "ZG9jcy9pbnN0YWxsYXRpb24ubWQ=",
+      "line": 13,
+      "sha256": "394a24264d70f8ccf7a8400f9e11bd2d3b68a67bed35656c47f08c101c3ca0cc",
+      "count": 2,
+      "reason": "The current installation guide links to the breaking migration procedure."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 1,
+      "sha256": "73c91d3ba5cc44375ee79132ec5c115532fb0297a66520495e1dbca45ca366a9",
+      "count": 1,
+      "reason": "The migration guide identifies the prior project and the breaking version boundary."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 6,
+      "sha256": "1533f21f067b76eb4ff0d5e7890bd4cb1d913f2e37fe678c46fc92656921d1ca",
+      "count": 1,
+      "reason": "The migration guide identifies the prior project in the unsupported in-place upgrade statement."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 15,
+      "sha256": "d52c534a1a73ba993093ea3c83680b5994ff349816ef478d36c4876f1461a5af",
+      "count": 1,
+      "reason": "The migration guide maps the prior resource Kind to the current Facet Kind."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 16,
+      "sha256": "e8219021ba03f56cb2ac897e2137d9b3e25c9240176d9b29f97437011a7895e7",
+      "count": 1,
+      "reason": "The migration guide maps the prior policy Kind to the current FacetAccessPolicy Kind."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 17,
+      "sha256": "4514f91650d5308a82f393438b4ec72c47f1755675b82de085d548c53a4572fd",
+      "count": 1,
+      "reason": "The migration guide maps the prior API group while retaining the alpha version."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 18,
+      "sha256": "5059faeaca7a705874f6fb72e47988cfe8e3df033b11146cb191d0e19f76043f",
+      "count": 1,
+      "reason": "The migration guide maps the prior Go module to the current module."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 19,
+      "sha256": "45829b4ca3a82e22116346b0dff328b6d6cfba899170034fa61543dd65a5114d",
+      "count": 1,
+      "reason": "The migration guide maps the prior chart name to the current chart name."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 20,
+      "sha256": "4cc80dc9d54c63454f7062093f7c0ae27c98a4cf25d0945a99416fab2013ca82",
+      "count": 1,
+      "reason": "The migration guide maps the prior image repository to the current repository."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 21,
+      "sha256": "616d67f98ea2317489f07b73d91418179960497c081e870360acd5959cf4d564",
+      "count": 2,
+      "reason": "The migration guide maps the prior Helm release and namespace defaults."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 22,
+      "sha256": "c26e805856f33f89a0f25e2cedb783a51f2714ea257ae3b26d5754b7335c907f",
+      "count": 1,
+      "reason": "The migration guide documents removal of the prior environment prefix and absence of aliases."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 23,
+      "sha256": "432fc736c024363184973cbe8db1d603f51caf763cf41364dc3aa8194406d12d",
+      "count": 1,
+      "reason": "The migration guide maps the prior metric prefix to the current prefix."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 46,
+      "sha256": "2dfe8d70ab6b99fa84734c85cc9a2f8532f0300d41c5dc15cd84730f673fb274",
+      "count": 1,
+      "reason": "The migration guide links to the immutable prior-version lifecycle documentation."
+    },
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "line": 47,
+      "sha256": "a4c379f90e09b4b62e4a1cbccb8945d06c9746c80879d80d3eb45c29ff5f6d77",
+      "count": 3,
+      "reason": "The migration guide links to the immutable prior-version uninstall tool."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 10,
+      "sha256": "66e23db35d5e5ac1c082ebf587a59ed85e8d9100b7b20e1427c70174571ff688",
+      "count": 1,
+      "reason": "The dated audit links to the current breaking migration procedure."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 27,
+      "sha256": "6f35ea0f92cf3a2ce664e92750fb62d4624daac07e4b575387cb84e39211c225",
+      "count": 1,
+      "reason": "The dated report retains a historical release-run link and its recorded outcome."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 28,
+      "sha256": "b926db1d1444999e02dceb0f6f5f5af18f886f50853461e6ffb3c7f9e33bccc7",
+      "count": 1,
+      "reason": "The dated report retains a historical release-run link and its recorded outcome."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 29,
+      "sha256": "ff3d8c844b9972b97bb361d9a7dfda31ff6a632800902c12e2c485e5e9bc56cf",
+      "count": 1,
+      "reason": "The dated report retains a historical release-run link and its recorded outcome."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 30,
+      "sha256": "73b316d7d5b695f8bf55190c93dbd320bc4da2c0ed8d7d08a0e79683ac4040e7",
+      "count": 1,
+      "reason": "The dated report retains a historical release-run link and its recorded outcome."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 31,
+      "sha256": "854878643c22cce7276b9512cd8b930859611775f5b359b7812aa18f728b55f2",
+      "count": 1,
+      "reason": "The dated report retains a historical release-run link and its recorded outcome."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlLXBpcGVsaW5lLWF1ZGl0Lm1k",
+      "line": 32,
+      "sha256": "eda4d553f9932dcb69ab241998de58a987832be6870dcab32c1bfc5dad4647c2",
+      "count": 1,
+      "reason": "The dated report retains a historical release-run link and its recorded outcome."
+    },
+    {
+      "path_b64": "ZG9jcy9yZWxlYXNlcy92MC4yLjAubWQ=",
+      "line": 15,
+      "sha256": "d61aafe94af7f81231b0cbda004cb18454f9eb888e5fd1ea35241357cdc90870",
+      "count": 1,
+      "reason": "Prepared release notes link to the breaking migration procedure."
+    }
+  ],
+  "path_exceptions": [
+    {
+      "path_b64": "ZG9jcy9taWdyYXRpb24tZnJvbS1rdWJlc2Vlci5tZA==",
+      "sha256": "7d91a19cfbc008829b059f574bb0e3b557ce5edb2d064c376e8544e2b0e9188e",
+      "reason": "The path identifies the current breaking migration guide for the prior project identity."
+    }
+  ]
+}

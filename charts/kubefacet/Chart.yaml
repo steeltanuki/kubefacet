@@ -1,0 +1,22 @@
+apiVersion: v2
+name: kubefacet
+description: Kubernetes operator for building typed, aggregated views of Kubernetes resources across namespaces
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+keywords:
+  - kubernetes
+  - operator
+  - aggregation
+  - custom-resources
+  - resource-views
+kubeVersion: ">=1.35.0-0 <1.37.0-0"
+home: https://github.com/steeltanuki/kubefacet
+sources:
+  - https://github.com/steeltanuki/kubefacet
+maintainers:
+  - name: KubeFacet Maintainers
+    url: https://github.com/steeltanuki/kubefacet
+annotations:
+  kubefacet.steeltanuki.it/generated-crd-facets-sha256: 54afa1447abb2bc15ebfdde7644670edc50af68537cb56bbb0767e9a002ba9ea
+  kubefacet.steeltanuki.it/generated-crd-facetaccesspolicies-sha256: 377ca7222d793ff9b4a6bc968c06a541143b65f5066f507b4e4b50f0d15a1751

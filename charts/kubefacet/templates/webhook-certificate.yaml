@@ -1,0 +1,74 @@
+{{- if eq .Values.certificate.mode "certManager" }}
+{{- $issuerName := default (include "kubefacet.webhookIssuerName" .) .Values.certificate.certManager.issuer.name }}
+{{- if eq .Values.certificate.certManager.issuer.name "" }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "kubefacet.webhookCAIssuerName" . }}
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kubefacet.webhookCACertificateName" . }}
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ include "kubefacet.webhookCACertificateName" . }}
+  secretName: {{ include "kubefacet.webhookCACertificateName" . }}
+  privateKey:
+    rotationPolicy: Always
+  issuerRef:
+    name: {{ include "kubefacet.webhookCAIssuerName" . }}
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "kubefacet.webhookIssuerName" . }}
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ include "kubefacet.webhookCACertificateName" . }}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kubefacet.webhookCertificateName" . }}
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+spec:
+  secretName: {{ include "kubefacet.webhookSecretName" . }}
+  duration: {{ .Values.certificate.certManager.certificate.duration }}
+  renewBefore: {{ .Values.certificate.certManager.certificate.renewBefore }}
+  privateKey:
+    rotationPolicy: Always
+  dnsNames:
+    - {{ include "kubefacet.webhookServiceName" . }}
+    - {{ printf "%s.%s" (include "kubefacet.webhookServiceName" .) (include "kubefacet.namespace" .) }}
+    - {{ printf "%s.%s.svc" (include "kubefacet.webhookServiceName" .) (include "kubefacet.namespace" .) }}
+    - {{ printf "%s.%s.svc.cluster.local" (include "kubefacet.webhookServiceName" .) (include "kubefacet.namespace" .) }}
+  issuerRef:
+    name: {{ $issuerName }}
+    kind: {{ .Values.certificate.certManager.issuer.kind }}
+    group: {{ .Values.certificate.certManager.issuer.group }}
+{{- end }}

@@ -1,0 +1,87 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kubefacet.fullname" . }}-verify
+  namespace: {{ include "kubefacet.namespace" . }}
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+    helm.sh/hook: post-install,post-upgrade,post-rollback
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "kubefacet.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kubefacet.fullname" . }}-verify-hook
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: verify
+          image: {{ include "kubefacet.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/kubefacet"]
+          args:
+            - package
+            - verify
+            - --release-name={{ .Release.Name }}
+            - --release-namespace={{ .Release.Namespace }}
+            - --deployment-name={{ include "kubefacet.fullname" . }}
+            - --webhook-service={{ include "kubefacet.webhookServiceName" . }}
+            - --certificate-mode={{ .Values.certificate.mode }}
+            - --expected-version={{ .Chart.AppVersion }}
+            - --expected-image={{ include "kubefacet.image" . }}
+            - --expected-facet-crd-storage-version=v1alpha1
+            - --expected-access-policy-crd-storage-version=v1alpha1
+            - --webhook-port={{ .Values.manager.webhookPort }}
+            - --webhook-cert-path={{ printf "%s/%s" .Values.manager.webhookCertDir .Values.manager.webhookCertName }}
+            - --webhook-key-path={{ printf "%s/%s" .Values.manager.webhookCertDir .Values.manager.webhookKeyName }}
+            - --webhook-ca-path={{ .Values.manager.webhookCAFile }}
+            - --webhook-dns-names={{ include "kubefacet.webhookDNSNames" . }}
+            - --timeout=180s
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: webhook-tls
+              mountPath: {{ .Values.manager.webhookCertDir }}
+              readOnly: true
+            - name: webhook-ca
+              mountPath: {{ dir .Values.manager.webhookCAFile }}
+              readOnly: true
+      volumes:
+        - name: webhook-tls
+          secret:
+            secretName: {{ include "kubefacet.webhookSecretName" . | quote }}
+            optional: false
+        - name: webhook-ca
+          {{- if eq .Values.certificate.mode "externalSecret" }}
+          configMap:
+            name: {{ include "kubefacet.fullname" . }}-webhook-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+          {{- else }}
+          secret:
+            secretName: {{ include "kubefacet.webhookSecretName" . | quote }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+          {{- end }}

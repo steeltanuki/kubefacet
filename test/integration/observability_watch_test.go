@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +35,7 @@ import (
 
 func assertObservabilityWatchScenarios(t *testing.T, ctx context.Context, resolver *discovery.Resolver) {
 	t.Helper()
-	source := v1alpha1.KubeseerSource{ID: "observability-watch-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}}
+	source := v1alpha1.FacetSource{ID: "observability-watch-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}, Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}}}
 	planner := selection.NewPlanner(resolver)
 	target := mustRuntimeTarget(t, ctx, planner, "team-a", source)
 	snapshot := mustSnapshot(t, basePolicy())
@@ -52,7 +52,7 @@ func assertObservabilityWatchScenarios(t *testing.T, ctx context.Context, resolv
 		}
 		tracker := reconciliation.NewFreshnessTracker()
 		ownerKey := types.NamespacedName{Namespace: "team-a", Name: "observability-watch-owner"}
-		owner := newRuntimeKubeseer(ownerKey, "observability-watch-uid", 1)
+		owner := newRuntimeFacet(ownerKey, "observability-watch-uid", 1)
 		tracker.Observe(owner)
 		lease, _, release, err := tracker.Acquire(ctx, ownerKey, owner.UID, owner.Generation)
 		if err != nil {
@@ -89,7 +89,7 @@ func assertObservabilityWatchScenarios(t *testing.T, ctx context.Context, resolv
 				t.Fatalf("watch record retained forbidden data = %#v", record)
 			}
 		}
-		assertObservabilityMetricValue(t, registry, "kubeseer_source_watch_restarts_total", `reason="ReadUnavailable"`, 1)
+		assertObservabilityMetricValue(t, registry, "kubefacet_source_watch_restarts_total", `reason="ReadUnavailable"`, 1)
 		watchRegistry.RemoveOwner(ownerKey)
 	})
 
@@ -103,7 +103,7 @@ func assertObservabilityWatchScenarios(t *testing.T, ctx context.Context, resolv
 		}
 		tracker := reconciliation.NewFreshnessTracker()
 		ownerKey := types.NamespacedName{Namespace: "team-a", Name: "observability-forbidden-watch"}
-		owner := newRuntimeKubeseer(ownerKey, "observability-forbidden-uid", 1)
+		owner := newRuntimeFacet(ownerKey, "observability-forbidden-uid", 1)
 		tracker.Observe(owner)
 		lease, _, release, err := tracker.Acquire(ctx, ownerKey, owner.UID, owner.Generation)
 		if err != nil {
@@ -157,7 +157,7 @@ func assertObservabilityWatchScenarios(t *testing.T, ctx context.Context, resolv
 		}
 		tracker := reconciliation.NewFreshnessTracker()
 		ownerKey := types.NamespacedName{Namespace: "team-a", Name: "observability-cancel-watch"}
-		owner := newRuntimeKubeseer(ownerKey, "observability-cancel-uid", 1)
+		owner := newRuntimeFacet(ownerKey, "observability-cancel-uid", 1)
 		tracker.Observe(owner)
 		lease, _, release, err := tracker.Acquire(ctx, ownerKey, owner.UID, owner.Generation)
 		if err != nil {

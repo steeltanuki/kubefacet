@@ -16,7 +16,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,7 +46,7 @@ func ApplyManagedPolicy(ctx context.Context, restConfig *rest.Config, policyFile
 	if err != nil {
 		return fmt.Errorf("read policy payload: %w", err)
 	}
-	var desired v1alpha1.KubeseerAccessPolicy
+	var desired v1alpha1.FacetAccessPolicy
 	if err := json.Unmarshal(payload, &desired); err != nil {
 		return fmt.Errorf("decode policy payload: %w", err)
 	}
@@ -69,7 +69,7 @@ func ApplyManagedPolicy(ctx context.Context, restConfig *rest.Config, policyFile
 		ctx = context.Background()
 	}
 	key := types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}
-	var existing v1alpha1.KubeseerAccessPolicy
+	var existing v1alpha1.FacetAccessPolicy
 	if err := policyClient.Get(ctx, key, &existing); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("read installation access policy: %w", err)

@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -172,7 +172,7 @@ func documentationCodeBlocks(section string) []string {
 	return blocks
 }
 
-func runtimeConditionStatus(candidate v1alpha1.KubeseerStatus, conditionType string) metav1.ConditionStatus {
+func runtimeConditionStatus(candidate v1alpha1.FacetStatus, conditionType string) metav1.ConditionStatus {
 	for _, condition := range candidate.Conditions {
 		if condition.Type == conditionType {
 			return condition.Status
@@ -181,7 +181,7 @@ func runtimeConditionStatus(candidate v1alpha1.KubeseerStatus, conditionType str
 	return metav1.ConditionUnknown
 }
 
-func runtimeConditionReason(candidate v1alpha1.KubeseerStatus, conditionType string) string {
+func runtimeConditionReason(candidate v1alpha1.FacetStatus, conditionType string) string {
 	for _, condition := range candidate.Conditions {
 		if condition.Type == conditionType {
 			return condition.Reason

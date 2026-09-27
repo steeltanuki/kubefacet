@@ -1,0 +1,23 @@
+# Copyright 2026 Alessandro Rontani
+# Licensed under the Apache License, Version 2.0.
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: Facet
+metadata:
+  name: builtin
+  namespace: kubefacet-example-builtin
+  labels:
+    kubefacet.steeltanuki.it/example: builtin-resource
+spec:
+  sources:
+    - id: deployment
+      resource:
+        apiVersion: apps/v1
+        kind: Deployment
+      namespaces:
+        names: [kubefacet-example-builtin]
+      selector:
+        name: builtin
+      fields:
+        - name: replicas
+          path: "{.spec.replicas}"
+          type: integer

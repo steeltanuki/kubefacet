@@ -25,11 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	discoveryruntime "github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	discoveryruntime "github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,7 +60,7 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 	}
 
 	registration := admission.WebhookConfiguration(admissionregistrationv1.WebhookClientConfig{
-		Service: &admissionregistrationv1.ServiceReference{Namespace: "kubeseer-test", Name: "admission-webhook"},
+		Service: &admissionregistrationv1.ServiceReference{Namespace: "kubefacet-test", Name: "admission-webhook"},
 	})
 	webhookOptions := controllerenvtest.WebhookInstallOptions{
 		ValidatingWebhooks: []*admissionregistrationv1.ValidatingWebhookConfiguration{registration},
@@ -89,7 +89,7 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("register Kubeseer scheme: %v", err)
+		t.Fatalf("register Facet scheme: %v", err)
 	}
 	apiClient, err := crclient.New(config, crclient.Options{Scheme: scheme})
 	if err != nil {
@@ -102,10 +102,10 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 		unavailable: &discoveryUnavailable,
 	}
 	var policyMode atomic.Int32
-	policySource := accesspolicy.PolicySourceFunc(func(ctx context.Context) (*v1alpha1.KubeseerAccessPolicy, error) {
+	policySource := accesspolicy.PolicySourceFunc(func(ctx context.Context) (*v1alpha1.FacetAccessPolicy, error) {
 		switch policyMode.Load() {
 		case admissionPolicyMissing:
-			return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "kubeseeraccesspolicies"}, v1alpha1.InstallationAccessCeilingName)
+			return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "facetaccesspolicies"}, v1alpha1.InstallationAccessCeilingName)
 		case admissionPolicyInvalid:
 			invalid := envtestAdmissionPolicy(harness.Scope().Namespace)
 			invalid.Name = "default"
@@ -113,7 +113,7 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 		case admissionPolicyUnavailable:
 			return nil, errors.New("envtest-policy-secret")
 		default:
-			current := new(v1alpha1.KubeseerAccessPolicy)
+			current := new(v1alpha1.FacetAccessPolicy)
 			if err := apiClient.Get(ctx, crclient.ObjectKey{Name: v1alpha1.InstallationAccessCeilingName}, current); err != nil {
 				return nil, err
 			}
@@ -170,63 +170,63 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 		return err
 	})
 
-	kubeseerGVR := schema.GroupVersionResource{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version, Resource: "kubeseers"}
+	facetGVR := schema.GroupVersionResource{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version, Resource: "facets"}
 	policy := envtestAdmissionPolicy(harness.Scope().Namespace)
 	if err := apiClient.Create(ctx, policy); err != nil {
 		t.Fatalf("create valid installation policy: %v", err)
 	}
-	harness.AddCleanup("delete admission validation Kubeseer fixtures", func(ctx context.Context) error {
-		err := clients.Dynamic.Resource(kubeseerGVR).Namespace(harness.Scope().Namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+	harness.AddCleanup("delete admission validation Facet fixtures", func(ctx context.Context) error {
+		err := clients.Dynamic.Resource(facetGVR).Namespace(harness.Scope().Namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
 		return err
 	})
 	harness.AddCleanup("delete admission validation policy", func(ctx context.Context) error {
-		err := apiClient.Delete(ctx, &v1alpha1.KubeseerAccessPolicy{ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName}})
+		err := apiClient.Delete(ctx, &v1alpha1.FacetAccessPolicy{ObjectMeta: metav1.ObjectMeta{Name: v1alpha1.InstallationAccessCeilingName}})
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
 		return err
 	})
 
-	persisted := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-persisted", "pods", "v1", "Pod")
+	persisted := envtestAdmissionFacet(harness.Scope().Namespace, "admission-persisted", "pods", "v1", "Pod")
 	if err := apiClient.Create(ctx, persisted); err != nil {
-		t.Fatalf("create valid built-in Kubeseer: %v", err)
+		t.Fatalf("create valid built-in Facet: %v", err)
 	}
-	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(persisted), new(v1alpha1.Kubeseer)); err != nil {
-		t.Fatalf("read persisted valid Kubeseer: %v", err)
+	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(persisted), new(v1alpha1.Facet)); err != nil {
+		t.Fatalf("read persisted valid Facet: %v", err)
 	}
 
-	dryRun := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-dry-run", "pods", "v1", "Pod")
+	dryRun := envtestAdmissionFacet(harness.Scope().Namespace, "admission-dry-run", "pods", "v1", "Pod")
 	if err := apiClient.Create(ctx, dryRun, crclient.DryRunAll); err != nil {
-		t.Fatalf("dry-run valid Kubeseer was rejected: %v", err)
+		t.Fatalf("dry-run valid Facet was rejected: %v", err)
 	}
-	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(dryRun), new(v1alpha1.Kubeseer)); !apierrors.IsNotFound(err) {
-		t.Fatalf("dry-run Kubeseer persistence error = %v, want NotFound", err)
+	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(dryRun), new(v1alpha1.Facet)); !apierrors.IsNotFound(err) {
+		t.Fatalf("dry-run Facet persistence error = %v, want NotFound", err)
 	}
 
-	unknown := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-unknown", "unknown", "v1", "Ghost")
+	unknown := envtestAdmissionFacet(harness.Scope().Namespace, "admission-unknown", "unknown", "v1", "Ghost")
 	if err := apiClient.Create(ctx, unknown); err == nil {
 		t.Fatal("unknown discovered resource was persisted")
 	} else {
 		assertEnvtestAdmissionStatus(t, err, http.StatusUnprocessableEntity, metav1.StatusReasonInvalid, "spec.sources[0]")
 	}
-	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(unknown), new(v1alpha1.Kubeseer)); !apierrors.IsNotFound(err) {
+	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(unknown), new(v1alpha1.Facet)); !apierrors.IsNotFound(err) {
 		t.Fatalf("unknown-resource persistence error = %v, want NotFound", err)
 	}
 
-	updateTarget := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-update", "update", "v1", "Pod")
+	updateTarget := envtestAdmissionFacet(harness.Scope().Namespace, "admission-update", "update", "v1", "Pod")
 	if err := apiClient.Create(ctx, updateTarget); err != nil {
 		t.Fatalf("create update target: %v", err)
 	}
 	updateTarget.Spec.Sources[0].Resource = v1alpha1.ResourceReference{APIVersion: "bad/version/extra", Kind: "Pod"}
 	if err := apiClient.Update(ctx, updateTarget); err == nil {
-		t.Fatal("invalid Kubeseer update was persisted")
+		t.Fatal("invalid Facet update was persisted")
 	} else {
 		assertEnvtestAdmissionStatus(t, err, http.StatusUnprocessableEntity, metav1.StatusReasonInvalid, "spec.sources[0].resource.apiVersion")
 	}
-	currentUpdate := new(v1alpha1.Kubeseer)
+	currentUpdate := new(v1alpha1.Facet)
 	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(updateTarget), currentUpdate); err != nil {
 		t.Fatalf("read update target after rejection: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 
 	structural := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": v1alpha1.GroupVersion.String(),
-		"kind":       "Kubeseer",
+		"kind":       "Facet",
 		"metadata": map[string]interface{}{
 			"name":      "admission-structural",
 			"namespace": harness.Scope().Namespace,
@@ -247,10 +247,10 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 			}},
 		},
 	}}
-	if _, err := clients.Dynamic.Resource(kubeseerGVR).Namespace(harness.Scope().Namespace).Create(ctx, structural, metav1.CreateOptions{}); err == nil {
-		t.Fatal("structurally invalid Kubeseer was persisted")
+	if _, err := clients.Dynamic.Resource(facetGVR).Namespace(harness.Scope().Namespace).Create(ctx, structural, metav1.CreateOptions{}); err == nil {
+		t.Fatal("structurally invalid Facet was persisted")
 	}
-	if _, err := clients.Dynamic.Resource(kubeseerGVR).Namespace(harness.Scope().Namespace).Get(ctx, "admission-structural", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+	if _, err := clients.Dynamic.Resource(facetGVR).Namespace(harness.Scope().Namespace).Get(ctx, "admission-structural", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
 		t.Fatalf("structural-invalid persistence error = %v, want NotFound", err)
 	}
 
@@ -284,12 +284,12 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 	if err := apiClient.Update(ctx, policy); err != nil {
 		t.Fatalf("update valid policy before dynamic matrix: %v", err)
 	}
-	gadget := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-gadget", "gadgets", "admission.example.test/v1", "Gadget")
+	gadget := envtestAdmissionFacet(harness.Scope().Namespace, "admission-gadget", "gadgets", "admission.example.test/v1", "Gadget")
 	if err := apiClient.Create(ctx, gadget); err != nil {
-		t.Fatalf("create Kubeseer for temporary discovered CR: %v", err)
+		t.Fatalf("create Facet for temporary discovered CR: %v", err)
 	}
 
-	exactNamespace := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-exact-namespace", "exact", "v1", "Pod")
+	exactNamespace := envtestAdmissionFacet(harness.Scope().Namespace, "admission-exact-namespace", "exact", "v1", "Pod")
 	exactNamespace.Spec.Sources[0].Namespaces = &v1alpha1.NamespaceSelection{Names: []string{"blocked"}}
 	if err := apiClient.Create(ctx, exactNamespace); err == nil {
 		t.Fatal("policy-denied exact namespace was persisted")
@@ -297,7 +297,7 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 		assertEnvtestAdmissionStatus(t, err, http.StatusForbidden, metav1.StatusReasonForbidden, "spec.sources[0].namespaces.names[0]")
 	}
 
-	cluster := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-cluster", "nodes", "v1", "Node")
+	cluster := envtestAdmissionFacet(harness.Scope().Namespace, "admission-cluster", "nodes", "v1", "Node")
 	if err := apiClient.Create(ctx, cluster, crclient.DryRunAll); err == nil {
 		t.Fatal("cluster-scoped target was allowed while policy flag was false")
 	} else {
@@ -317,12 +317,12 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 		{APIGroups: []string{"admission.example.test"}, Kinds: []string{"Gadget"}},
 	}
 	if err := apiClient.Update(ctx, narrowed); err != nil {
-		t.Fatalf("valid policy narrowing was rejected because of existing Kubeseers: %v", err)
+		t.Fatalf("valid policy narrowing was rejected because of existing Facets: %v", err)
 	}
-	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(persisted), new(v1alpha1.Kubeseer)); err != nil {
-		t.Fatalf("existing admitted Kubeseer disappeared after policy narrowing: %v", err)
+	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(persisted), new(v1alpha1.Facet)); err != nil {
+		t.Fatalf("existing admitted Facet disappeared after policy narrowing: %v", err)
 	}
-	narrowedPod := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-narrowed-pod", "narrowed", "v1", "Pod")
+	narrowedPod := envtestAdmissionFacet(harness.Scope().Namespace, "admission-narrowed-pod", "narrowed", "v1", "Pod")
 	if err := apiClient.Create(ctx, narrowedPod, crclient.DryRunAll); err == nil {
 		t.Fatal("new Pod was allowed after policy narrowed away Pod")
 	} else {
@@ -336,7 +336,7 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 	} else {
 		assertEnvtestAdmissionStatus(t, err, http.StatusUnprocessableEntity, metav1.StatusReasonInvalid, "spec.namespaces.mode")
 	}
-	currentPolicy := new(v1alpha1.KubeseerAccessPolicy)
+	currentPolicy := new(v1alpha1.FacetAccessPolicy)
 	if err := apiClient.Get(ctx, crclient.ObjectKey{Name: v1alpha1.InstallationAccessCeilingName}, currentPolicy); err != nil {
 		t.Fatalf("read policy after invalid update: %v", err)
 	}
@@ -347,9 +347,9 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 	if err := apiClient.Delete(ctx, currentPolicy); err != nil {
 		t.Fatalf("delete canonical policy: %v", err)
 	}
-	policyMissingObject := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-policy-missing", "missing", "admission.example.test/v1", "Gadget")
+	policyMissingObject := envtestAdmissionFacet(harness.Scope().Namespace, "admission-policy-missing", "missing", "admission.example.test/v1", "Gadget")
 	if err := apiClient.Create(ctx, policyMissingObject, crclient.DryRunAll); err == nil {
-		t.Fatal("Kubeseer was allowed without the canonical policy")
+		t.Fatal("Facet was allowed without the canonical policy")
 	} else {
 		assertEnvtestAdmissionStatus(t, err, http.StatusForbidden, metav1.StatusReasonForbidden, "spec")
 	}
@@ -361,25 +361,25 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 	}
 
 	policyMode.Store(admissionPolicyInvalid)
-	policyInvalidObject := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-policy-invalid", "invalid-policy", "admission.example.test/v1", "Gadget")
+	policyInvalidObject := envtestAdmissionFacet(harness.Scope().Namespace, "admission-policy-invalid", "invalid-policy", "admission.example.test/v1", "Gadget")
 	if err := apiClient.Create(ctx, policyInvalidObject, crclient.DryRunAll); err == nil {
-		t.Fatal("Kubeseer was allowed with an invalid canonical policy")
+		t.Fatal("Facet was allowed with an invalid canonical policy")
 	} else {
 		assertEnvtestAdmissionStatus(t, err, http.StatusForbidden, metav1.StatusReasonForbidden, "spec")
 	}
 	policyMode.Store(admissionPolicyUnavailable)
-	policyUnavailableObject := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-policy-unavailable", "unavailable-policy", "admission.example.test/v1", "Gadget")
+	policyUnavailableObject := envtestAdmissionFacet(harness.Scope().Namespace, "admission-policy-unavailable", "unavailable-policy", "admission.example.test/v1", "Gadget")
 	if err := apiClient.Create(ctx, policyUnavailableObject, crclient.DryRunAll); err == nil {
-		t.Fatal("Kubeseer was allowed while policy loading was unavailable")
+		t.Fatal("Facet was allowed while policy loading was unavailable")
 	} else {
 		assertEnvtestAdmissionUnavailable(t, err, "envtest-policy-secret")
 	}
 	policyMode.Store(admissionPolicyNormal)
 
 	discoveryUnavailable.Store(true)
-	discoveryUnavailableObject := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-discovery-unavailable", "unavailable-discovery", "admission.example.test/v1", "Gadget")
+	discoveryUnavailableObject := envtestAdmissionFacet(harness.Scope().Namespace, "admission-discovery-unavailable", "unavailable-discovery", "admission.example.test/v1", "Gadget")
 	if err := apiClient.Create(ctx, discoveryUnavailableObject, crclient.DryRunAll); err == nil {
-		t.Fatal("Kubeseer was allowed while discovery was unavailable")
+		t.Fatal("Facet was allowed while discovery was unavailable")
 	} else {
 		assertEnvtestAdmissionUnavailable(t, err, "envtest-discovery-secret")
 	}
@@ -391,20 +391,20 @@ func TestEnvtestAdmissionValidation(t *testing.T) {
 	}
 	originalRegistration := registered.DeepCopy()
 	for index := range registered.Webhooks {
-		badURL := fmt.Sprintf("https://127.0.0.1:1%s", []string{admission.KubeseerWebhookPath, admission.KubeseerAccessPolicyWebhookPath}[index])
+		badURL := fmt.Sprintf("https://127.0.0.1:1%s", []string{admission.FacetWebhookPath, admission.FacetAccessPolicyWebhookPath}[index])
 		registered.Webhooks[index].ClientConfig.URL = &badURL
 		registered.Webhooks[index].ClientConfig.Service = nil
 	}
 	if _, err := clients.AdmissionRegistration.ValidatingWebhookConfigurations().Update(ctx, registered, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("point validating webhook configuration at unavailable endpoint: %v", err)
 	}
-	endpointUnavailableObject := envtestAdmissionKubeseer(harness.Scope().Namespace, "admission-endpoint-unavailable", "endpoint-unavailable", "admission.example.test/v1", "Gadget")
+	endpointUnavailableObject := envtestAdmissionFacet(harness.Scope().Namespace, "admission-endpoint-unavailable", "endpoint-unavailable", "admission.example.test/v1", "Gadget")
 	if err := apiClient.Create(ctx, endpointUnavailableObject, crclient.DryRunAll); err == nil {
 		t.Fatal("covered write succeeded with unavailable webhook endpoint")
 	} else if strings.Contains(err.Error(), "endpoint-unavailable") {
 		t.Fatalf("endpoint failure echoed submitted object name: %v", err)
 	}
-	statusObject := new(v1alpha1.Kubeseer)
+	statusObject := new(v1alpha1.Facet)
 	if err := apiClient.Get(ctx, crclient.ObjectKeyFromObject(persisted), statusObject); err != nil {
 		t.Fatalf("read object for unmatched status update: %v", err)
 	}
@@ -450,13 +450,13 @@ func (r *envtestAdmissionResolver) Resolve(ctx context.Context, descriptor disco
 	return r.delegate.Resolve(ctx, descriptor)
 }
 
-func envtestAdmissionPolicy(namespace string) *v1alpha1.KubeseerAccessPolicy {
-	return &v1alpha1.KubeseerAccessPolicy{
-		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "KubeseerAccessPolicy"},
+func envtestAdmissionPolicy(namespace string) *v1alpha1.FacetAccessPolicy {
+	return &v1alpha1.FacetAccessPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "FacetAccessPolicy"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: v1alpha1.InstallationAccessCeilingName,
 		},
-		Spec: v1alpha1.KubeseerAccessPolicySpec{
+		Spec: v1alpha1.FacetAccessPolicySpec{
 			Namespaces: v1alpha1.NamespacePolicy{
 				Mode:             v1alpha1.NamespaceModeExplicit,
 				Include:          []string{namespace},
@@ -470,14 +470,14 @@ func envtestAdmissionPolicy(namespace string) *v1alpha1.KubeseerAccessPolicy {
 	}
 }
 
-func envtestAdmissionKubeseer(namespace, name, sourceID, apiVersion, kind string) *v1alpha1.Kubeseer {
-	return &v1alpha1.Kubeseer{
-		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "Kubeseer"},
+func envtestAdmissionFacet(namespace, name, sourceID, apiVersion, kind string) *v1alpha1.Facet {
+	return &v1alpha1.Facet{
+		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: "Facet"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{{
+		Spec: v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{{
 			ID:       sourceID,
 			Resource: v1alpha1.ResourceReference{APIVersion: apiVersion, Kind: kind},
 		}}},

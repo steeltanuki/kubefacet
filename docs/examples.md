@@ -1,6 +1,6 @@
 # Examples
 
-Kubeseer ships seven runnable scenarios under [`examples`](../examples/).
+KubeFacet ships seven runnable scenarios under [`examples`](../examples/).
 They use the same discovery, policy, authorization, selection, evaluation, and
 status paths as normal resources. The ordered
 [`examples/catalog.txt`](../examples/catalog.txt) is the canonical catalog for
@@ -27,7 +27,7 @@ make local-example EXAMPLE=builtin-resource ACTION=down
 ```
 
 Valid actions are `apply`, `inspect`, `verify`, and `down`. The helper always
-uses the owned `kind-kubeseer-local` context and rejects names outside the
+uses the owned `kind-kubefacet-local` context and rejects names outside the
 catalog. See [Local development](local-development.md) for prerequisites and
 state ownership.
 
@@ -49,7 +49,7 @@ Every example includes:
 
 - an Apache-2.0 README describing the intent and expected result;
 - workload and namespace fixtures;
-- a `Kubeseer` manifest labeled with `kubeseer.io/example`;
+- a `Facet` manifest labeled with `kubefacet.steeltanuki.it/example`;
 - deterministic application and reverse cleanup ordering;
 - public-boundary assertions used by `ACTION=verify`.
 
@@ -66,11 +66,11 @@ rejection.
 owned kubeconfig reported by `make local-status`:
 
 ```sh
-STATE="${KUBESEER_LOCAL_STATE_DIR:-$HOME/.local/state/kubeseer/local}"
+STATE="${KUBEFACET_LOCAL_STATE_DIR:-$HOME/.local/state/kubefacet/local}"
 kubectl --kubeconfig "$STATE/kubeconfig" \
-  --context kind-kubeseer-local \
-  --namespace kubeseer-example-builtin \
-  get kubeseer builtin -o yaml
+  --context kind-kubefacet-local \
+  --namespace kubefacet-example-builtin \
+  get facet builtin -o yaml
 ```
 
 Read `observedGeneration`, conditions, summary, source state, provenance,
@@ -101,7 +101,7 @@ Copy a manifest outside the canonical catalog and change one dimension at a
 time:
 
 1. select an API type already allowed by installation policy and manager RBAC;
-2. start in the `Kubeseer` namespace before requesting multiple namespaces;
+2. start in the `Facet` namespace before requesting multiple namespaces;
 3. add a narrow selector;
 4. add one explicit typed field;
 5. inspect absence, null, error, and value outcomes;

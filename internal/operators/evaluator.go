@@ -18,10 +18,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 // SourceInput joins one complete operator plan outcome with the corresponding
@@ -135,7 +135,7 @@ func accountOperatorResource(accountant *limits.Accountant, resource ResourceOut
 	if accountant == nil || resource.state == ResourceRejected {
 		return nil
 	}
-	var projected v1alpha1.KubeseerResourceResult
+	var projected v1alpha1.FacetResourceResult
 	var err error
 	if resource.state == ResourceAccepted {
 		projected, err = typedoutput.ProjectResourceResult(resource.provenance, resource.fields)
@@ -304,7 +304,7 @@ func applyOperator(field typedoutput.FieldOutcome, fieldPlan FieldPlan, operator
 	}
 }
 
-func comparePredicate(field typedoutput.FieldOutcome, kind v1alpha1.KubeseerOperatorName, operand typedoutput.Match, fieldPlan FieldPlan, operator OperatorPlan, provenance selection.Provenance) (bool, *OperatorError) {
+func comparePredicate(field typedoutput.FieldOutcome, kind v1alpha1.FacetOperatorName, operand typedoutput.Match, fieldPlan FieldPlan, operator OperatorPlan, provenance selection.Provenance) (bool, *OperatorError) {
 	values := field.Matches()
 	nonNull := 0
 	for _, match := range values {
@@ -354,7 +354,7 @@ func comparePredicate(field typedoutput.FieldOutcome, kind v1alpha1.KubeseerOper
 	return false, nil
 }
 
-func membershipPredicate(field typedoutput.FieldOutcome, kind v1alpha1.KubeseerOperatorName, operands []typedoutput.Match, fieldPlan FieldPlan, operator OperatorPlan, provenance selection.Provenance) (bool, *OperatorError) {
+func membershipPredicate(field typedoutput.FieldOutcome, kind v1alpha1.FacetOperatorName, operands []typedoutput.Match, fieldPlan FieldPlan, operator OperatorPlan, provenance selection.Provenance) (bool, *OperatorError) {
 	nonNull := 0
 	for _, match := range field.Matches() {
 		if match.IsNull() {

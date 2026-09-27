@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,36 +39,36 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 	t.Run("normalization distinguishes pointer presence and every meaningful value", func(t *testing.T) {
 		emptyCollections := result.DeepCopy()
 		normalizedCollections := result.DeepCopy()
-		normalizedCollections.Sources[0].FieldErrors = []v1alpha1.KubeseerFieldError{}
-		normalizedCollections.Sources[0].Resources[0].Fields[1].Matches = []v1alpha1.KubeseerTypedMatch{}
+		normalizedCollections.Sources[0].FieldErrors = []v1alpha1.FacetFieldError{}
+		normalizedCollections.Sources[0].Resources[0].Fields[1].Matches = []v1alpha1.FacetTypedMatch{}
 		if !reconciliation.SemanticallyEqualResult(emptyCollections, normalizedCollections) {
 			t.Fatal("nil and empty nested result collections were not normalized")
 		}
-		if reconciliation.SemanticallyEqualStatus(v1alpha1.KubeseerStatus{}, v1alpha1.KubeseerStatus{Result: &v1alpha1.KubeseerResult{}}) {
+		if reconciliation.SemanticallyEqualStatus(v1alpha1.FacetStatus{}, v1alpha1.FacetStatus{Result: &v1alpha1.FacetResult{}}) {
 			t.Fatal("nil result pointer was collapsed into a present empty result")
 		}
 
 		mutations := []struct {
 			name   string
-			mutate func(*v1alpha1.KubeseerResult)
+			mutate func(*v1alpha1.FacetResult)
 		}{
-			{name: "source identity", mutate: func(value *v1alpha1.KubeseerResult) { value.Sources[0].ID = "other-source" }},
-			{name: "source state", mutate: func(value *v1alpha1.KubeseerResult) { value.Sources[0].State = v1alpha1.SourceStateError }},
-			{name: "source diagnostic", mutate: func(value *v1alpha1.KubeseerResult) {
-				value.Sources[0].Error = &v1alpha1.KubeseerResultError{Reason: "new-reason"}
+			{name: "source identity", mutate: func(value *v1alpha1.FacetResult) { value.Sources[0].ID = "other-source" }},
+			{name: "source state", mutate: func(value *v1alpha1.FacetResult) { value.Sources[0].State = v1alpha1.SourceStateError }},
+			{name: "source diagnostic", mutate: func(value *v1alpha1.FacetResult) {
+				value.Sources[0].Error = &v1alpha1.FacetResultError{Reason: "new-reason"}
 			}},
-			{name: "resource provenance", mutate: func(value *v1alpha1.KubeseerResult) { value.Sources[0].Resources[0].Name = "other-resource" }},
-			{name: "field identity", mutate: func(value *v1alpha1.KubeseerResult) { value.Sources[0].Resources[0].Fields[0].Name = "other-field" }},
-			{name: "field type", mutate: func(value *v1alpha1.KubeseerResult) {
+			{name: "resource provenance", mutate: func(value *v1alpha1.FacetResult) { value.Sources[0].Resources[0].Name = "other-resource" }},
+			{name: "field identity", mutate: func(value *v1alpha1.FacetResult) { value.Sources[0].Resources[0].Fields[0].Name = "other-field" }},
+			{name: "field type", mutate: func(value *v1alpha1.FacetResult) {
 				value.Sources[0].Resources[0].Fields[0].Type = v1alpha1.ValueTypeNumber
 			}},
-			{name: "field state", mutate: func(value *v1alpha1.KubeseerResult) {
+			{name: "field state", mutate: func(value *v1alpha1.FacetResult) {
 				value.Sources[0].Resources[0].Fields[0].State = v1alpha1.FieldStateAbsent
 			}},
-			{name: "match cardinality", mutate: func(value *v1alpha1.KubeseerResult) {
-				value.Sources[0].Resources[0].Fields[0].Matches = append(value.Sources[0].Resources[0].Fields[0].Matches, v1alpha1.KubeseerTypedMatch{State: v1alpha1.MatchStateNull})
+			{name: "match cardinality", mutate: func(value *v1alpha1.FacetResult) {
+				value.Sources[0].Resources[0].Fields[0].Matches = append(value.Sources[0].Resources[0].Fields[0].Matches, v1alpha1.FacetTypedMatch{State: v1alpha1.MatchStateNull})
 			}},
-			{name: "typed payload", mutate: func(value *v1alpha1.KubeseerResult) {
+			{name: "typed payload", mutate: func(value *v1alpha1.FacetResult) {
 				next := "different-value"
 				value.Sources[0].Resources[0].Fields[0].Matches[0].StringValue = &next
 			}},
@@ -151,7 +151,7 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 
 	t.Run("conflict and transient read failures are retryable with one write attempt", func(t *testing.T) {
 		current := runtimeStatusObject(key, "conflict-uid", 1, nil)
-		writer := &runtimeStatusWriter{err: apierrors.NewConflict(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseers"}, key.Name, errors.New("newer status must win"))}
+		writer := &runtimeStatusWriter{err: apierrors.NewConflict(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facets"}, key.Name, errors.New("newer status must win"))}
 		tracker := reconciliation.NewFreshnessTracker()
 		lease, release := runtimeStatusLease(t, tracker, current)
 		defer release()
@@ -178,11 +178,11 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 		base := runtimeStatusObject(key, "guard-uid", 1, nil)
 		tests := []struct {
 			name string
-			run  func(*testing.T, *v1alpha1.Kubeseer, *reconciliation.FreshnessTracker, reconciliation.Lease)
+			run  func(*testing.T, *v1alpha1.Facet, *reconciliation.FreshnessTracker, reconciliation.Lease)
 		}{
 			{
 				name: "UID replacement",
-				run: func(t *testing.T, current *v1alpha1.Kubeseer, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
+				run: func(t *testing.T, current *v1alpha1.Facet, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
 					replaced := current.DeepCopy()
 					replaced.UID = "new-uid"
 					writer := &runtimeStatusWriter{}
@@ -194,7 +194,7 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 			},
 			{
 				name: "deletion",
-				run: func(t *testing.T, current *v1alpha1.Kubeseer, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
+				run: func(t *testing.T, current *v1alpha1.Facet, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
 					deleting := current.DeepCopy()
 					deleting.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 					writer := &runtimeStatusWriter{}
@@ -206,7 +206,7 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 			},
 			{
 				name: "stale generation",
-				run: func(t *testing.T, current *v1alpha1.Kubeseer, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
+				run: func(t *testing.T, current *v1alpha1.Facet, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
 					updated := current.DeepCopy()
 					updated.Generation = 2
 					tracker.Observe(updated)
@@ -219,7 +219,7 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 			},
 			{
 				name: "stale policy epoch",
-				run: func(t *testing.T, current *v1alpha1.Kubeseer, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
+				run: func(t *testing.T, current *v1alpha1.Facet, tracker *reconciliation.FreshnessTracker, lease reconciliation.Lease) {
 					tracker.InvalidateAll()
 					writer := &runtimeStatusWriter{}
 					err := reconciliation.NewStatusPublisher(newRuntimeStatusReader(current), writer, tracker).Publish(ctx, lease, statusEvaluation(result))
@@ -253,44 +253,44 @@ func assertReconciliationRuntimeStatusScenarios(t *testing.T, ctx context.Contex
 	})
 }
 
-func statusEvaluation(result v1alpha1.KubeseerResult) statuscontract.Evaluation {
+func statusEvaluation(result v1alpha1.FacetResult) statuscontract.Evaluation {
 	return statuscontract.Evaluation{Result: result.DeepCopy()}
 }
 
-func runtimeStatusResult() v1alpha1.KubeseerResult {
+func runtimeStatusResult() v1alpha1.FacetResult {
 	value := "status-value"
-	valueField := v1alpha1.KubeseerFieldResult{
+	valueField := v1alpha1.FacetFieldResult{
 		Name:  "value",
 		Type:  v1alpha1.ValueTypeString,
 		State: v1alpha1.FieldStateValues,
-		Matches: []v1alpha1.KubeseerTypedMatch{{
+		Matches: []v1alpha1.FacetTypedMatch{{
 			State:       v1alpha1.MatchStateValue,
 			StringValue: &value,
 		}},
 	}
-	absentField := v1alpha1.KubeseerFieldResult{Name: "absent", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateAbsent}
-	resource := v1alpha1.KubeseerResourceResult{
+	absentField := v1alpha1.FacetFieldResult{Name: "absent", Type: v1alpha1.ValueTypeString, State: v1alpha1.FieldStateAbsent}
+	resource := v1alpha1.FacetResourceResult{
 		APIVersion: "v1",
 		Kind:       "Pod",
 		Namespace:  "team-a",
 		Name:       "status-resource",
 		UID:        "status-resource-uid",
-		Fields:     []v1alpha1.KubeseerFieldResult{valueField, absentField},
+		Fields:     []v1alpha1.FacetFieldResult{valueField, absentField},
 	}
-	source := v1alpha1.KubeseerSourceResult{ID: "status-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.KubeseerResourceResult{resource}}
-	return v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{source}}
+	source := v1alpha1.FacetSourceResult{ID: "status-source", State: v1alpha1.SourceStateValues, Resources: []v1alpha1.FacetResourceResult{resource}}
+	return v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{source}}
 }
 
-func runtimeStatusObject(key types.NamespacedName, uid types.UID, generation int64, result *v1alpha1.KubeseerResult) *v1alpha1.Kubeseer {
+func runtimeStatusObject(key types.NamespacedName, uid types.UID, generation int64, result *v1alpha1.FacetResult) *v1alpha1.Facet {
 	conditions := []metav1.Condition{{Type: "Observed", Status: metav1.ConditionTrue, Reason: "Kept", Message: "condition survives status publication", ObservedGeneration: generation}}
-	return &v1alpha1.Kubeseer{
+	return &v1alpha1.Facet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name, UID: uid, Generation: generation, ResourceVersion: "rv-status"},
-		Spec:       v1alpha1.KubeseerSpec{Sources: []v1alpha1.KubeseerSource{{ID: "configured-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}}},
-		Status:     v1alpha1.KubeseerStatus{ObservedGeneration: generation, Conditions: conditions, Result: result.DeepCopy()},
+		Spec:       v1alpha1.FacetSpec{Sources: []v1alpha1.FacetSource{{ID: "configured-source", Resource: v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"}}}},
+		Status:     v1alpha1.FacetStatus{ObservedGeneration: generation, Conditions: conditions, Result: result.DeepCopy()},
 	}
 }
 
-func runtimeStatusLease(t *testing.T, tracker *reconciliation.FreshnessTracker, object *v1alpha1.Kubeseer) (reconciliation.Lease, func()) {
+func runtimeStatusLease(t *testing.T, tracker *reconciliation.FreshnessTracker, object *v1alpha1.Facet) (reconciliation.Lease, func()) {
 	t.Helper()
 	tracker.Observe(object)
 	lease, _, release, err := tracker.Acquire(context.Background(), types.NamespacedName{Namespace: object.Namespace, Name: object.Name}, object.UID, object.Generation)
@@ -302,15 +302,15 @@ func runtimeStatusLease(t *testing.T, tracker *reconciliation.FreshnessTracker, 
 
 type runtimeStatusReader struct {
 	mu     sync.Mutex
-	object *v1alpha1.Kubeseer
+	object *v1alpha1.Facet
 	err    error
 }
 
-func newRuntimeStatusReader(object *v1alpha1.Kubeseer) *runtimeStatusReader {
+func newRuntimeStatusReader(object *v1alpha1.Facet) *runtimeStatusReader {
 	return &runtimeStatusReader{object: object.DeepCopy()}
 }
 
-func (r *runtimeStatusReader) Get(ctx context.Context, _ types.NamespacedName, object *v1alpha1.Kubeseer) error {
+func (r *runtimeStatusReader) Get(ctx context.Context, _ types.NamespacedName, object *v1alpha1.Facet) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -320,7 +320,7 @@ func (r *runtimeStatusReader) Get(ctx context.Context, _ types.NamespacedName, o
 		return r.err
 	}
 	if r.object == nil {
-		return apierrors.NewNotFound(schema.GroupResource{Group: "kubeseer.io", Resource: "kubeseers"}, "status-owner")
+		return apierrors.NewNotFound(schema.GroupResource{Group: "kubefacet.steeltanuki.it", Resource: "facets"}, "status-owner")
 	}
 	*object = *r.object.DeepCopy()
 	return nil
@@ -329,11 +329,11 @@ func (r *runtimeStatusReader) Get(ctx context.Context, _ types.NamespacedName, o
 type runtimeStatusWriter struct {
 	mu    sync.Mutex
 	calls int
-	last  *v1alpha1.Kubeseer
+	last  *v1alpha1.Facet
 	err   error
 }
 
-func (w *runtimeStatusWriter) Update(_ context.Context, object *v1alpha1.Kubeseer) error {
+func (w *runtimeStatusWriter) Update(_ context.Context, object *v1alpha1.Facet) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.calls++
@@ -347,7 +347,7 @@ func (w *runtimeStatusWriter) Calls() int {
 	return w.calls
 }
 
-func (w *runtimeStatusWriter) Last() *v1alpha1.Kubeseer {
+func (w *runtimeStatusWriter) Last() *v1alpha1.Facet {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.last.DeepCopy()

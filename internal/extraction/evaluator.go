@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // EvaluateResource evaluates all fields in one immutable plan against one

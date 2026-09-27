@@ -19,9 +19,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,28 +31,28 @@ import (
 func assertCrossNamespaceAggregationPipelineScenarios(t *testing.T, ctx context.Context, resolver *discovery.Resolver) {
 	t.Helper()
 	key := types.NamespacedName{Namespace: "team-a", Name: "aggregation-pipeline-owner"}
-	aggregationSource := v1alpha1.KubeseerSource{
+	aggregationSource := v1alpha1.FacetSource{
 		ID:         "aggregation-pipeline-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a", "team-b"}},
-		Fields: []v1alpha1.KubeseerField{
+		Fields: []v1alpha1.FacetField{
 			{Name: "group", Path: "{.data.group}", Type: v1alpha1.ValueTypeString},
 			{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger},
 		},
-		Aggregations: []v1alpha1.KubeseerAggregation{
+		Aggregations: []v1alpha1.FacetAggregation{
 			{Name: "sum-by-group", Function: v1alpha1.AggregationSum, Field: "value", GroupBy: []string{"group"}, IncludeProvenance: true},
 			{Name: "average-default", Function: v1alpha1.AggregationAverage, Field: "value", IncludeProvenance: true},
 			{Name: "invalid-sibling", Function: v1alpha1.AggregationSum, Field: "not-declared"},
 		},
 	}
-	plainSource := v1alpha1.KubeseerSource{
+	plainSource := v1alpha1.FacetSource{
 		ID:         "plain-pipeline-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a"}},
-		Fields:     []v1alpha1.KubeseerField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}},
+		Fields:     []v1alpha1.FacetField{{Name: "value", Path: "{.data.value}", Type: v1alpha1.ValueTypeInteger}},
 	}
-	object := runtimePipelineKubeseer(key, "aggregation-pipeline-uid", 1, aggregationSource, plainSource)
-	policy := mutatePolicy(basePolicy(), func(next *v1alpha1.KubeseerAccessPolicy) {
+	object := runtimePipelineFacet(key, "aggregation-pipeline-uid", 1, aggregationSource, plainSource)
+	policy := mutatePolicy(basePolicy(), func(next *v1alpha1.FacetAccessPolicy) {
 		next.Spec.Namespaces.Include = []string{"team-a", "team-b"}
 		next.Spec.Namespaces.Exclude = nil
 	})

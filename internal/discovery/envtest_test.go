@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	harness "github.com/steeltanuki/kubeseer/test/envtest"
+	harness "github.com/steeltanuki/kubefacet/test/envtest"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -96,16 +96,16 @@ func TestEnvtestDiscovery(t *testing.T) {
 		}
 		scenario.Reset()
 
-		scenario.SetOverride("discovery.kubeseer.io/v1", &metav1.APIResourceList{
-			GroupVersion: "discovery.kubeseer.io/v1",
+		scenario.SetOverride("discovery.kubefacet.steeltanuki.it/v1", &metav1.APIResourceList{
+			GroupVersion: "discovery.kubefacet.steeltanuki.it/v1",
 			APIResources: []metav1.APIResource{
 				{Name: crd.Spec.Names.Plural, Kind: "Widget", Namespaced: true},
 				{Name: "clusterwidgets", Kind: "Widget", Namespaced: false},
 				{Name: crd.Spec.Names.Plural + "/status", Kind: "Widget", Namespaced: true},
 			},
 		})
-		_, err = NewResolver(scenario).Resolve(ctx, SourceDescriptor{SourceID: "ambiguous-source", APIVersion: "discovery.kubeseer.io/v1", Kind: "Widget"})
-		if !HasReason(err, ReasonAmbiguousResource) || err.Error() != `source "ambiguous-source": AmbiguousResource: multiple resources match kind "Widget" in "discovery.kubeseer.io/v1"` {
+		_, err = NewResolver(scenario).Resolve(ctx, SourceDescriptor{SourceID: "ambiguous-source", APIVersion: "discovery.kubefacet.steeltanuki.it/v1", Kind: "Widget"})
+		if !HasReason(err, ReasonAmbiguousResource) || err.Error() != `source "ambiguous-source": AmbiguousResource: multiple resources match kind "Widget" in "discovery.kubefacet.steeltanuki.it/v1"` {
 			t.Fatalf("ambiguous real discovery response was not deterministic: %v", err)
 		}
 		scenario.Reset()
@@ -125,8 +125,8 @@ func TestEnvtestDiscovery(t *testing.T) {
 		if err != nil || deployment.Resource != (schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}) || deployment.Scope != ScopeNamespaced {
 			t.Fatalf("unexpected grouped resolution: %#v err=%v", deployment, err)
 		}
-		widget, err := resolver.Resolve(ctx, SourceDescriptor{SourceID: "custom-widget", APIVersion: "discovery.kubeseer.io/v1", Kind: "Widget"})
-		if err != nil || widget.Resource != (schema.GroupVersionResource{Group: "discovery.kubeseer.io", Version: "v1", Resource: crd.Spec.Names.Plural}) || widget.Scope != ScopeNamespaced {
+		widget, err := resolver.Resolve(ctx, SourceDescriptor{SourceID: "custom-widget", APIVersion: "discovery.kubefacet.steeltanuki.it/v1", Kind: "Widget"})
+		if err != nil || widget.Resource != (schema.GroupVersionResource{Group: "discovery.kubefacet.steeltanuki.it", Version: "v1", Resource: crd.Spec.Names.Plural}) || widget.Scope != ScopeNamespaced {
 			t.Fatalf("unexpected CRD-backed resolution: %#v err=%v", widget, err)
 		}
 		if err := RequireNamespaced(clusterScoped); !HasReason(err, ReasonInvalidScope) || !strings.Contains(err.Error(), "cluster") {
@@ -172,12 +172,12 @@ func TestEnvtestDiscovery(t *testing.T) {
 }
 
 func discoveryTestCRD(scope harness.Scope) *apiextensionsv1.CustomResourceDefinition {
-	suffix := strings.TrimPrefix(scope.Prefix, "kubeseer-")
+	suffix := strings.TrimPrefix(scope.Prefix, "kubefacet-")
 	plural := "widgets" + suffix
 	return &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{Name: plural + ".discovery.kubeseer.io"},
+		ObjectMeta: metav1.ObjectMeta{Name: plural + ".discovery.kubefacet.steeltanuki.it"},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: "discovery.kubeseer.io",
+			Group: "discovery.kubefacet.steeltanuki.it",
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:     plural,
 				Singular:   "widget",

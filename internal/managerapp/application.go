@@ -33,12 +33,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	discoveryruntime "github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/reconciliation"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	discoveryruntime "github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/reconciliation"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sdiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -53,12 +53,12 @@ const (
 	DefaultMetricsBindAddress         = ":8080"
 	DefaultHealthProbeBindAddress     = ":8081"
 	DefaultWebhookPort                = 9443
-	DefaultWebhookCertDir             = "/var/run/secrets/kubeseer/webhook"
+	DefaultWebhookCertDir             = "/var/run/secrets/kubefacet/webhook"
 	DefaultWebhookCertName            = "tls.crt"
 	DefaultWebhookKeyName             = "tls.key"
-	DefaultWebhookCAFile              = "/var/run/secrets/kubeseer/ca/ca.crt"
-	DefaultLeaderElectionNamespace    = "kubeseer-system"
-	DefaultLeaderElectionID           = "kubeseer-controller"
+	DefaultWebhookCAFile              = "/var/run/secrets/kubefacet/ca/ca.crt"
+	DefaultLeaderElectionNamespace    = "kubefacet-system"
+	DefaultLeaderElectionID           = "kubefacet-controller"
 	DefaultLeaderElectionResourceLock = "leases"
 	DefaultSafetyInterval             = 5 * time.Minute
 	DefaultGracefulShutdownTimeout    = 30 * time.Second
@@ -97,10 +97,10 @@ func DefaultConfig() Config {
 		WebhookKeyName:         DefaultWebhookKeyName,
 		WebhookCAFile:          DefaultWebhookCAFile,
 		WebhookDNSNames: []string{
-			"kubeseer-webhook",
-			"kubeseer-webhook.kubeseer-system",
-			"kubeseer-webhook.kubeseer-system.svc",
-			"kubeseer-webhook.kubeseer-system.svc.cluster.local",
+			"kubefacet-webhook",
+			"kubefacet-webhook.kubefacet-system",
+			"kubefacet-webhook.kubefacet-system.svc",
+			"kubefacet-webhook.kubefacet-system.svc.cluster.local",
 		},
 		LeaderElection:             true,
 		LeaderElectionNamespace:    DefaultLeaderElectionNamespace,
@@ -287,7 +287,7 @@ func NewScheme() (*runtime.Scheme, error) {
 		return nil, fmt.Errorf("register Kubernetes scheme: %w", err)
 	}
 	if err := v1alpha1.AddToScheme(managerScheme); err != nil {
-		return nil, fmt.Errorf("register Kubeseer scheme: %w", err)
+		return nil, fmt.Errorf("register Facet scheme: %w", err)
 	}
 	return managerScheme, nil
 }

@@ -1,8 +1,8 @@
-# Kubeseer — Functional Specifications and Walden Feature Breakdown
+# KubeFacet — Functional Specifications and Walden Feature Breakdown
 
 ## 1. Purpose
 
-This document describes Kubeseer's functional architecture and divides the product into independent, verifiable, and approvable Walden features.
+This document describes KubeFacet's functional architecture and divides the product into independent, verifiable, and approvable Walden features. Existing feature directory IDs remain stable historical identifiers; the current identity overlay is recorded in [`.walden/current-identity.md`](.walden/current-identity.md).
 
 Each feature listed below must be implemented as a separate Walden directory:
 
@@ -17,18 +17,18 @@ Every feature must use EARS acceptance criteria with stable identifiers, complet
 
 ## 2. Product vision
 
-Kubeseer is a Kubernetes operator that can:
+KubeFacet is a Kubernetes operator that can:
 
 - observe built-in and custom Kubernetes resources;
 - select resources from one or more namespaces;
 - extract values through JSONPath;
 - convert extracted values into typed outputs;
 - filter and aggregate results;
-- publish the computed result in the status of a `Kubeseer` Custom Resource;
+- publish the computed result in the status of a `Facet` Custom Resource;
 - restrict observable namespaces and resource types through an administrator-defined installation policy;
 - provide a reproducible local environment for experimentation and examples without requiring an existing Kubernetes cluster.
 
-A single `Kubeseer` resource may narrow the access scope granted by the installation, but it must never broaden it.
+A single `Facet` resource may narrow the access scope granted by the installation, but it must never broaden it.
 
 ## 3. Initial architectural decisions
 
@@ -36,9 +36,9 @@ A single `Kubeseer` resource may narrow the access scope granted by the installa
 - CEL is explicitly out of scope for the first version and may be introduced later.
 - Available operators form a controlled and validated set.
 - Results preserve the logical type of each value.
-- Kubeseer supports aggregation across multiple namespaces.
+- KubeFacet supports aggregation across multiple namespaces.
 - Administrators define observable namespaces and resource types during installation.
-- Users creating `Kubeseer` resources do not need direct read permissions on observed resources.
+- Users creating `Facet` resources do not need direct read permissions on observed resources.
 - The operator must never read outside the scope allowed by the installation policy.
 - Status updates must occur only when the computed result changes semantically.
 - The supported local experimentation environment uses kind with Podman.
@@ -47,10 +47,13 @@ A single `Kubeseer` resource may narrow the access scope granted by the installa
 ## 4. Stable Walden project context
 
 Cross-cutting and stable project information belongs in `.walden/constitution.md`.
+The migration's current public identity mapping and its surviving historical
+contracts are overlaid in `.walden/current-identity.md` and
+[`docs/migration-from-kubeseer.md`](docs/migration-from-kubeseer.md).
 
 The constitution should include at least:
 
-- Kubeseer's purpose;
+- KubeFacet's purpose;
 - project terminology;
 - technology stack;
 - minimum supported Kubernetes version;
@@ -96,7 +99,7 @@ The constitution should include at least:
 
 ### Objective
 
-Define the fundamental contract of the `Kubeseer` Custom Resource without introducing resource observation or aggregation logic.
+Define the fundamental contract of the `Facet` Custom Resource without introducing resource observation or aggregation logic.
 
 ### Includes
 
@@ -123,7 +126,7 @@ Define the fundamental contract of the `Kubeseer` Custom Resource without introd
 ### Verifiable outcome
 
 - the CRD can be installed successfully;
-- Kubernetes accepts valid `Kubeseer` manifests;
+- Kubernetes accepts valid `Facet` manifests;
 - Kubernetes rejects structurally invalid manifests;
 - generated Go APIs compile and their API contracts pass against local envtest.
 
@@ -144,7 +147,7 @@ strategy before additional production collaboration paths are introduced.
 
 - cohesive, acyclic production package boundaries;
 - narrow consumer-owned interfaces and explicit constructors;
-- in-process integration between real Kubeseer modules once a production
+- in-process integration between real KubeFacet modules once a production
   collaboration path exists;
 - local Kubernetes API integration through pinned envtest assets;
 - full-cluster verification through project-owned kind on Podman;
@@ -185,7 +188,7 @@ inherits `integration-testing-foundation` as a cross-cutting prerequisite.
 
 ### Objective
 
-Dynamically resolve the Kubernetes resource types requested by Kubeseer sources.
+Dynamically resolve the Kubernetes resource types requested by KubeFacet sources.
 
 ### Includes
 
@@ -236,8 +239,8 @@ Allow an administrator to define the maximum observation scope available to the 
 ### Example model
 
 ```yaml
-apiVersion: kubeseer.io/v1alpha1
-kind: KubeseerAccessPolicy
+apiVersion: kubefacet.steeltanuki.it/v1alpha1
+kind: FacetAccessPolicy
 metadata:
   name: default
 spec:
@@ -260,9 +263,9 @@ spec:
 ### Core rules
 
 - the policy defines the maximum installation scope;
-- a `Kubeseer` resource may narrow this scope but must not broaden it;
+- a `Facet` resource may narrow this scope but must not broaden it;
 - an out-of-policy request must be rejected before reading the resource;
-- administrative configuration must remain separate from individual `Kubeseer` configurations.
+- administrative configuration must remain separate from individual `Facet` configurations.
 
 ### Dependencies
 
@@ -275,7 +278,7 @@ spec:
 
 ### Objective
 
-Define how a Kubeseer source selects concrete Kubernetes resource instances.
+Define how a KubeFacet source selects concrete Kubernetes resource instances.
 
 ### Includes
 
@@ -554,13 +557,13 @@ source:
 
 ### Objective
 
-Define when and how the controller reconciles a `Kubeseer` resource.
+Define when and how the controller reconciles a `Facet` resource.
 
 ### Includes
 
-- watches on `Kubeseer` Custom Resources;
+- watches on `Facet` Custom Resources;
 - watches on source resources;
-- mapping changed resources to affected `Kubeseer` instances;
+- mapping changed resources to affected `Facet` instances;
 - periodic safety reconciliation;
 - idempotency;
 - retry and backoff;
@@ -574,11 +577,11 @@ Define when and how the controller reconciles a `Kubeseer` resource.
 
 ### Core rules
 
-- a change to an observed resource must reconcile affected `Kubeseer` instances;
+- a change to an observed resource must reconcile affected `Facet` instances;
 - a change that does not alter the computed result must not trigger an unnecessary status update;
 - the controller must not loop because of its own status updates;
 - reconciliation must be repeatable and idempotent;
-- failure of one `Kubeseer` instance must not block others.
+- failure of one `Facet` instance must not block others.
 
 ### Dependencies
 
@@ -590,7 +593,7 @@ Define when and how the controller reconciles a `Kubeseer` resource.
 
 ### Objective
 
-Define the public and observable status contract of a `Kubeseer` resource.
+Define the public and observable status contract of a `Facet` resource.
 
 ### Includes
 
@@ -658,7 +661,7 @@ Enforce the administrator-defined installation policy at runtime.
 ### Core rule
 
 ```text
-IF a Kubeseer source requests a namespace or resource type that is not allowed
+IF a KubeFacet source requests a namespace or resource type that is not allowed
 by the installation policy, THEN the system SHALL reject that source without
 attempting to read the requested resource.
 ```
@@ -674,7 +677,7 @@ attempting to read the requested resource.
 
 ### Objective
 
-Reject invalid Kubeseer configurations as early and clearly as possible.
+Reject invalid KubeFacet configurations as early and clearly as possible.
 
 ### Includes
 
@@ -703,12 +706,12 @@ Reject invalid Kubeseer configurations as early and clearly as possible.
 
 ### Objective
 
-Make Kubeseer's runtime behavior measurable, diagnosable, and auditable.
+Make KubeFacet's runtime behavior measurable, diagnosable, and auditable.
 
 ### Includes
 
 - structured logs;
-- correlation with the relevant `Kubeseer` resource;
+- correlation with the relevant `Facet` resource;
 - Prometheus metrics;
 - Kubernetes Events;
 - optional tracing;
@@ -742,7 +745,7 @@ Define operational limits and predictable behavior on large clusters or expensiv
 
 ### Includes
 
-- maximum sources per `Kubeseer`;
+- maximum sources per `KubeFacet`;
 - maximum namespaces per source;
 - maximum matched resources;
 - maximum status output size;
@@ -759,7 +762,7 @@ Define operational limits and predictable behavior on large clusters or expensiv
 IF the number of matching resources exceeds the configured limit,
 THEN the system SHALL stop evaluation deterministically and report the limit.
 
-WHILE multiple Kubeseer instances share the same source, the system SHALL avoid
+WHILE multiple Facet instances share the same source, the system SHALL avoid
 duplicate operations where caching does not affect correctness or isolation.
 ```
 
@@ -774,7 +777,7 @@ duplicate operations where caching does not affect correctness or isolation.
 
 ### Objective
 
-Define how Kubeseer is packaged, installed, upgraded, configured, and removed.
+Define how KubeFacet is packaged, installed, upgraded, configured, and removed.
 
 ### Includes
 
@@ -796,8 +799,8 @@ Define how Kubeseer is packaged, installed, upgraded, configured, and removed.
 The specification must distinguish clearly between:
 
 - permissions granted to the operator ServiceAccount;
-- resources allowed by `KubeseerAccessPolicy`;
-- permissions required by users who create `Kubeseer` resources.
+- resources allowed by `FacetAccessPolicy`;
+- permissions required by users who create `Facet` resources.
 
 Effective RBAC and the logical access policy should be aligned as closely as practical. The logical policy remains mandatory even when the ServiceAccount has broader permissions for operational reasons.
 
@@ -835,8 +838,8 @@ Certify the integration of all implemented features through executable cluster-l
 16. react to a restriction of the access policy;
 17. recover after an operator restart;
 18. reject or truncate oversized output according to policy;
-19. delete a `Kubeseer` resource cleanly;
-20. process overlapping `Kubeseer` instances correctly.
+19. delete a `Facet` resource cleanly;
+20. process overlapping `Facet` instances correctly.
 
 ### Suggested verification environment
 
@@ -858,7 +861,7 @@ go test ./test/e2e/...
 
 ### Objective
 
-Provide a reproducible local environment that allows contributors and users to install, explore, demonstrate, and test Kubeseer without access to an existing Kubernetes cluster.
+Provide a reproducible local environment that allows contributors and users to install, explore, demonstrate, and test KubeFacet without access to an existing Kubernetes cluster.
 
 The initial supported environment uses kind as the Kubernetes provider and Podman as the container engine.
 
@@ -868,7 +871,7 @@ The initial supported environment uses kind as the Kubernetes provider and Podma
 - explicit configuration of kind to use Podman rather than Docker;
 - prerequisite checks for Podman, kind, kubectl, and the project build tools;
 - creation and safe deletion of a project-owned local cluster;
-- local building of the Kubeseer controller image with Podman;
+- local building of the KubeFacet controller image with Podman;
 - loading the locally built image into the kind nodes without requiring an external registry;
 - installation of CRDs, the controller, RBAC resources, and a development access policy;
 - readiness checks and bounded waits;
@@ -885,7 +888,7 @@ Each example must include:
 
 - a concise purpose statement;
 - all required Kubernetes workload manifests;
-- one or more `Kubeseer` manifests;
+- one or more `Facet` manifests;
 - the expected result or status conditions;
 - commands to apply, inspect, verify, and remove the example;
 - an automated assertion or verification command where practical.
@@ -903,11 +906,11 @@ The initial example set should cover at least:
 ### Core rules
 
 - the local workflow must not require the user to already have a Kubernetes cluster;
-- the local environment must exercise the normal Kubeseer authorization and policy-enforcement paths rather than bypassing them;
+- the local environment must exercise the normal Facet authorization and policy-enforcement paths rather than bypassing them;
 - repeated setup and cleanup operations must be idempotent or produce actionable state messages;
 - tests must inspect structured Kubernetes API output and must return a non-zero status when verification fails;
 - synchronization must use readiness checks and bounded waits rather than relying primarily on arbitrary sleep durations;
-- cleanup must target only the Kubeseer kind cluster and project-generated resources;
+- cleanup must target only the KubeFacet kind cluster and project-generated resources;
 - cleanup must never remove unrelated Podman containers, images, networks, volumes, or Kubernetes clusters;
 - diagnostics must avoid collecting Secrets or sensitive values by default;
 - versions of environment-critical dependencies, including the kind node image, must be pinned or centrally defined.
@@ -918,7 +921,7 @@ A user on a supported host can follow one documented workflow to:
 
 1. validate prerequisites;
 2. create a kind cluster using Podman;
-3. build and load Kubeseer locally;
+3. build and load KubeFacet locally;
 4. install the operator and its development access policy;
 5. deploy and verify one or more bundled examples;
 6. run local smoke and end-to-end tests;
@@ -929,7 +932,7 @@ A user on a supported host can follow one documented workflow to:
 
 - `packaging-and-installation`;
 - `end-to-end-scenarios`;
-- all Kubeseer capabilities exercised by the bundled examples.
+- all KubeFacet capabilities exercised by the bundled examples.
 
 ---
 
@@ -937,7 +940,7 @@ A user on a supported host can follow one documented workflow to:
 
 ### Objective
 
-Publish official stable Kubeseer releases from an explicit immutable Git tag so
+Publish official stable KubeFacet releases from an explicit immutable Git tag so
 users can install the released controller and canonical Helm chart from public
 GitHub-hosted artifacts without cloning or building the source repository.
 
@@ -946,8 +949,8 @@ GitHub-hosted artifacts without cloning or building the source repository.
 - GitHub Actions validation that never publishes from pull requests or branch pushes;
 - a separate protected release-tag workflow with mandatory repository and E2E gates;
 - one canonical version and source revision across the image, Helm chart, executable, and GitHub Release;
-- the production controller image under `ghcr.io/steeltanuki/kubeseer:<version>`;
-- the canonical chart as `oci://ghcr.io/steeltanuki/charts/kubeseer` at the same version;
+- the production controller image under `ghcr.io/steeltanuki/kubefacet:<version>`;
+- the canonical chart as `oci://ghcr.io/steeltanuki/charts/kubefacet` at the same version;
 - public artifact verification, immutable digests, safe same-tag reruns, and partial-release recovery;
 - a GitHub Release with compatibility, installation, notes, upgrade, and source information;
 - user documentation that prefers the published Helm OCI installation path.
@@ -983,7 +986,7 @@ rollback/uninstall/purge behavior.
 10. authorization-enforcement
 ```
 
-Expected result: Kubeseer can read a typed field from an authorized Kubernetes resource and publish a stable result in status.
+Expected result: KubeFacet can read a typed field from an authorized Kubernetes resource and publish a stable result in status.
 
 ## Phase 2 — Filtering and aggregation
 
@@ -993,7 +996,7 @@ Expected result: Kubeseer can read a typed field from an authorized Kubernetes r
 13. admission-validation
 ```
 
-Expected result: Kubeseer can filter, group, and aggregate typed values across multiple namespaces.
+Expected result: KubeFacet can filter, group, and aggregate typed values across multiple namespaces.
 
 ## Phase 3 — Production readiness and experimentation
 
@@ -1005,7 +1008,7 @@ Expected result: Kubeseer can filter, group, and aggregate typed values across m
 18. local-development-environment
 ```
 
-Expected result: Kubeseer is deployable, measurable, bounded, certifiable, and easy to explore locally without an existing Kubernetes cluster.
+Expected result: KubeFacet is deployable, measurable, bounded, certifiable, and easy to explore locally without an existing Kubernetes cluster.
 
 ## Phase 4 — Official release distribution
 
@@ -1080,7 +1083,7 @@ These belong in `tasks.md` as implementation tasks.
 
 Too large:
 
-- `implement-kubeseer`;
+- `implement-kubefacet`;
 - `build-the-operator`.
 
 These prevent focused requirements, design review, traceability, and reliable proof coverage.
@@ -1089,8 +1092,8 @@ These prevent focused requirements, design review, traceability, and reliable pr
 
 The first implementation milestone should prove the following end-to-end behavior:
 
-1. an administrator installs Kubeseer with one allowed namespace and one allowed resource type;
-2. a user creates a `Kubeseer` resource without direct access to the observed resource;
+1. an administrator installs KubeFacet with one allowed namespace and one allowed resource type;
+2. a user creates a `Facet` resource without direct access to the observed resource;
 3. the operator validates the request against the installation policy;
 4. the operator resolves the requested Kubernetes type;
 5. the operator reads one matching resource;

@@ -18,15 +18,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/admission"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	discoveryruntime "github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/limits"
-	"github.com/steeltanuki/kubeseer/internal/observability"
-	"github.com/steeltanuki/kubeseer/internal/selection"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/admission"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	discoveryruntime "github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/limits"
+	"github.com/steeltanuki/kubefacet/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/selection"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	k8sdiscovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/metadata"
@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const controllerName = "kubeseer-reconciliation-runtime"
+const controllerName = "kubefacet-reconciliation-runtime"
 
 // SetupWithManager validates options and registers one low-level controller
 // with typed lifecycle/policy sources and the custom trigger source.
@@ -94,7 +94,7 @@ func SetupWithManager(mgr manager.Manager, options Options) error {
 	tracker := NewFreshnessTracker()
 	budgetValidator := admission.NewBudgetValidatorFromProfile(profile)
 	enforcer := authorization.NewEnforcer(observability.NewAuthorizationRecorder(observer))
-	store := NewClientKubeseerStore(apiReader)
+	store := NewClientFacetStore(apiReader)
 	routes := NewRouteRegistry(
 		NewClientMetadataWatcher(metadataClient),
 		tracker,
@@ -138,15 +138,15 @@ func SetupWithManager(mgr manager.Manager, options Options) error {
 	}
 	if err := controllerInstance.Watch(source.TypedKind(
 		mgr.GetCache(),
-		&v1alpha1.Kubeseer{},
+		&v1alpha1.Facet{},
 		runtime.LifecycleHandler(),
-		runtime.KubeseerPredicate(),
+		runtime.FacetPredicate(),
 	)); err != nil {
-		return fmt.Errorf("watch Kubeseer lifecycle: %w", err)
+		return fmt.Errorf("watch Facet lifecycle: %w", err)
 	}
 	if err := controllerInstance.Watch(source.TypedKind(
 		mgr.GetCache(),
-		&v1alpha1.KubeseerAccessPolicy{},
+		&v1alpha1.FacetAccessPolicy{},
 		runtime.PolicyHandler(),
 		runtime.PolicyPredicate(),
 	)); err != nil {

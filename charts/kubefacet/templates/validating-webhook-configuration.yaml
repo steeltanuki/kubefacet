@@ -1,0 +1,50 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: kubefacet-validating-webhook
+  labels:
+    {{- include "kubefacet.labels" . | nindent 4 }}
+  annotations:
+    {{- include "kubefacet.ownershipAnnotations" . | nindent 4 }}
+    {{- if eq .Values.certificate.mode "certManager" }}
+    cert-manager.io/inject-ca-from: {{ printf "%s/%s" (include "kubefacet.namespace" .) (include "kubefacet.webhookCACertificateName" .) | quote }}
+    {{- end }}
+webhooks:
+  - name: kubefacet.kubefacet.steeltanuki.it
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    clientConfig:
+      service:
+        name: {{ include "kubefacet.webhookServiceName" . }}
+        namespace: {{ include "kubefacet.namespace" . }}
+        port: 443
+        path: /validate-kubefacet-steeltanuki-it-v1alpha1-facet
+      {{- if eq .Values.certificate.mode "externalSecret" }}
+      caBundle: {{ .Values.certificate.externalSecret.caBundle | b64enc | quote }}
+      {{- end }}
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["kubefacet.steeltanuki.it"]
+        apiVersions: ["v1alpha1"]
+        resources: ["facets"]
+  - name: facetaccesspolicy.kubefacet.steeltanuki.it
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    clientConfig:
+      service:
+        name: {{ include "kubefacet.webhookServiceName" . }}
+        namespace: {{ include "kubefacet.namespace" . }}
+        port: 443
+        path: /validate-kubefacet-steeltanuki-it-v1alpha1-facetaccesspolicy
+      {{- if eq .Values.certificate.mode "externalSecret" }}
+      caBundle: {{ .Values.certificate.externalSecret.caBundle | b64enc | quote }}
+      {{- end }}
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["kubefacet.steeltanuki.it"]
+        apiVersions: ["v1alpha1"]
+        resources: ["facetaccesspolicies"]

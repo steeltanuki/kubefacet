@@ -18,8 +18,8 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/typedoutput"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/typedoutput"
 )
 
 func makeAggregateKey(field GroupFieldPlan, match typedoutput.Match) (AggregateKey, error) {

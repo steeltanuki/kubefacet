@@ -19,18 +19,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/accesspolicy"
-	"github.com/steeltanuki/kubeseer/internal/authorization"
-	"github.com/steeltanuki/kubeseer/internal/discovery"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/accesspolicy"
+	"github.com/steeltanuki/kubefacet/internal/authorization"
+	"github.com/steeltanuki/kubefacet/internal/discovery"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func assertResourceSelectionAuthorizationScenarios(t *testing.T, ctx context.Context, resolver *discovery.Resolver) {
 	t.Helper()
 	planner := selection.NewPlanner(resolver)
-	source := v1alpha1.KubeseerSource{
+	source := v1alpha1.FacetSource{
 		ID:         "authorized-source",
 		Resource:   v1alpha1.ResourceReference{APIVersion: "v1", Kind: "Pod"},
 		Namespaces: &v1alpha1.NamespaceSelection{Names: []string{"team-a", "team-c"}},

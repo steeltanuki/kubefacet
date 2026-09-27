@@ -18,8 +18,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 // ConversionErrorReason is the stable category of a typed-output planning or
@@ -112,7 +112,7 @@ func HasReason(err error, reason ConversionErrorReason) bool {
 type FieldPlan struct {
 	sourceID string
 	name     string
-	typeName v1alpha1.KubeseerValueType
+	typeName v1alpha1.FacetValueType
 }
 
 // SourceID returns the source identifier captured in the plan.
@@ -122,7 +122,7 @@ func (p FieldPlan) SourceID() string { return p.sourceID }
 func (p FieldPlan) Name() string { return p.name }
 
 // Type returns the explicit logical type captured in the plan.
-func (p FieldPlan) Type() v1alpha1.KubeseerValueType { return p.typeName }
+func (p FieldPlan) Type() v1alpha1.FacetValueType { return p.typeName }
 
 // Plan is an immutable valid subset of one source's typed declarations.
 type Plan struct {

@@ -19,23 +19,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	"github.com/steeltanuki/kubeseer/internal/aggregation"
-	"github.com/steeltanuki/kubeseer/internal/selection"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/internal/aggregation"
+	"github.com/steeltanuki/kubefacet/internal/selection"
 )
 
 func assertCrossNamespaceAggregationArithmeticScenarios(t *testing.T) {
 	t.Helper()
 	t.Run("sums stay exact for decimal, duration, quantity, and integer values", func(t *testing.T) {
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "exact-sums",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "integer", Path: "{.data.integer}", Type: v1alpha1.ValueTypeInteger},
 				{Name: "number", Path: "{.data.number}", Type: v1alpha1.ValueTypeNumber},
 				{Name: "duration", Path: "{.data.duration}", Type: v1alpha1.ValueTypeDuration},
 				{Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "sum-integer", Function: v1alpha1.AggregationSum, Field: "integer"},
 				{Name: "sum-number", Function: v1alpha1.AggregationSum, Field: "number"},
 				{Name: "sum-duration", Function: v1alpha1.AggregationSum, Field: "duration"},
@@ -80,15 +80,15 @@ func assertCrossNamespaceAggregationArithmeticScenarios(t *testing.T) {
 	t.Run("averages round exact rational results once in every mode", func(t *testing.T) {
 		precisionZero := int32(0)
 		precision18 := int32(18)
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "average-rounding",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "positive", Path: "{.data.positive[*]}", Type: v1alpha1.ValueTypeNumber},
 				{Name: "negative", Path: "{.data.negative[*]}", Type: v1alpha1.ValueTypeNumber},
 				{Name: "third", Path: "{.data.third[*]}", Type: v1alpha1.ValueTypeNumber},
 				{Name: "zero", Path: "{.data.zero[*]}", Type: v1alpha1.ValueTypeNumber},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "positive-half-even", Function: v1alpha1.AggregationAverage, Field: "positive", Precision: &precisionZero, RoundingMode: v1alpha1.RoundingHalfEven},
 				{Name: "positive-half-away", Function: v1alpha1.AggregationAverage, Field: "positive", Precision: &precisionZero, RoundingMode: v1alpha1.RoundingHalfAwayFromZero},
 				{Name: "positive-toward-zero", Function: v1alpha1.AggregationAverage, Field: "positive", Precision: &precisionZero, RoundingMode: v1alpha1.RoundingTowardZero},
@@ -124,15 +124,15 @@ func assertCrossNamespaceAggregationArithmeticScenarios(t *testing.T) {
 
 	t.Run("integer duration and quantity overflow fail only their aggregate", func(t *testing.T) {
 		maxDuration := time.Duration(math.MaxInt64).String()
-		source := v1alpha1.KubeseerSource{
+		source := v1alpha1.FacetSource{
 			ID: "overflow-isolation",
-			Fields: []v1alpha1.KubeseerField{
+			Fields: []v1alpha1.FacetField{
 				{Name: "integer", Path: "{.data.integer}", Type: v1alpha1.ValueTypeInteger},
 				{Name: "duration", Path: "{.data.duration}", Type: v1alpha1.ValueTypeDuration},
 				{Name: "quantity", Path: "{.data.quantity}", Type: v1alpha1.ValueTypeQuantity},
 				{Name: "safe", Path: "{.data.safe}", Type: v1alpha1.ValueTypeInteger},
 			},
-			Aggregations: []v1alpha1.KubeseerAggregation{
+			Aggregations: []v1alpha1.FacetAggregation{
 				{Name: "integer-overflow", Function: v1alpha1.AggregationSum, Field: "integer"},
 				{Name: "duration-overflow", Function: v1alpha1.AggregationSum, Field: "duration"},
 				{Name: "quantity-overflow", Function: v1alpha1.AggregationSum, Field: "quantity"},

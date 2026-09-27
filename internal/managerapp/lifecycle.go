@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,11 +42,11 @@ import (
 const (
 	CertificateModeCertManager    = "certManager"
 	CertificateModeExternalSecret = "externalSecret"
-	KubeseerCRDName               = "kubeseers.kubeseer.io"
-	AccessPolicyCRDName           = "kubeseeraccesspolicies.kubeseer.io"
-	ValidatingWebhookName         = "kubeseer-validating-webhook"
-	DefaultWebhookServiceName     = "kubeseer-webhook"
-	DefaultDeploymentName         = "kubeseer"
+	FacetCRDName                  = "facets.kubefacet.steeltanuki.it"
+	AccessPolicyCRDName           = "facetaccesspolicies.kubefacet.steeltanuki.it"
+	ValidatingWebhookName         = "kubefacet-validating-webhook"
+	DefaultWebhookServiceName     = "kubefacet-webhook"
+	DefaultDeploymentName         = "kubefacet"
 )
 
 // LifecycleOptions is the immutable release identity passed by Helm hooks.
@@ -60,7 +60,7 @@ type LifecycleOptions struct {
 	CertificateMode                       string
 	ExpectedVersion                       string
 	ExpectedImage                         string
-	ExpectedKubeseerCRDStorageVersion     string
+	ExpectedFacetCRDStorageVersion        string
 	ExpectedAccessPolicyCRDStorageVersion string
 	WebhookPort                           int32
 	WebhookCertPath                       string
@@ -92,8 +92,8 @@ func (o LifecycleOptions) validate(requireReadiness bool) error {
 	if o.Timeout <= 0 {
 		return errors.New("lifecycle timeout must be positive")
 	}
-	if o.ExpectedKubeseerCRDStorageVersion != "" && o.ExpectedKubeseerCRDStorageVersion != v1alpha1.GroupVersion.Version {
-		return fmt.Errorf("unsupported Kubeseer CRD storage version %q", o.ExpectedKubeseerCRDStorageVersion)
+	if o.ExpectedFacetCRDStorageVersion != "" && o.ExpectedFacetCRDStorageVersion != v1alpha1.GroupVersion.Version {
+		return fmt.Errorf("unsupported Facet CRD storage version %q", o.ExpectedFacetCRDStorageVersion)
 	}
 	if o.ExpectedAccessPolicyCRDStorageVersion != "" && o.ExpectedAccessPolicyCRDStorageVersion != v1alpha1.GroupVersion.Version {
 		return fmt.Errorf("unsupported access-policy CRD storage version %q", o.ExpectedAccessPolicyCRDStorageVersion)
@@ -144,7 +144,7 @@ func Preflight(ctx context.Context, restConfig *rest.Config, options LifecycleOp
 		name            string
 		expectedStorage string
 	}{
-		{name: KubeseerCRDName, expectedStorage: options.ExpectedKubeseerCRDStorageVersion},
+		{name: FacetCRDName, expectedStorage: options.ExpectedFacetCRDStorageVersion},
 		{name: AccessPolicyCRDName, expectedStorage: options.ExpectedAccessPolicyCRDStorageVersion},
 	} {
 		crd, err := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, check.name, metav1.GetOptions{})
@@ -170,7 +170,7 @@ func Preflight(ctx context.Context, restConfig *rest.Config, options LifecycleOp
 	if err != nil {
 		return fmt.Errorf("create policy preflight client: %w", err)
 	}
-	var policy v1alpha1.KubeseerAccessPolicy
+	var policy v1alpha1.FacetAccessPolicy
 	if err := policyClient.Get(ctx, types.NamespacedName{Name: v1alpha1.InstallationAccessCeilingName}, &policy); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("read installation access policy: %w", err)
 	} else if err == nil {
@@ -269,7 +269,7 @@ func verifyReleaseOnce(ctx context.Context, clientset kubernetes.Interface, opti
 					return fmt.Errorf("manager image %q does not match expected release image", container.Image)
 				}
 				for _, env := range container.Env {
-					if env.Name == "KUBESEER_VERSION" && env.Value == options.ExpectedVersion {
+					if env.Name == "KUBEFACET_VERSION" && env.Value == options.ExpectedVersion {
 						foundVersion = true
 					}
 				}
@@ -371,8 +371,8 @@ func validateWebhookConfiguration(configuration *admissionregistrationv1.Validat
 		return errors.New("validating webhook configuration must contain exactly two entries")
 	}
 	wantedPaths := map[string]bool{
-		"/validate-kubeseer-io-v1alpha1-kubeseer":             false,
-		"/validate-kubeseer-io-v1alpha1-kubeseeraccesspolicy": false,
+		"/validate-kubefacet-steeltanuki-it-v1alpha1-facet":             false,
+		"/validate-kubefacet-steeltanuki-it-v1alpha1-facetaccesspolicy": false,
 	}
 	for _, webhook := range configuration.Webhooks {
 		if webhook.FailurePolicy == nil || *webhook.FailurePolicy != admissionregistrationv1.Fail {

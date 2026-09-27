@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
-	statuscontract "github.com/steeltanuki/kubeseer/internal/status"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
+	statuscontract "github.com/steeltanuki/kubefacet/internal/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,7 +30,7 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 
 	t.Run("complete result emits the canonical condition set", func(t *testing.T) {
 		evaluation := statuscontract.Evaluation{
-			Result: &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{
+			Result: &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{
 				{ID: "source-a", State: v1alpha1.SourceStateValues},
 				{ID: "source-b", State: v1alpha1.SourceStateValues},
 			}},
@@ -57,7 +57,7 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 	})
 
 	t.Run("zero sources are a successful present empty evaluation", func(t *testing.T) {
-		candidate, err := statuscontract.Compose(3, nil, statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{}})
+		candidate, err := statuscontract.Compose(3, nil, statuscontract.Evaluation{Result: &v1alpha1.FacetResult{}})
 		if err != nil {
 			t.Fatalf("compose zero-source status: %v", err)
 		}
@@ -67,14 +67,14 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 		assertCondition(t, candidate.Conditions[2], statuscontract.ConditionSourcesResolved, metav1.ConditionTrue, statuscontract.ReasonResolutionSucceeded)
 		assertCondition(t, candidate.Conditions[3], statuscontract.ConditionReady, metav1.ConditionTrue, statuscontract.ReasonEvaluationSucceeded)
 		assertCondition(t, candidate.Conditions[4], statuscontract.ConditionDegraded, metav1.ConditionFalse, statuscontract.ReasonEvaluationSucceeded)
-		if candidate.Result == nil || candidate.Summary == nil || *candidate.Summary != (v1alpha1.KubeseerSummary{}) || candidate.ResultHash == "" {
+		if candidate.Result == nil || candidate.Summary == nil || *candidate.Summary != (v1alpha1.FacetSummary{}) || candidate.ResultHash == "" {
 			t.Fatalf("zero-source result was not present with derived zero values: %#v", candidate)
 		}
 	})
 
 	t.Run("first source controls differing failures", func(t *testing.T) {
 		evaluation := statuscontract.Evaluation{
-			Result: &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{
+			Result: &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{
 				{ID: "first", State: v1alpha1.SourceStateError},
 				{ID: "second", State: v1alpha1.SourceStateError},
 			}},
@@ -100,7 +100,7 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 	t.Run("policy-wide and unavailable outcomes retain stable reasons", func(t *testing.T) {
 		missing := statuscontract.AuthorizationPolicyMissingOutcome
 		candidate, err := statuscontract.Compose(4, nil, statuscontract.Evaluation{
-			Result:              &v1alpha1.KubeseerResult{},
+			Result:              &v1alpha1.FacetResult{},
 			GlobalAuthorization: &missing,
 		})
 		if err != nil {
@@ -129,7 +129,7 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 		persisted := []metav1.Condition{
 			{Type: "OtherControllerCondition", Status: metav1.ConditionTrue, ObservedGeneration: 1, LastTransitionTime: persistedTime, Reason: "External", Message: "external metadata"},
 		}
-		evaluation := statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{}, Sources: nil}
+		evaluation := statuscontract.Evaluation{Result: &v1alpha1.FacetResult{}, Sources: nil}
 		first, err := statuscontract.Compose(7, persisted, evaluation)
 		if err != nil {
 			t.Fatalf("compose initial transition status: %v", err)
@@ -147,7 +147,7 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 			t.Fatalf("non-canonical condition was not preserved after canonical conditions: %#v", second.Conditions)
 		}
 
-		changed := statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{Sources: []v1alpha1.KubeseerSourceResult{{ID: "failed", State: v1alpha1.SourceStateError}}}, Sources: []statuscontract.SourceAssessment{{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}}}
+		changed := statuscontract.Evaluation{Result: &v1alpha1.FacetResult{Sources: []v1alpha1.FacetSourceResult{{ID: "failed", State: v1alpha1.SourceStateError}}}, Sources: []statuscontract.SourceAssessment{{Index: 0, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}}}
 		third, err := statuscontract.Compose(7, second.Conditions, changed)
 		if err != nil {
 			t.Fatalf("compose changed transition status: %v", err)
@@ -158,18 +158,18 @@ func assertStatusAndConditionsConditionScenarios(t *testing.T) {
 	})
 
 	t.Run("invalid assessment combinations fail before publication", func(t *testing.T) {
-		_, err := statuscontract.Compose(1, nil, statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{}, Sources: []statuscontract.SourceAssessment{{Index: 2, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}}})
+		_, err := statuscontract.Compose(1, nil, statuscontract.Evaluation{Result: &v1alpha1.FacetResult{}, Sources: []statuscontract.SourceAssessment{{Index: 2, Configuration: statuscontract.ConfigurationAcceptedOutcome, Authorization: statuscontract.AuthorizationAllowedOutcome, Resolution: statuscontract.ResolutionResolvedOutcome}}})
 		if err == nil {
 			t.Fatal("non-contiguous assessment index was accepted")
 		}
-		_, err = statuscontract.Compose(1, nil, statuscontract.Evaluation{Result: &v1alpha1.KubeseerResult{}, ResultUnavailable: true})
+		_, err = statuscontract.Compose(1, nil, statuscontract.Evaluation{Result: &v1alpha1.FacetResult{}, ResultUnavailable: true})
 		if err == nil {
 			t.Fatal("result and unavailable state were accepted together")
 		}
 	})
 }
 
-func assertCanonicalConditionSet(t *testing.T, candidate v1alpha1.KubeseerStatus, generation int64) {
+func assertCanonicalConditionSet(t *testing.T, candidate v1alpha1.FacetStatus, generation int64) {
 	t.Helper()
 	wantTypes := []string{statuscontract.ConditionAccepted, statuscontract.ConditionAuthorized, statuscontract.ConditionSourcesResolved, statuscontract.ConditionReady, statuscontract.ConditionDegraded}
 	if len(candidate.Conditions) != len(wantTypes) {

@@ -8,7 +8,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: kubeseer-release-${{ github.ref }}
+  group: kubefacet-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -123,4 +123,4 @@ jobs:
           ./hack/release-distribution.sh publish \
             --tag "$GITHUB_REF_NAME" \
             --source-sha "$RELEASE_GATE_SOURCE_SHA" \
-            --output-dir "$RUNNER_TEMP/kubeseer-release-candidate"
+            --output-dir "$RUNNER_TEMP/kubefacet-release-candidate"

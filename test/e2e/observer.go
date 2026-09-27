@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/steeltanuki/kubeseer/api/v1alpha1"
+	"github.com/steeltanuki/kubefacet/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,16 +38,16 @@ type StatusSnapshot struct {
 	Generation      int64
 	ResourceVersion string
 	Conditions      []metav1.Condition
-	Summary         *v1alpha1.KubeseerSummary
+	Summary         *v1alpha1.FacetSummary
 	ResultHash      string
-	Result          *v1alpha1.KubeseerResult
+	Result          *v1alpha1.FacetResult
 	MetricFamilies  []MetricSample
 	RecordCodes     []string
 	EventIdentities []string
 }
 
-func snapshotOf(object *v1alpha1.Kubeseer) StatusSnapshot {
-	var summary *v1alpha1.KubeseerSummary
+func snapshotOf(object *v1alpha1.Facet) StatusSnapshot {
+	var summary *v1alpha1.FacetSummary
 	if object.Status.Summary != nil {
 		copy := *object.Status.Summary
 		summary = &copy
@@ -150,10 +150,10 @@ func (s *ClusterSession) WaitForStatus(ctx context.Context, scenarioID, namespac
 	}
 	var last StatusSnapshot
 	for {
-		object, err := s.GetKubeseer(ctx, namespace, name)
+		object, err := s.GetFacet(ctx, namespace, name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return last, fmt.Errorf("SCENARIO=%s awaited=%s: Kubeseer %s/%s not found: %w", scenarioID, awaited, namespace, name, err)
+				return last, fmt.Errorf("SCENARIO=%s awaited=%s: Facet %s/%s not found: %w", scenarioID, awaited, namespace, name, err)
 			}
 			return last, fmt.Errorf("SCENARIO=%s awaited=%s: read status: %w", scenarioID, awaited, err)
 		}
@@ -162,7 +162,7 @@ func (s *ClusterSession) WaitForStatus(ctx context.Context, scenarioID, namespac
 			return last, nil
 		}
 		resourceVersion := object.ResourceVersion
-		stream, err := s.Dynamic.Resource(KubeseerResource).Namespace(namespace).Watch(ctx, metav1.ListOptions{ResourceVersion: resourceVersion})
+		stream, err := s.Dynamic.Resource(FacetResource).Namespace(namespace).Watch(ctx, metav1.ListOptions{ResourceVersion: resourceVersion})
 		if err != nil {
 			if apierrors.IsResourceExpired(err) {
 				continue
@@ -194,7 +194,7 @@ func (s *ClusterSession) WaitForStatus(ctx context.Context, scenarioID, namespac
 					stream.Stop()
 					return last, err
 				}
-				decoded := &v1alpha1.Kubeseer{}
+				decoded := &v1alpha1.Facet{}
 				if err := json.Unmarshal(encoded, decoded); err != nil {
 					stream.Stop()
 					return last, err
@@ -215,7 +215,7 @@ func (s *ClusterSession) WaitForStatus(ctx context.Context, scenarioID, namespac
 func (s *ClusterSession) WaitForResourceVersion(ctx context.Context, scenarioID, namespace, name, initial string) (string, error) {
 	var current string
 	err := s.WaitFor(ctx, scenarioID, "resourceVersion changed", func(waitCtx context.Context) (bool, error) {
-		object, err := s.GetKubeseer(waitCtx, namespace, name)
+		object, err := s.GetFacet(waitCtx, namespace, name)
 		if err != nil {
 			return false, err
 		}
@@ -225,7 +225,7 @@ func (s *ClusterSession) WaitForResourceVersion(ctx context.Context, scenarioID,
 	return current, err
 }
 
-// QuietStatusWindow watches one public Kubeseer object from the last observed
+// QuietStatusWindow watches one public Facet object from the last observed
 // resourceVersion and succeeds only when the bounded window closes without a
 // subsequent object event. It avoids repeated API GETs while the cluster is
 // processing a large fixture cleanup.
@@ -235,7 +235,7 @@ func (s *ClusterSession) QuietStatusWindow(ctx context.Context, scenarioID, name
 	}
 	windowCtx, cancel := context.WithTimeout(ctx, interval)
 	defer cancel()
-	stream, err := s.Dynamic.Resource(KubeseerResource).Namespace(namespace).Watch(windowCtx, metav1.ListOptions{
+	stream, err := s.Dynamic.Resource(FacetResource).Namespace(namespace).Watch(windowCtx, metav1.ListOptions{
 		FieldSelector:       "metadata.name=" + name,
 		ResourceVersion:     expectedResourceVersion,
 		AllowWatchBookmarks: true,

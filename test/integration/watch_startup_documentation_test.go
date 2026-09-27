@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/steeltanuki/kubeseer/internal/observability"
+	"github.com/steeltanuki/kubefacet/internal/observability"
 )
 
 func assertWatchStartupDocumentation(t *testing.T) {
@@ -57,7 +57,7 @@ func assertWatchStartupDocumentation(t *testing.T) {
 		"jsonpath",
 		"metadata.generation",
 		"status.observedGeneration",
-		"kubeseer_source_watch_restarts_total",
+		"kubefacet_source_watch_restarts_total",
 		"auth can-i",
 		"installation-access-ceiling",
 		"policy or identity revocation",
@@ -109,7 +109,7 @@ func assertWatchStartupDocumentation(t *testing.T) {
 		t.Fatal("operations guide omitted a safe diagnostic command projection")
 	}
 	joinedBlocks := strings.Join(blocks, "\n")
-	for _, phrase := range []string{"metadata.generation", "status.observedGeneration", "status.conditions", "reason", "kubeseer_source_watch_restarts_total"} {
+	for _, phrase := range []string{"metadata.generation", "status.observedGeneration", "status.conditions", "reason", "kubefacet_source_watch_restarts_total"} {
 		if !strings.Contains(joinedBlocks, phrase) {
 			t.Fatalf("safe diagnostic commands omitted %q", phrase)
 		}
