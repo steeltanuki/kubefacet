@@ -37,3 +37,8 @@ go.work.sum
 
 # temp
 tmp/
+
+#Python
+__pycache__/
+*.py[cod]
+
