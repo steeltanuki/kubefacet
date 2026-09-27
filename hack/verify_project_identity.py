@@ -1072,11 +1072,24 @@ def run_delivery() -> None:
         fail("selected migration evidence contains no completed task records")
     outcome_section = report.split("## Declared checkpoints and actual outcomes", 1)[1].split("\n## ", 1)[0]
     for task_id, task in task_records.items():
+        # Task 4.7's evidence is written only after this delivery proof succeeds.
+        # During a refresh, its previous record can therefore be stale or failed.
+        if task_id == "4.7":
+            continue
         if not isinstance(task, dict) or task.get("result") != "passed":
             fail(f"required task {task_id} is missing a passing Walden result")
         execution = task.get("execution", {})
-        if execution.get("assertion_result") != "passed" or execution.get("integrity") != "post-state":
-            fail(f"required task {task_id} lacks passing post-state execution integrity")
+        valid_integrity = (
+            execution.get("origin") == "complete"
+            and execution.get("policy") == "completion-post-state/v1"
+            and execution.get("integrity") == "post-state"
+        ) or (
+            execution.get("origin") == "verify"
+            and execution.get("policy") == "verify-purity/v1"
+            and execution.get("integrity") == "pure"
+        )
+        if execution.get("assertion_result") != "passed" or not valid_integrity:
+            fail(f"required task {task_id} lacks supported passing Walden execution integrity")
         steps = task.get("steps")
         if not isinstance(steps, list) or not steps or any(
             step.get("actual_exit") != step.get("expected_exit") or step.get("actual_exit") != 0
