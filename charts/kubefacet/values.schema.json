@@ -44,10 +44,10 @@
         "metricsBindAddress": {"type": "string", "minLength": 1},
         "healthProbeBindAddress": {"type": "string", "minLength": 1},
         "webhookPort": {"type": "integer", "minimum": 1, "maximum": 65535},
-        "webhookCertDir": {"type": "string", "minLength": 1, "pattern": "^/[^\u0000]*$"},
+        "webhookCertDir": {"type": "string", "minLength": 1, "pattern": "^/[^\\x00]*$"},
         "webhookCertName": {"type": "string", "minLength": 1, "pattern": "^[^/\\\\.][^/\\\\]*$"},
         "webhookKeyName": {"type": "string", "minLength": 1, "pattern": "^[^/\\\\.][^/\\\\]*$"},
-        "webhookCAFile": {"type": "string", "minLength": 1, "pattern": "^/[^\u0000]*$"},
+        "webhookCAFile": {"type": "string", "minLength": 1, "pattern": "^/[^\\x00]*$"},
         "safetyInterval": {"type": "string", "pattern": "^[1-9][0-9]*(ns|us|µs|ms|s|m|h)$"},
         "gracefulShutdownTimeout": {"type": "string", "pattern": "^[1-9][0-9]*(ns|us|µs|ms|s|m|h)$"}
       }
