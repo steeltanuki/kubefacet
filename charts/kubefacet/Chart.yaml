@@ -2,8 +2,8 @@ apiVersion: v2
 name: kubefacet
 description: Kubernetes operator for building typed, aggregated views of Kubernetes resources across namespaces
 type: application
-version: 0.2.0
-appVersion: "0.2.0"
+version: 0.2.1
+appVersion: "0.2.1"
 keywords:
   - kubernetes
   - operator

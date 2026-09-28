@@ -32,9 +32,9 @@ compatibility run. Cluster commands below show the selected context explicitly.
 
 ## Installing an official release
 
-The source prepares KubeFacet v0.2.0, but this migration does not publish it.
-Use the command below only after the maintainer has created the protected
-`v0.2.0` release and its image and chart are publicly available.
+This source prepares KubeFacet v0.2.1; it does not create the release tag or
+publish artifacts. Use the command below after the maintainer has created the
+protected `v0.2.1` release and its image and chart are publicly available.
 
 Official releases use the public Helm OCI artifact and the matching public
 controller image. They can be installed without cloning the source repository
@@ -43,12 +43,12 @@ public so Helm and Kubernetes can pull them anonymously. A registry login is
 not needed for these public packages.
 
 Choose a stable version shown on the
-[GitHub Releases page](https://github.com/steeltanuki/kubefacet/releases). The
-first KubeFacet release is prepared as `0.2.0` (source tag `v0.2.0`):
+[GitHub Releases page](https://github.com/steeltanuki/kubefacet/releases). This
+source prepares `0.2.1` (source tag `v0.2.1`):
 
 ```sh
 helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --namespace kubefacet-system --create-namespace \
   --wait --timeout 10m
 ```
@@ -56,16 +56,16 @@ helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
 `Chart.yaml` `version` and `appVersion` match the selected release. The
 default image repository is `ghcr.io/steeltanuki/kubefacet`; its empty chart
 `image.tag` resolves to `appVersion`, so this command installs
-`ghcr.io/steeltanuki/kubefacet:0.2.0`. The `.tgz` chart archive is a temporary
+`ghcr.io/steeltanuki/kubefacet:0.2.1`. The `.tgz` chart archive is a temporary
 release-verification input and is not attached to the GitHub Release; the OCI
 chart is the canonical distribution artifact.
 
 To inspect or render an official chart without installing it:
 
 ```sh
-helm show chart oci://ghcr.io/steeltanuki/charts/kubefacet --version 0.2.0
+helm show chart oci://ghcr.io/steeltanuki/charts/kubefacet --version 0.2.1
 helm template kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
-  --version 0.2.0 --namespace kubefacet-system \
+  --version 0.2.1 --namespace kubefacet-system \
   --kube-version 1.35.6 --include-crds
 ```
 
@@ -90,7 +90,7 @@ helm package charts/kubefacet --destination dist
 make verify-package
 ```
 
-`image.tag: ""` resolves to `Chart.appVersion` (`0.1.6` in this package).
+`image.tag: ""` resolves to `Chart.appVersion` (`0.2.1` in this package).
 Every explicit image tag must be immutable and `latest` is rejected. `make
 verify-package` also regenerates the CRDs with the pinned controller-tools
 version, checks the image and security contract, and renders both certificate
@@ -108,7 +108,7 @@ default chart mode is `certManager` and uses cert-manager:
 helm upgrade --install kubefacet charts/kubefacet \
   --namespace kubefacet-system --create-namespace \
   --set image.repository=ghcr.io/steeltanuki/kubefacet \
-  --set image.tag=0.1.6 \
+  --set image.tag=0.2.1 \
   --wait --timeout 10m
 ```
 
@@ -129,8 +129,9 @@ pull requests continue to target `develop`; a release reaches `main` through
 the maintainer's reviewed promotion.
 
 Official releases use stable Semantic Versioning tags of the form
-`vMAJOR.MINOR.PATCH`, beginning with the prepared `v0.2.0`. Prerelease tags are not supported by
-the initial release-distribution workflow. For a release, the maintainer
+`vMAJOR.MINOR.PATCH`. The initial KubeFacet release is `v0.2.0`; this source
+prepares `v0.2.1`. Prerelease tags are not supported by the release-distribution
+workflow. For a release, the maintainer
 prepares the chart's `version` and `appVersion` in
 `charts/kubefacet/Chart.yaml` and substantive notes at
 `docs/releases/v<version>.md`, including `Highlights` and
@@ -142,7 +143,7 @@ reviewed promotion commit from `origin/main`, verify its SHA, then create and
 push the annotated version tag. For example:
 
 ```sh
-TAG=v0.2.0
+TAG=v0.2.1
 git fetch origin main
 git switch --detach origin/main
 git rev-parse HEAD  # Confirm this is the reviewed promotion commit.
@@ -178,7 +179,7 @@ For read-only inventory from a clean checkout of the exact tag, a maintainer
 can compare the public artifacts and their recorded digests:
 
 ```sh
-TAG=v0.2.0
+TAG=v0.2.1
 git checkout --detach "$TAG"
 SOURCE_SHA="$(git rev-parse "refs/tags/${TAG}^{commit}")"
 GITHUB_ACTOR=steeltanuki GH_TOKEN="$PACKAGE_TOKEN" \
@@ -262,7 +263,7 @@ TLS Secret:
 
 ```sh
 helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
-  --version 0.1.6 \
+  --version 0.2.1 \
   --namespace kubefacet-system --create-namespace \
   --set certificate.mode=externalSecret \
   --set certificate.externalSecret.secretName=administrator-webhook-tls \
@@ -293,7 +294,7 @@ export KUBE_CONTEXT=my-cluster
 make package-crd-check
 make package-apply-crds
 helm upgrade kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
-  --version 0.1.6 \
+  --version 0.2.1 \
   --namespace kubefacet-system --reuse-values \
   --wait --timeout 10m
 ```
@@ -384,7 +385,7 @@ KUBEFACET_PACKAGE_CONTEXT_1_35_6=my-135-cluster \
 KUBEFACET_PACKAGE_KUBECONFIG_1_36_2=/absolute/kubeconfig-136 \
 KUBEFACET_PACKAGE_CONTEXT_1_36_2=my-136-cluster \
 KUBEFACET_PACKAGE_IMAGE_REPOSITORY=ghcr.io/steeltanuki/kubefacet \
-KUBEFACET_PACKAGE_IMAGE_TAG=0.1.6 \
+KUBEFACET_PACKAGE_IMAGE_TAG=0.2.1 \
   make test-package-compatibility
 ```
 
