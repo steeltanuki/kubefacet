@@ -113,12 +113,12 @@ For one-off interactive inspection, `kubectl`, JSONPath, or `jq` may be simpler.
 
 ## Install an official release
 
-After a maintainer publishes KubeFacet v0.2.1, install its versioned Helm OCI
-artifact and matching public controller image directly from GHCR. This path
-needs Helm and cluster access; it does not need a repository checkout or a
-local image/chart build. This source prepares v0.2.1 but does not publish
-it. After publication, use the version listed on the
-[GitHub Releases page](https://github.com/steeltanuki/kubefacet/releases):
+Official KubeFacet releases are distributed as a Helm OCI chart with a matching
+controller image on GHCR. The example targets v0.2.1, the version defined in
+this checkout; run it once that release appears on the
+[GitHub Releases page](https://github.com/steeltanuki/kubefacet/releases), or
+change `--version` to another published version. You need Helm and access to
+the target cluster; no source checkout or local build is required:
 
 ```sh
 helm upgrade --install kubefacet oci://ghcr.io/steeltanuki/charts/kubefacet \
