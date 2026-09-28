@@ -21,6 +21,7 @@ SPEC = ROOT / ".walden/specs/project-identity-rename"
 TOKEN = "".join(("kube", "seer"))
 OLD_NAME = re.compile(re.escape(TOKEN), re.IGNORECASE)
 HEX_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+STABLE_VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 EXPECTED_HISTORY_RECORDS = 98
 
 
@@ -34,6 +35,26 @@ def digest(data: bytes) -> str:
 
 def fail(message: str) -> None:
     raise VerificationError(message)
+
+
+def chart_field(chart_text: str, field: str) -> str:
+    pattern = re.compile(rf"^{re.escape(field)}:\s*(.*?)\s*(?:#.*)?$")
+    values = [match.group(1).strip().strip("\"'") for line in chart_text.splitlines() if (match := pattern.fullmatch(line))]
+    if len(values) != 1 or not values[0]:
+        fail(f"expected exactly one non-empty root {field} in charts/kubefacet/Chart.yaml")
+    return values[0]
+
+
+def has_release_note_sections(note: str) -> bool:
+    section = ""
+    found = {"Highlights": False, "Upgrade considerations": False}
+    for line in note.splitlines():
+        heading = re.fullmatch(r"##\s+(.+?)\s*", line)
+        if heading:
+            section = heading.group(1)
+        elif section in found and re.match(r"^\s*[-*]\s+", line) and len(line) > 22:
+            found[section] = True
+    return all(found.values())
 
 
 def read_json(path: Path) -> Any:
@@ -300,7 +321,7 @@ def run_docs() -> None:
             "KubeFacet continuously evaluates the selected resources",
             "kind: Facet",
             migration_path,
-            "--version 0.2.0",
+            "--version 0.2.1",
         ),
         "CONTRIBUTING.md": (
             "Walden is optional for contributors",
@@ -361,8 +382,8 @@ def run_docs() -> None:
         ),
         "docs/installation.md": (
             migration_path.split("/", 1)[1],
-            "does not publish it",
-            "--version 0.2.0",
+            "does not create the release tag or",
+            "--version 0.2.1",
         ),
         "docs/releases/v0.2.0.md": (
             migration_path.split("/", 1)[1],
@@ -577,8 +598,6 @@ def run_package() -> None:
     required_metadata = (
         "name: kubefacet",
         "description: Kubernetes operator for building typed, aggregated views of Kubernetes resources across namespaces",
-        "version: 0.2.0",
-        'appVersion: "0.2.0"',
         'kubeVersion: ">=1.35.0-0 <1.37.0-0"',
         "  - kubernetes\n  - operator\n  - aggregation\n  - custom-resources\n  - resource-views",
         "https://github.com/steeltanuki/kubefacet",
@@ -586,6 +605,10 @@ def run_package() -> None:
     for snippet in required_metadata:
         if snippet not in chart_text:
             fail(f"Helm chart metadata is missing {snippet!r}")
+    chart_version = chart_field(chart_text, "version")
+    chart_app_version = chart_field(chart_text, "appVersion")
+    if not STABLE_VERSION.fullmatch(chart_version) or chart_app_version != chart_version:
+        fail("Helm chart version and appVersion must match a stable SemVer release")
     if "repository: ghcr.io/steeltanuki/kubefacet" not in values_text:
         fail("Helm manager image repository does not use KubeFacet identity")
     if "webhookCertDir: /var/run/secrets/kubefacet/webhook" not in values_text:
@@ -632,7 +655,7 @@ def run_release() -> None:
     release_tests = (ROOT / "hack/test-release-distribution.sh").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
     ordinary_ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    note = (ROOT / "docs/releases/v0.2.0.md").read_text(encoding="utf-8")
+    first_release_note = (ROOT / "docs/releases/v0.2.0.md").read_text(encoding="utf-8")
     contracts = {
         "hack/release-distribution.sh": (
             'readonly repository="steeltanuki/kubefacet"',
@@ -673,17 +696,31 @@ def run_release() -> None:
     if re.search(r"packages:\s*write", ordinary_ci):
         fail("ordinary CI must not receive package publication permission")
     chart = (ROOT / "charts/kubefacet/Chart.yaml").read_text(encoding="utf-8")
-    if "version: 0.2.0" not in chart or 'appVersion: "0.2.0"' not in chart:
-        fail("the chart is not prepared for the first KubeFacet release")
+    version = chart_field(chart, "version")
+    app_version = chart_field(chart, "appVersion")
+    if not STABLE_VERSION.fullmatch(version) or app_version != version:
+        fail("the chart version and appVersion must match a stable SemVer release")
+    tag = f"v{version}"
+    current_note_path = ROOT / "docs/releases" / f"{tag}.md"
+    try:
+        current_release_note = current_note_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        fail(f"maintainer release notes are missing or unreadable for {tag}: {exc}")
+    if f"# KubeFacet {tag}" not in current_release_note.splitlines():
+        fail(f"maintainer release notes must identify {tag} in the title")
+    if re.search(r"(^|[^A-Za-z])(TODO|TBD|PLACEHOLDER|FILL\s+IN)([^A-Za-z]|$)", current_release_note, re.IGNORECASE):
+        fail(f"maintainer release notes for {tag} contain unfinished placeholder text")
+    if not has_release_note_sections(current_release_note):
+        fail(f"maintainer release notes for {tag} need substantive Highlights and Upgrade considerations sections")
     for snippet in (
         "# KubeFacet v0.2.0",
         "ghcr.io/steeltanuki/kubefacet:0.2.0",
         "oci://ghcr.io/steeltanuki/charts/kubefacet",
         "Upgrade considerations",
     ):
-        if snippet not in note:
+        if snippet not in first_release_note:
             fail(f"v0.2.0 release metadata is missing {snippet!r}")
-    print("PROJECT_IDENTITY=release STATUS=passed IMAGE=ghcr.io/steeltanuki/kubefacet CHART=kubefacet")
+    print(f"PROJECT_IDENTITY=release STATUS=passed VERSION={version} IMAGE=ghcr.io/steeltanuki/kubefacet CHART=kubefacet")
 
 
 def active_identity_files() -> list[Path]:
